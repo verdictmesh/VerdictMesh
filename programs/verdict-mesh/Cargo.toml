@@ -1,0 +1,29 @@
+[package]
+name = "verdict-mesh"
+version = "0.1.0"
+edition = "2021"
+description = "Protocol-agnostic dispute resolution layer for Solana"
+license = "Apache-2.0"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "verdict_mesh"
+
+[lints]
+workspace = true
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+anchor-debug = []
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+
+[dependencies]
+anchor-lang = { workspace = true, features = ["init-if-needed"] }
+anchor-spl = { workspace = true }
+
+[dev-dependencies]
+mollusk-svm = "0.15.0"

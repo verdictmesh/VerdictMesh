@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.turbo/
+target/
+*.tsbuildinfo
+
+.env
+.env.*
+!.env.example
+
+*.keypair.json
+id.json
+
+*.md
+!README.md
