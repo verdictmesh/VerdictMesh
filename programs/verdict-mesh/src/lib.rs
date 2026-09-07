@@ -2,6 +2,7 @@ use anchor_lang::prelude::*;
 
 pub mod errors;
 pub mod events;
+pub mod seeds;
 pub mod state;
 
 pub use errors::VerdictMeshError;
