@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Приватний репозиторій витрачає метровані хвилини Actions, а rust-джоба
+# холодною йде хвилинами. Скасування застарілих прогонів і push лише на main
+# прибирають подвійний прогін на кожному PR із цього ж репозиторію.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  ts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Без `with: version` — action-setup@v4 падає з "Multiple versions of pnpm
+      # specified", якщо в package.json є packageManager. Джерело правди — воно.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Версію й компоненти бере з rust-toolchain.toml — другого місця, де
+      # записана версія тулчейну, у проекті бути не повинно.
+      - run: rustup show
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            target
+          key: cargo-${{ runner.os }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
+          restore-keys: cargo-${{ runner.os }}-
+
+      - run: cargo fmt --all --check
+
+      # clippy типізує все, що зібрав би cargo check, тож окремого check немає:
+      # це та сама робота вдруге і ще чотири хвилини на кожному пуші.
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+
+  # Ончейн-збірка через anchor build свідомо поза CI: вона тягне Agave і Anchor
+  # CLI, це десятки хвилин на метрованих хвилинах приватного репо. Артефакт
+  # програми перевіряється перед деплоєм, а не на кожному пуші.
