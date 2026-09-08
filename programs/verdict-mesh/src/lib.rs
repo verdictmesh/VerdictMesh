@@ -26,6 +26,13 @@ pub mod verdict_mesh {
     /// reporter. Інструкції, що змінює записане, у програмі немає — див.
     /// `instructions::initialize`.
     pub fn initialize(ctx: Context<Initialize>, reporter: Pubkey) -> Result<()> {
-        instructions::initialize::handler(ctx, reporter)
+        Initialize::handle(ctx, reporter)
+    }
+
+    /// Закріплює за інтегратором політику арбітражу. Політика перевіряється
+    /// один раз, тут, і потрапляє в кожен спір знімком — див.
+    /// `instructions::register_integrator`.
+    pub fn register_integrator(ctx: Context<RegisterIntegrator>, policy: Policy) -> Result<()> {
+        RegisterIntegrator::handle(ctx, policy)
     }
 }

@@ -1,8 +1,26 @@
 use anchor_lang::prelude::*;
 
+use crate::errors::VerdictMeshError;
+
+/// Знаменник часток слешингу: 10 000 bps = 100% стейку.
+pub const BPS_DENOMINATOR: u16 = 10_000;
+
+/// Стеля розміру панелі. Обмежує одразу дві речі: вектор `panel` у самому
+/// `Dispute` і довжину циклів, якими його перебирають відбір, підрахунок і
+/// розрахунок стейків. Панель без стелі — це інструкція, якій одного дня не
+/// вистачить обчислювального бюджету, і виявиться це на живому спорі.
+pub const MAX_PANEL_SIZE: u8 = 32;
+
+/// Стеля тривалості одного вікна — 30 діб. Вікна складаються в дедлайни
+/// (`opened_at + commit + reveal + appeal`), і без верхньої межі сума
+/// переповнює `i64`, а спір отримує дедлайн у минулому.
+pub const MAX_WINDOW: i64 = 30 * 24 * 60 * 60;
+
 /// Копіюється у кожен спір при відкритті. Зміна політики інтегратором не впливає
 /// на вже відкриті спори — FR-003.
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Default, PartialEq, Eq, Debug)]
+#[derive(
+    AnchorSerialize, AnchorDeserialize, InitSpace, Clone, Copy, Default, PartialEq, Eq, Debug,
+)]
 pub struct Policy {
     pub panel_size: u8,
     pub extended_panel_size: u8,
@@ -17,6 +35,90 @@ pub struct Policy {
     pub optimistic_window: i64,
     pub deposit: u64,
     pub optimistic_threshold: u64,
+}
+
+impl Policy {
+    /// Перевірка живе біля типу, а не всередині інструкції реєстрації: політика
+    /// потрапляє в кошти через `Dispute`, і будь-який майбутній шлях, що
+    /// створює `Policy`, має проходити тут. Перевірка, дописана в одну
+    /// інструкцію, наступною інструкцією просто не викликається.
+    ///
+    /// Усі порушення повертають один `InvalidPolicy`. Окремий код на кожне
+    /// правило нічого б не додав: клієнт однаково не може «частково
+    /// зареєструватись», а рядок з номером правила Anchor кладе в лог.
+    pub fn validate(&self) -> Result<()> {
+        // Панель і кворум.
+        require!(self.panel_size > 0, VerdictMeshError::InvalidPolicy);
+        require!(
+            self.extended_panel_size > self.panel_size,
+            VerdictMeshError::InvalidPolicy
+        );
+        require!(
+            self.extended_panel_size <= MAX_PANEL_SIZE,
+            VerdictMeshError::InvalidPolicy
+        );
+
+        // Кворум — більшість панелі, а не «скільки встигло розкритись». Інакше
+        // вердикт виносить меншість, яка просто виявилась швидшою.
+        require!(
+            is_majority(self.quorum, self.panel_size),
+            VerdictMeshError::InvalidPolicy
+        );
+        require!(
+            is_majority(self.extended_quorum, self.extended_panel_size),
+            VerdictMeshError::InvalidPolicy
+        );
+
+        // Ескалація не має знижувати планку: розширений розгляд не закривається
+        // меншою кількістю голосів, ніж вимагав початковий (FR-027).
+        require!(
+            self.extended_quorum >= self.quorum,
+            VerdictMeshError::InvalidPolicy
+        );
+
+        // Економіка присяжного. Нульовий стейк або нульовий слешинг лишають
+        // механізм на місці, але роблять неправильний голос безкоштовним.
+        require!(self.juror_stake > 0, VerdictMeshError::InvalidPolicy);
+        require!(self.slash_bps_wrong > 0, VerdictMeshError::InvalidPolicy);
+        require!(
+            self.slash_bps_no_reveal <= BPS_DENOMINATOR,
+            VerdictMeshError::InvalidPolicy
+        );
+        // FR-008b: мовчання має коштувати дорожче за програний голос, інакше
+        // нерозкриття — найдешевший спосіб не програти.
+        require!(
+            self.slash_bps_no_reveal > self.slash_bps_wrong,
+            VerdictMeshError::InvalidPolicy
+        );
+
+        // FR-026b: оплату розгляду ділять присяжні й протокол. Нуль означає, що
+        // панель працює безкоштовно.
+        require!(self.deposit > 0, VerdictMeshError::InvalidPolicy);
+
+        for window in [
+            self.commit_window,
+            self.reveal_window,
+            self.appeal_window,
+            self.optimistic_window,
+        ] {
+            require!(
+                (1..=MAX_WINDOW).contains(&window),
+                VerdictMeshError::InvalidPolicy
+            );
+        }
+
+        // `optimistic_threshold` навмисно без перевірки: нуль — валідна
+        // політика, яка просто вимикає оптимістичний трек, бо жодна сума не
+        // опиниться нижче нуля (SPEC.md → US5).
+
+        Ok(())
+    }
+}
+
+/// Строга більшість: `2 * quorum > panel`, у `u16`, щоб добуток двох `u8` не
+/// переповнився на великій панелі.
+fn is_majority(quorum: u8, panel: u8) -> bool {
+    quorum > 0 && quorum <= panel && u16::from(quorum) * 2 > u16::from(panel)
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, Debug)]
@@ -49,6 +151,7 @@ pub struct Config {
 }
 
 #[account]
+#[derive(InitSpace)]
 pub struct Integrator {
     pub authority: Pubkey,
     pub escrow_program: Pubkey,

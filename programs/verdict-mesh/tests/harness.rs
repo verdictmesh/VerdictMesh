@@ -4,14 +4,19 @@
 //! `#[allow(dead_code)] #[path = "harness.rs"] mod harness;`
 
 use anchor_lang::{
-    solana_program::pubkey::Pubkey, AccountDeserialize, InstructionData, ToAccountMetas,
+    solana_program::pubkey::Pubkey, AccountDeserialize, AnchorSerialize, Discriminator,
+    InstructionData, ToAccountMetas,
 };
 use mollusk_svm::{program::loader_keys::LOADER_V3, result::InstructionResult, Mollusk};
 use solana_account::Account;
 use solana_address::Address;
 use solana_instruction::{AccountMeta, Instruction};
 use solana_instruction_error::InstructionError;
-use verdict_mesh::{seeds, state::Policy, VerdictMeshError};
+use verdict_mesh::{
+    seeds,
+    state::{Config, Policy},
+    VerdictMeshError,
+};
 
 pub const PROGRAM_ID: Pubkey = verdict_mesh::ID;
 
@@ -110,6 +115,47 @@ pub const SYSTEM_PROGRAM: Pubkey = anchor_lang::solana_program::system_program::
 /// запис, тож «немає акаунта» доводиться передавати явно нулями.
 pub fn missing() -> Account {
     Account::default()
+}
+
+/// Акаунт, який програма вже колись створила: дискримінатор плюс стан. Потрібен
+/// там, де тест перевіряє інструкцію, що читає вже наявний стан, і проганяти
+/// заради нього попередню інструкцію означало б зав'язати один тест на дві.
+pub fn program_account<T: AnchorSerialize + Discriminator>(state: &T) -> Account {
+    let mut data = T::DISCRIMINATOR.to_vec();
+    state
+        .serialize(&mut data)
+        .expect("account state must serialize");
+
+    Account {
+        // Rent-exempt із запасом. Anchor не звіряє баланс наявного акаунта з
+        // рентою, тож точне число тут нічого не доводить.
+        lamports: 10_000_000,
+        data,
+        owner: addr(&PROGRAM_ID),
+        executable: false,
+        rent_epoch: 0,
+    }
+}
+
+/// Готовий `Config` — те, що лишає по собі `initialize`.
+pub fn config_account(settlement_mint: &Pubkey, reporter: &Pubkey) -> Account {
+    program_account(&Config {
+        settlement_mint: *settlement_mint,
+        reporter: *reporter,
+        bump: config_pda().1,
+    })
+}
+
+/// Чужа програма — ескроу інтегратора. Тіло не потрібне: жоден тест її не
+/// викликає, перевіряється лише ознака executable.
+pub fn executable_program() -> Account {
+    Account {
+        lamports: 1_000_000_000,
+        data: vec![0u8; 36],
+        owner: LOADER_V3,
+        executable: true,
+        rent_epoch: 0,
+    }
 }
 
 /// Програма-власник розрахункового мінта. `InterfaceAccount<Mint>` приймає і

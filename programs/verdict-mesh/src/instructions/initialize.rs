@@ -10,22 +10,24 @@ use crate::{errors::VerdictMeshError, seeds, state::Config};
 /// кошти або переписати `reporter` посеред спору, був би саме тим ключем, якого
 /// за `FR-014` у системі бути не повинно. Змінити ці два поля можна лише
 /// міграцією програми, тобто на очах у всіх (docs/PLAN.md → «Модель даних»).
-pub fn handler(ctx: Context<Initialize>, reporter: Pubkey) -> Result<()> {
-    // Нульовий ключ — валідна адреса, приватного ключа до якої не існує. Без
-    // цієї перевірки помилка клієнта дала б `Config`, у якому `attest_report`
-    // недосяжний назавжди: виправити нема чим, інструкції оновлення немає.
-    require_keys_neq!(
-        reporter,
-        Pubkey::default(),
-        VerdictMeshError::InvalidReporter
-    );
+impl Initialize<'_> {
+    pub fn handle(ctx: Context<Initialize>, reporter: Pubkey) -> Result<()> {
+        // Нульовий ключ — валідна адреса, приватного ключа до якої не існує. Без
+        // цієї перевірки помилка клієнта дала б `Config`, у якому `attest_report`
+        // недосяжний назавжди: виправити нема чим, інструкції оновлення немає.
+        require_keys_neq!(
+            reporter,
+            Pubkey::default(),
+            VerdictMeshError::InvalidReporter
+        );
 
-    let config = &mut ctx.accounts.config;
-    config.settlement_mint = ctx.accounts.settlement_mint.key();
-    config.reporter = reporter;
-    config.bump = ctx.bumps.config;
+        let config = &mut ctx.accounts.config;
+        config.settlement_mint = ctx.accounts.settlement_mint.key();
+        config.reporter = reporter;
+        config.bump = ctx.bumps.config;
 
-    Ok(())
+        Ok(())
+    }
 }
 
 #[derive(Accounts)]
