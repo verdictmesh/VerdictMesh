@@ -2,10 +2,12 @@ use anchor_lang::prelude::*;
 
 pub mod errors;
 pub mod events;
+pub mod instructions;
 pub mod seeds;
 pub mod state;
 
 pub use errors::VerdictMeshError;
+pub use instructions::*;
 pub use state::*;
 
 declare_id!("8WyWpDD1ZbkTRGG6SRcYyWxApPsHaSgWn2SWJQ8xSgxq");
@@ -20,14 +22,10 @@ declare_id!("8WyWpDD1ZbkTRGG6SRcYyWxApPsHaSgWn2SWJQ8xSgxq");
 pub mod verdict_mesh {
     use super::*;
 
-    pub fn initialize(_ctx: Context<Initialize>) -> Result<()> {
-        err!(VerdictMeshError::WrongState)
+    /// Разова ініціалізація протоколу: розрахунковий актив і ключ ролі
+    /// reporter. Інструкції, що змінює записане, у програмі немає — див.
+    /// `instructions::initialize`.
+    pub fn initialize(ctx: Context<Initialize>, reporter: Pubkey) -> Result<()> {
+        instructions::initialize::handler(ctx, reporter)
     }
-}
-
-#[derive(Accounts)]
-pub struct Initialize<'info> {
-    #[account(mut)]
-    pub payer: Signer<'info>,
-    pub system_program: Program<'info, System>,
 }

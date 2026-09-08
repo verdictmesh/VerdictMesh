@@ -30,4 +30,6 @@ pub enum VerdictMeshError {
     AboveOptimisticThreshold,
     #[msg("Arithmetic overflow")]
     Overflow,
+    #[msg("Reporter role cannot be the default key")]
+    InvalidReporter,
 }

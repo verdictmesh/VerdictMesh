@@ -29,3 +29,8 @@ anchor-spl = { workspace = true }
 mollusk-svm = "0.15.0"
 solana-account = "4.3.2"
 solana-address = "2.6.1"
+# Версії підібрані під mollusk 0.15: він приймає `Instruction` саме з цих
+# крейтів. Розбіжність у мажорі дала б два несумісні `Instruction` з однаковою
+# назвою і повідомлення компілятора, у якому це не видно.
+solana-instruction = "3.4.1"
+solana-instruction-error = "2.4.0"

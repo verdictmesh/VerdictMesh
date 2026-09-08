@@ -39,6 +39,7 @@ pub enum Verdict {
 }
 
 #[account]
+#[derive(InitSpace)]
 pub struct Config {
     pub settlement_mint: Pubkey,
     /// Єдиний привілейований ключ у системі. Може лише записати відбиток звіту —
