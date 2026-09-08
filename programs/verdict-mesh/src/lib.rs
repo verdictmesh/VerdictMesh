@@ -35,4 +35,24 @@ pub mod verdict_mesh {
     pub fn register_integrator(ctx: Context<RegisterIntegrator>, policy: Policy) -> Result<()> {
         RegisterIntegrator::handle(ctx, policy)
     }
+
+    /// Відкриває спір над замкненим залишком. Викликає її програма ескроу
+    /// власним підписом — див. `instructions::open_dispute`.
+    pub fn open_dispute(
+        ctx: Context<OpenDispute>,
+        claimant: Pubkey,
+        respondent: Pubkey,
+        amount: u64,
+        claimant_claim_hash: [u8; 32],
+        respondent_claim_hash: [u8; 32],
+    ) -> Result<()> {
+        OpenDispute::handle(
+            ctx,
+            claimant,
+            respondent,
+            amount,
+            claimant_claim_hash,
+            respondent_claim_hash,
+        )
+    }
 }

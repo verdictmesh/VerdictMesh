@@ -3,15 +3,19 @@
 //! Підключається з інших тестових бінарників так:
 //! `#[allow(dead_code)] #[path = "harness.rs"] mod harness;`
 
+use std::{cell::RefCell, rc::Rc};
+
 use anchor_lang::{
-    solana_program::pubkey::Pubkey, AccountDeserialize, AnchorSerialize, Discriminator,
-    InstructionData, ToAccountMetas,
+    solana_program::pubkey::Pubkey, AccountDeserialize, AnchorDeserialize, AnchorSerialize,
+    Discriminator, InstructionData, ToAccountMetas,
 };
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use mollusk_svm::{program::loader_keys::LOADER_V3, result::InstructionResult, Mollusk};
 use solana_account::Account;
 use solana_address::Address;
 use solana_instruction::{AccountMeta, Instruction};
 use solana_instruction_error::InstructionError;
+use solana_svm_log_collector::LogCollector;
 use verdict_mesh::{
     seeds,
     state::{Config, Policy},
@@ -53,7 +57,41 @@ pub fn mollusk() -> Mollusk {
 
     let mut mollusk = Mollusk::default();
     mollusk.add_program_with_loader_and_elf(&addr(&PROGRAM_ID), &LOADER_V3, &elf);
+    // Годинник за замовчуванням стоїть на нулі, і тоді `opened_at + window`
+    // збігається з самим `window`. Тест, який перевіряє дедлайни, проходив би
+    // й тоді, коли програма забула додати час відкриття.
+    mollusk.sysvars.clock.unix_timestamp = NOW;
     mollusk
+}
+
+/// Фіксований «зараз» у тестах — 2027-01-15, довільна, але не нульова мить.
+pub const NOW: i64 = 1_800_000_000;
+
+/// Mollusk зі збирачем логів. Події Anchor не лишають сліду в акаунтах, тож
+/// `FR-029` перевіряється єдиним доступним способом — читанням того, що
+/// програма справді записала в лог.
+pub fn mollusk_with_logs() -> (Mollusk, Rc<RefCell<LogCollector>>) {
+    let mut mollusk = mollusk();
+    let logs = LogCollector::new_ref();
+    mollusk.logger = Some(logs.clone());
+    (mollusk, logs)
+}
+
+/// Події одного типу з логів, у порядку появи. `emit!` кладе в лог
+/// `Program data: <base64(дискримінатор ++ borsh)>`; чужі рядки й події інших
+/// типів відсіюються за дискримінатором.
+pub fn emitted<E: AnchorDeserialize + Discriminator>(logs: &Rc<RefCell<LogCollector>>) -> Vec<E> {
+    logs.borrow()
+        .get_recorded_content()
+        .iter()
+        .filter_map(|line| line.strip_prefix("Program data: "))
+        .filter_map(|payload| BASE64.decode(payload).ok())
+        .filter_map(|bytes| {
+            let discriminator = E::DISCRIMINATOR;
+            let mut body = bytes.strip_prefix(discriminator)?;
+            E::deserialize(&mut body).ok()
+        })
+        .collect()
 }
 
 /// Складає інструкцію з двох згенерованих Anchor структур — `accounts::*` і

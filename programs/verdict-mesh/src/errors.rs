@@ -32,4 +32,10 @@ pub enum VerdictMeshError {
     Overflow,
     #[msg("Reporter role cannot be the default key")]
     InvalidReporter,
+    #[msg("A dispute needs two different parties")]
+    InvalidParties,
+    #[msg("A dispute must be opened over a non-zero locked amount")]
+    InvalidAmount,
+    #[msg("Both parties must submit a statement fingerprint")]
+    MissingClaim,
 }

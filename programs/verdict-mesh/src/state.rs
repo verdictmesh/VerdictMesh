@@ -121,7 +121,7 @@ fn is_majority(quorum: u8, panel: u8) -> bool {
     quorum > 0 && quorum <= panel && u16::from(quorum) * 2 > u16::from(panel)
 }
 
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(AnchorSerialize, AnchorDeserialize, InitSpace, Clone, Copy, PartialEq, Eq, Debug)]
 pub enum DisputeState {
     OptimisticPending,
     Committing,
@@ -133,7 +133,7 @@ pub enum DisputeState {
 
 /// StatusQuo — «як ніби спору не було» (FR-027a). Ескроу зобов'язаний уміти
 /// розподілити кошти за цим результатом, інакше автоескалація нікуди не веде.
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(AnchorSerialize, AnchorDeserialize, InitSpace, Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Verdict {
     Claimant,
     Respondent,
@@ -185,6 +185,7 @@ pub struct JurorIndex {
 }
 
 #[account]
+#[derive(InitSpace)]
 pub struct Dispute {
     pub integrator: Pubkey,
     pub dispute_id: u64,
@@ -198,6 +199,12 @@ pub struct Dispute {
     pub respondent: Pubkey,
     pub amount: u64,
     pub state: DisputeState,
+    /// `max_len(0)` — не помилка і не «панель на нуль присяжних». Вектор росте
+    /// до `policy.extended_panel_size`, який відомий лише в момент відкриття,
+    /// тому `InitSpace` рахує тут саме 4-байтовий префікс довжини, а решту
+    /// додає `Dispute::space`. Так фіксовану частину все одно рахує макрос, і
+    /// нове поле не може мовчки випасти з розрахунку.
+    #[max_len(0)]
     pub panel: Vec<Pubkey>,
     pub report_hash: [u8; 32],
     pub claimant_claim_hash: [u8; 32],
@@ -214,6 +221,18 @@ pub struct Dispute {
     pub verdict: Option<Verdict>,
     pub settled: bool,
     pub bump: u8,
+}
+
+impl Dispute {
+    /// Місце під акаунт спору: фіксована частина від `InitSpace` плюс сама
+    /// панель. Розмір беруть із **розширеної** панелі, а не з початкової:
+    /// автоескалація (`FR-027`) доповнює той самий вектор, а збільшити акаунт
+    /// після створення нічим.
+    pub fn space(extended_panel_size: u8) -> usize {
+        Self::DISCRIMINATOR.len()
+            + Self::INIT_SPACE
+            + std::mem::size_of::<Pubkey>() * extended_panel_size as usize
+    }
 }
 
 #[account]

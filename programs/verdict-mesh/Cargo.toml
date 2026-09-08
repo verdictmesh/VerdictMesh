@@ -34,3 +34,7 @@ solana-address = "2.6.1"
 # назвою і повідомлення компілятора, у якому це не видно.
 solana-instruction = "3.4.1"
 solana-instruction-error = "2.4.0"
+# Події Anchor не лишають сліду в акаунтах — читати їх можна лише з логів
+# програми, а лог `Program data:` закодований у base64.
+solana-svm-log-collector = "4.2.1"
+base64 = "0.22.1"
