@@ -1,3 +1,4 @@
+import { PublicKey } from '@solana/web3.js'
 import { describe, expect, it } from 'vitest'
 import { fromBaseUnits, parseJurorList, shortfall, toBaseUnits, totalRequired } from './funding.js'
 
@@ -108,5 +109,16 @@ describe('parseJurorList', () => {
 
   it('names the offending line so a long list is fixable', () => {
     expect(() => parseJurorList(`${a}\n${b}\nnope`)).toThrow(/line 3/)
+  })
+
+  // Присяжний мусить підписувати — стейк, відбиток голосу, розкриття. Адреса
+  // поза кривою підпису не має за побудовою, тож присяжним бути не може взагалі.
+  // Це не незручність токен-акаунта, а неправильний запис у списку.
+  it('rejects an address that cannot sign, naming the line', () => {
+    const pda = PublicKey.findProgramAddressSync([Buffer.from('vote')], new PublicKey(a))[0]
+    expect(PublicKey.isOnCurve(pda.toBuffer())).toBe(false)
+
+    expect(() => parseJurorList(`${a}\n${pda.toBase58()}`)).toThrow(/line 2/)
+    expect(() => parseJurorList(pda.toBase58())).toThrow(/sign/i)
   })
 })

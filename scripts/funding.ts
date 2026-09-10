@@ -58,6 +58,16 @@ export function parseJurorList(text: string): PublicKey[] {
       throw new Error(`Not a valid address on line ${index + 1}: ${line}`)
     }
 
+    // Присяжний мусить підписувати: стейк, відбиток голосу, розкриття. Адреса
+    // поза кривою (PDA) приватного ключа не має за побудовою, тож присяжним
+    // бути не може взагалі. Без цієї перевірки помилка спливає аж усередині
+    // spl-token, стектрейсом про ATA — тобто про наслідок, а не про причину.
+    if (!PublicKey.isOnCurve(key.toBuffer())) {
+      throw new Error(
+        `Address on line ${index + 1} cannot sign, so it cannot be a juror: ${line}`,
+      )
+    }
+
     if (seen.has(line)) {
       throw new Error(`Duplicate juror on line ${index + 1}: ${line}`)
     }
