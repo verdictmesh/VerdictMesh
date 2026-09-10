@@ -6,7 +6,9 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "fund-jurors": "tsx fund-jurors.ts"
+    "fund-jurors": "tsx fund-jurors.ts",
+    "create-mint": "tsx create-mint.ts",
+    "mint-to-treasury": "tsx mint-to-treasury.ts"
   },
   "dependencies": {
     "@solana/spl-token": "^0.4.15",

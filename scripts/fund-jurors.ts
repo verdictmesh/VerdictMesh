@@ -90,7 +90,10 @@ if (values['dry-run']) {
     console.log(`would send ${human(entry.needed)} to ${entry.juror.toBase58()}`)
   }
   if (available < required) {
-    console.log(`top up the treasury by ${human(required - available)} at faucet.circle.com`)
+    console.log(
+      `top up the treasury by ${human(required - available)}: ` +
+        `pnpm mint-to-treasury --amount ${human(required - available)}`,
+    )
   }
   process.exit(0)
 }
@@ -100,12 +103,13 @@ if (pending.length === 0) {
   process.exit(0)
 }
 
-// Кран Circle не наш, поповнення казначейства — ручний крок. Впасти тут із
-// точним числом дешевше, ніж роздати половині присяжних і стати посеред прогону.
+// Впасти тут із точним числом дешевше, ніж роздати половині присяжних і стати
+// посеред прогону. Казначейство наповнюється однією командою — воно ж і є mint
+// authority розрахункового активу.
 if (available < required) {
   throw new Error(
     `Treasury is short by ${human(required - available)}. ` +
-      `Top it up at faucet.circle.com before running this again.`,
+      `Run: pnpm mint-to-treasury --amount ${human(required - available)}`,
   )
 }
 
