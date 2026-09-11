@@ -1,6 +1,7 @@
 pub mod initialize;
 pub mod open_dispute;
 pub mod register_integrator;
+pub mod stake;
 
 // Глоб потрібен макросу `#[program]`: згенеровані `#[derive(Accounts)]` модулі
 // він шукає в корені крейта. Тому хендлер кожної інструкції — асоційована
@@ -9,3 +10,4 @@ pub mod register_integrator;
 pub use initialize::*;
 pub use open_dispute::*;
 pub use register_integrator::*;
+pub use stake::*;

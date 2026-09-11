@@ -16,11 +16,16 @@ use anchor_lang::{
 };
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use mollusk_svm::{program::loader_keys::LOADER_V3, result::InstructionResult, Mollusk};
+use mollusk_svm_programs_token::token;
 use solana_account::Account;
 use solana_address::Address;
 use solana_instruction::{AccountMeta, Instruction};
 use solana_instruction_error::InstructionError;
+use solana_program_pack::Pack;
 use solana_svm_log_collector::LogCollector;
+use spl_token_interface::state::{
+    Account as SplTokenAccount, AccountState as SplAccountState, Mint as SplMint,
+};
 use verdict_mesh::{
     seeds,
     state::{Config, Policy},
@@ -62,6 +67,9 @@ pub fn mollusk() -> Mollusk {
 
     let mut mollusk = Mollusk::default();
     mollusk.add_program_with_loader_and_elf(&addr(&PROGRAM_ID), &LOADER_V3, &elf);
+    // Справжній байткод SPL Token. Інструкції зі стейками роблять CPI переказу,
+    // і без цього тест перевіряв би не переказ, а власну фікстуру балансу.
+    token::add_program(&mut mollusk);
     // Годинник за замовчуванням стоїть на нулі, і тоді `opened_at + window`
     // збігається з самим `window`. Тест, який перевіряє дедлайни, проходив би
     // й тоді, коли програма забула додати час відкриття.
@@ -205,30 +213,50 @@ pub fn executable_program() -> Account {
 /// Token-2022, але демо-USDC на devnet — класичний SPL Token.
 pub const TOKEN_PROGRAM: Pubkey = anchor_spl::token::ID;
 
-/// Мінт SPL Token викладений вручну, а не через `spl_token::state::Mint::pack`:
-/// пакувальник у тестах вимагав би ще одну версію `spl-token` у дереву
-/// залежностей заради вісімдесяти двох байтів фіксованого розкладу.
+/// Мінт SPL Token. Пакується тим самим розкладом, що читає сама програма
+/// токена, — вручну викладені вісімдесят два байти перевіряли б лише те, чи
+/// правильно тест пам'ятає зміщення.
 ///
-/// `[0..4]` тег `COption` авторитету емісії, `[4..36]` сам авторитет,
-/// `[36..44]` емісія, `[44]` знаки, `[45]` ознака ініціалізації,
-/// `[46..82]` авторитет заморозки.
+/// `mintAuthority` порожній навмисно: емісія в тестах не потрібна, а мінт без
+/// авторитету — рівно те, чим розрахунковий актив стане після демо.
+/// `freezeAuthority` порожній із тієї ж причини, що й на devnet: ключ, здатний
+/// заморозити токен-акаунт, заморожує і стейки, і виплату (`FR-014`).
 pub fn spl_mint(decimals: u8) -> Account {
-    let mut data = vec![0u8; 82];
-    data[44] = decimals;
-    data[45] = 1;
-
-    Account {
-        lamports: 1_461_600,
-        data,
-        owner: addr(&TOKEN_PROGRAM),
-        executable: false,
-        rent_epoch: 0,
-    }
+    token::create_account_for_mint(SplMint {
+        decimals,
+        is_initialized: true,
+        ..SplMint::default()
+    })
 }
 
 /// Мінт розрахункового активу демо — 6 знаків, як у devnet-USDC.
 pub fn settlement_mint() -> Account {
     spl_mint(DECIMALS as u8)
+}
+
+/// Готовий токен-акаунт із балансом. Власник — звичайний гаманець: акаунти під
+/// владою PDA створює сама програма, і підробляти їх тест не повинен.
+pub fn token_account(mint: &Pubkey, owner: &Pubkey, amount: u64) -> Account {
+    token::create_account_for_token_account(SplTokenAccount {
+        mint: addr(mint),
+        owner: addr(owner),
+        amount,
+        state: SplAccountState::Initialized,
+        ..SplTokenAccount::default()
+    })
+}
+
+/// Розпакований токен-акаунт із результату виконання. Баланс читається з тих
+/// самих байтів, які лишила по собі програма токена, а не з очікувань тесту.
+pub fn token_state(account: &Account) -> SplTokenAccount {
+    SplTokenAccount::unpack(&account.data)
+        .unwrap_or_else(|error| panic!("cannot unpack the token account: {error}"))
+}
+
+/// Ключ і акаунт програми SPL Token — у списку акаунтів кожної інструкції, що
+/// переказує розрахунковий актив.
+pub fn keyed_account_for_token_program() -> (Address, Account) {
+    token::keyed_account()
 }
 
 pub fn config_pda() -> (Pubkey, u8) {
@@ -288,4 +316,8 @@ pub fn demo_policy() -> Policy {
         deposit: usdc(5),
         optimistic_threshold: usdc(50),
     }
+}
+
+pub fn stake_vault_pda() -> (Pubkey, u8) {
+    Pubkey::find_program_address(&[seeds::STAKE_VAULT], &PROGRAM_ID)
 }

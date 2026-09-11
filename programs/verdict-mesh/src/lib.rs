@@ -55,4 +55,11 @@ pub mod verdict_mesh {
             respondent_claim_hash,
         )
     }
+
+    /// Вносить стейк і додає присяжного до реєстру. Порогу вступу немає:
+    /// достатність стейку визначає політика того спору, у панель якого
+    /// присяжний потрапляє — див. `instructions::stake`.
+    pub fn stake(ctx: Context<Stake>, amount: u64) -> Result<()> {
+        Stake::handle(ctx, amount)
+    }
 }

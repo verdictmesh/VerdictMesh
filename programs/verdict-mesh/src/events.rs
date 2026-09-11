@@ -63,3 +63,14 @@ pub struct JurorSlashed {
     pub amount: u64,
     pub no_reveal: bool,
 }
+
+/// Вступ до реєстру присяжних. Watcher (T027) будує з цих подій список
+/// придатних присяжних, не читаючи всі акаунти програми: `getProgramAccounts`
+/// на кожному відборі — це те, чого `JurorIndex` і уникає.
+#[event]
+pub struct JurorStaked {
+    pub juror: Pubkey,
+    pub stake: u64,
+    pub index: u32,
+    pub juror_count: u32,
+}
