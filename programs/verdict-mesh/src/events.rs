@@ -74,3 +74,16 @@ pub struct JurorStaked {
     pub index: u32,
     pub juror_count: u32,
 }
+
+/// Вихід із реєстру разом зі swap-remove. `index` — слот, що звільнився,
+/// `moved` — присяжний, який на нього переїхав із хвоста. Пари подій
+/// `JurorStaked` / `JurorUnstaked` досить, щоб відтворити склад реєстру
+/// цілком — `FR-029`.
+#[event]
+pub struct JurorUnstaked {
+    pub juror: Pubkey,
+    pub stake: u64,
+    pub index: u32,
+    pub moved: Option<Pubkey>,
+    pub juror_count: u32,
+}

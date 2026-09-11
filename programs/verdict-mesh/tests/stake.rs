@@ -138,18 +138,6 @@ impl Fixture {
     }
 }
 
-/// Підміна одного акаунта за ключем. Заміна за позицією ламалася б при кожній
-/// зміні порядку в `#[derive(Accounts)]` — і мовчки, бо тест на відмову
-/// однаково лишався б зеленим.
-fn replace(accounts: &mut [(Address, Account)], key: &Pubkey, account: Account) {
-    let key = addr(key);
-    let entry = accounts
-        .iter_mut()
-        .find(|(candidate, _)| *candidate == key)
-        .unwrap_or_else(|| panic!("{key} is not among the fixture accounts"));
-    entry.1 = account;
-}
-
 // ── що записується ──────────────────────────────────────────────────────────
 
 #[test]

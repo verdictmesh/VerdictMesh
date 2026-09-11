@@ -62,4 +62,11 @@ pub mod verdict_mesh {
     pub fn stake(ctx: Context<Stake>, amount: u64) -> Result<()> {
         Stake::handle(ctx, amount)
     }
+
+    /// Повертає стейк і виводить присяжного з реєстру swap-remove'ом. Поки
+    /// присяжний тримає нефіналізований спір, виходу немає — див.
+    /// `instructions::unstake`.
+    pub fn unstake(ctx: Context<Unstake>) -> Result<()> {
+        Unstake::handle(ctx)
+    }
 }

@@ -38,4 +38,6 @@ pub enum VerdictMeshError {
     InvalidAmount,
     #[msg("Both parties must submit a statement fingerprint")]
     MissingClaim,
+    #[msg("Registry tail accounts do not match the slot being vacated")]
+    InvalidRegistryTail,
 }

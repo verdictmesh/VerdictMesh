@@ -321,3 +321,25 @@ pub fn demo_policy() -> Policy {
 pub fn stake_vault_pda() -> (Pubkey, u8) {
     Pubkey::find_program_address(&[seeds::STAKE_VAULT], &PROGRAM_ID)
 }
+
+/// Акаунт самої програми. Потрібен там, де інструкція має необов'язкові
+/// акаунти: Anchor позначає «немає» ключем програми, тож він потрапляє у список
+/// акаунтів інструкції нарівні з рештою.
+pub fn keyed_account_for_this_program() -> (Address, Account) {
+    (
+        addr(&PROGRAM_ID),
+        mollusk_svm::program::create_program_account_loader_v3(&addr(&PROGRAM_ID)),
+    )
+}
+
+/// Підміна одного акаунта за ключем. Заміна за позицією ламалася б при кожній
+/// зміні порядку в `#[derive(Accounts)]` — і мовчки, бо тест на відмову
+/// однаково лишався б зеленим.
+pub fn replace(accounts: &mut [(Address, Account)], key: &Pubkey, account: Account) {
+    let key = addr(key);
+    let entry = accounts
+        .iter_mut()
+        .find(|(candidate, _)| *candidate == key)
+        .unwrap_or_else(|| panic!("{key} is not among the accounts"));
+    entry.1 = account;
+}
