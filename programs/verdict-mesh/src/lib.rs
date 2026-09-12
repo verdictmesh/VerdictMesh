@@ -6,6 +6,7 @@ pub mod instructions;
 pub mod panel;
 pub mod seeds;
 pub mod state;
+pub mod vote;
 
 pub use errors::VerdictMeshError;
 pub use instructions::*;
@@ -78,5 +79,11 @@ pub mod verdict_mesh {
     /// `instructions::unstake`.
     pub fn unstake(ctx: Context<Unstake>) -> Result<()> {
         Unstake::handle(ctx)
+    }
+
+    /// Фіксує прихований відбиток голосу присяжного у вікні подання. Самого
+    /// голосу в стані немає до розкриття — див. `instructions::commit_vote`.
+    pub fn commit_vote(ctx: Context<CommitVote>, commitment: [u8; 32]) -> Result<()> {
+        CommitVote::handle(ctx, commitment)
     }
 }

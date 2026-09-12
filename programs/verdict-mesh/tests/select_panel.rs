@@ -72,7 +72,7 @@ impl Fixture {
         let mut accounts = vec![
             (
                 addr(&dispute),
-                dispute_account(&integrator, 0, &policy, panel, entropy_slot, dispute_bump),
+                dispute_for(&integrator, 0, &policy, panel, entropy_slot, dispute_bump),
             ),
             (
                 addr(&registry_pda().0),
@@ -164,7 +164,7 @@ impl Fixture {
         let mut accounts = self.accounts.clone();
         accounts.push((
             addr(&dispute),
-            dispute_account(
+            dispute_for(
                 &self.integrator,
                 dispute_id,
                 &self.policy,
@@ -195,9 +195,9 @@ fn slot_hashes_account() -> Account {
     keyed_account_for_slot_hashes(&mollusk()).1
 }
 
-/// Спір, який лишив по собі `open_dispute`: `Committing`, порожня панель,
-/// місце під розширену вже виділене.
-fn dispute_account(
+/// Спір для відбору: обв'язка дає стан у тому вигляді, у якому його лишає
+/// `open_dispute`, а тут міняється лише те, заради чого написаний тест.
+fn dispute_for(
     integrator: &Pubkey,
     dispute_id: u64,
     policy: &Policy,
@@ -205,40 +205,10 @@ fn dispute_account(
     entropy_slot: u64,
     bump: u8,
 ) -> Account {
-    let dispute = Dispute {
-        integrator: *integrator,
-        dispute_id,
-        policy: *policy,
-        escrow_ref: Pubkey::new_unique(),
-        claimant: Pubkey::new_unique(),
-        respondent: Pubkey::new_unique(),
-        amount: 250,
-        state: DisputeState::Committing,
-        panel,
-        report_hash: [0u8; 32],
-        claimant_claim_hash: [1u8; 32],
-        respondent_claim_hash: [2u8; 32],
-        opened_at: NOW,
-        entropy_slot,
-        commit_deadline: NOW + policy.commit_window,
-        reveal_deadline: NOW + policy.commit_window + policy.reveal_window,
-        appeal_deadline: 0,
-        votes_claimant: 0,
-        votes_respondent: 0,
-        revealed_count: 0,
-        escalated: false,
-        verdict: None,
-        settled: false,
-        bump,
-    };
-
-    let mut account = program_account(&dispute);
-    // Місце під розширену панель виділяє `open_dispute`; без нього відбір
-    // упирався б у розмір акаунта, а не в політику.
-    account
-        .data
-        .resize(Dispute::space(policy.extended_panel_size), 0);
-    account
+    let mut dispute = dispute_state(integrator, dispute_id, policy, bump);
+    dispute.panel = panel;
+    dispute.entropy_slot = entropy_slot;
+    dispute_account(&dispute)
 }
 
 // ── що виходить ─────────────────────────────────────────────────────────────

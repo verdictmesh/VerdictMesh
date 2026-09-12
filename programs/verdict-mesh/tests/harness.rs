@@ -31,7 +31,7 @@ use spl_token_interface::state::{
 use verdict_mesh::{
     panel::SLOT_HASHES_DEPTH,
     seeds,
-    state::{Config, Policy},
+    state::{Config, Dispute, DisputeState, Policy},
     VerdictMeshError,
 };
 
@@ -350,6 +350,49 @@ pub fn demo_policy() -> Policy {
         deposit: usdc(5),
         optimistic_threshold: usdc(50),
     }
+}
+
+/// Спір у тому вигляді, у якому його лишає `open_dispute`. Повертається сам
+/// стан, а не готовий акаунт: тест міняє те поле, заради якого він написаний —
+/// стан, панель, слот ентропії, — і не переносить решту дванадцяти щоразу.
+pub fn dispute_state(integrator: &Pubkey, dispute_id: u64, policy: &Policy, bump: u8) -> Dispute {
+    Dispute {
+        integrator: *integrator,
+        dispute_id,
+        policy: *policy,
+        escrow_ref: Pubkey::new_unique(),
+        claimant: Pubkey::new_unique(),
+        respondent: Pubkey::new_unique(),
+        amount: 250,
+        state: DisputeState::Committing,
+        panel: Vec::new(),
+        report_hash: [0u8; 32],
+        claimant_claim_hash: [1u8; 32],
+        respondent_claim_hash: [2u8; 32],
+        opened_at: NOW,
+        entropy_slot: ENTROPY_SLOT,
+        commit_deadline: NOW + policy.commit_window,
+        reveal_deadline: NOW + policy.commit_window + policy.reveal_window,
+        appeal_deadline: 0,
+        votes_claimant: 0,
+        votes_respondent: 0,
+        revealed_count: 0,
+        escalated: false,
+        verdict: None,
+        settled: false,
+        bump,
+    }
+}
+
+/// Акаунт спору з місцем під **розширену** панель — рівно стільки виділяє
+/// `open_dispute`. Без запасу відбір упирався б у розмір акаунта, а не в
+/// політику, і тест про автоескалацію (`FR-027`) виглядав би як помилка ліміту.
+pub fn dispute_account(dispute: &Dispute) -> Account {
+    let mut account = program_account(dispute);
+    account
+        .data
+        .resize(Dispute::space(dispute.policy.extended_panel_size), 0);
+    account
 }
 
 pub fn stake_vault_pda() -> (Pubkey, u8) {
