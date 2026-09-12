@@ -1,6 +1,7 @@
 pub mod initialize;
 pub mod open_dispute;
 pub mod register_integrator;
+pub mod select_panel;
 pub mod stake;
 pub mod unstake;
 
@@ -11,5 +12,6 @@ pub mod unstake;
 pub use initialize::*;
 pub use open_dispute::*;
 pub use register_integrator::*;
+pub use select_panel::*;
 pub use stake::*;
 pub use unstake::*;

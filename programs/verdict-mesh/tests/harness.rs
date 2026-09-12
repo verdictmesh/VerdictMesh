@@ -19,14 +19,17 @@ use mollusk_svm::{program::loader_keys::LOADER_V3, result::InstructionResult, Mo
 use mollusk_svm_programs_token::token;
 use solana_account::Account;
 use solana_address::Address;
+use solana_hash::Hash;
 use solana_instruction::{AccountMeta, Instruction};
 use solana_instruction_error::InstructionError;
 use solana_program_pack::Pack;
+use solana_slot_hashes::SlotHashes;
 use solana_svm_log_collector::LogCollector;
 use spl_token_interface::state::{
     Account as SplTokenAccount, AccountState as SplAccountState, Mint as SplMint,
 };
 use verdict_mesh::{
+    panel::SLOT_HASHES_DEPTH,
     seeds,
     state::{Config, Policy},
     VerdictMeshError,
@@ -74,7 +77,38 @@ pub fn mollusk() -> Mollusk {
     // збігається з самим `window`. Тест, який перевіряє дедлайни, проходив би
     // й тоді, коли програма забула додати час відкриття.
     mollusk.sysvars.clock.unix_timestamp = NOW;
+    mollusk.sysvars.clock.slot = SLOT;
+    install_slot_hashes(&mut mollusk);
     mollusk
+}
+
+/// Фіксований «поточний слот» у тестах.
+pub const SLOT: u64 = 372_000_000;
+
+/// Слот, з хеша якого виводиться ентропія відбору: попередній щодо поточного —
+/// хеш поточного ще не існує. Рівно те, що записує `open_dispute`.
+pub const ENTROPY_SLOT: u64 = SLOT - 1;
+
+/// `SlotHashes` із **різними** хешами. Mollusk за замовчуванням кладе туди нулі,
+/// і тоді ентропія однакова для всіх слотів: тест «інший слот — інша панель»
+/// проходив би, нічого не перевіряючи.
+fn install_slot_hashes(mollusk: &mut Mollusk) {
+    let entries: Vec<(u64, Hash)> = (0..SLOT_HASHES_DEPTH as u64)
+        .map(|offset| {
+            let slot = SLOT - 1 - offset;
+            let mut hash = [0u8; 32];
+            hash[..8].copy_from_slice(&slot.to_le_bytes());
+            hash[8] = 0xA5;
+            (slot, Hash::new_from_array(hash))
+        })
+        .collect();
+
+    mollusk.sysvars.slot_hashes = SlotHashes::new(&entries);
+}
+
+/// Акаунт сисвара `SlotHashes` у тому вигляді, у якому його бачить програма.
+pub fn keyed_account_for_slot_hashes(mollusk: &Mollusk) -> (Address, Account) {
+    mollusk.sysvars.keyed_account_for_slot_hashes_sysvar()
 }
 
 /// Фіксований «зараз» у тестах — 2027-01-15, довільна, але не нульова мить.

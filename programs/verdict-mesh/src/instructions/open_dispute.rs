@@ -65,6 +65,11 @@ impl OpenDispute<'_> {
         dispute.claimant_claim_hash = claimant_claim_hash;
         dispute.respondent_claim_hash = respondent_claim_hash;
         dispute.opened_at = opened_at;
+        // Ентропію відбору фіксуємо тут, а не там, де відбувається сам відбір
+        // (T016): інакше його можна було б переграти, повторюючи спробу зі
+        // слота в слот, доки панель не сподобається. Береться слот перед
+        // поточним — хеш поточного ще не існує.
+        dispute.entropy_slot = Clock::get()?.slot.saturating_sub(1);
         dispute.commit_deadline = commit_deadline;
         dispute.reveal_deadline = reveal_deadline;
         // Вікно апеляції відкривається від вердикту, а не від відкриття спору.

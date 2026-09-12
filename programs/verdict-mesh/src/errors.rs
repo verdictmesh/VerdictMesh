@@ -40,4 +40,10 @@ pub enum VerdictMeshError {
     MissingClaim,
     #[msg("Registry tail accounts do not match the slot being vacated")]
     InvalidRegistryTail,
+    #[msg("The entropy slot of this dispute is no longer in SlotHashes")]
+    EntropyUnavailable,
+    #[msg("The juror accounts do not enumerate the registry")]
+    InvalidPanelAccounts,
+    #[msg("The panel for this dispute has already been selected")]
+    PanelAlreadySelected,
 }

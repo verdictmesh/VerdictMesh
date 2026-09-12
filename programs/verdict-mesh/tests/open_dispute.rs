@@ -188,6 +188,21 @@ fn derives_the_deadlines_from_the_snapshotted_windows() {
     );
 }
 
+/// Ентропія відбору панелі фіксується тут, а не там, де відбувається сам
+/// відбір (`FR-006`, T016): інакше відбір можна було б переграти, повторюючи
+/// спробу зі слота в слот, доки панель не сподобається.
+///
+/// Береться слот **перед** поточним: хеш поточного ще не існує, тож відбір у
+/// тій самій транзакції його не знайшов би.
+#[test]
+fn pins_the_entropy_slot_of_the_panel_at_opening() {
+    let fixture = Fixture::new();
+    let result = fixture.open();
+
+    let dispute: Dispute = decode(resulting(&result, &fixture.dispute(0)));
+    assert_eq!(dispute.entropy_slot, SLOT - 1);
+}
+
 /// Вікно апеляції відкривається від вердикту, а не від відкриття спору, тож на
 /// цьому кроці його дедлайн ще не існує.
 #[test]

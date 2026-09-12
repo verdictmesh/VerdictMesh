@@ -3,6 +3,7 @@ use anchor_lang::prelude::*;
 pub mod errors;
 pub mod events;
 pub mod instructions;
+pub mod panel;
 pub mod seeds;
 pub mod state;
 
@@ -54,6 +55,15 @@ pub mod verdict_mesh {
             claimant_claim_hash,
             respondent_claim_hash,
         )
+    }
+
+    /// Відбирає панель присяжних для відкритого спору. Нічия інструкція:
+    /// результат детермінований і зафіксований ще при відкритті — див.
+    /// `instructions::select_panel`.
+    pub fn select_panel<'info>(
+        ctx: Context<'_, '_, 'info, 'info, SelectPanel<'info>>,
+    ) -> Result<()> {
+        SelectPanel::handle(ctx)
     }
 
     /// Вносить стейк і додає присяжного до реєстру. Порогу вступу немає:

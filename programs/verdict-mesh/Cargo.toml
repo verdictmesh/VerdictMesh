@@ -24,6 +24,10 @@ idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
 [dependencies]
 anchor-lang = { workspace = true, features = ["init-if-needed"] }
 anchor-spl = { workspace = true }
+# Уже в графі через anchor-spl → spl-associated-token-account → solana-program,
+# тож пряма залежність не додає в дерево нічого нового. Anchor 0.32.1 сам
+# хешування не реекспортує.
+solana-keccak-hasher = "2.2.1"
 
 [dev-dependencies]
 mollusk-svm = "0.15.0"
@@ -48,3 +52,8 @@ mollusk-svm-programs-token = { version = "0.15.0", default-features = false, fea
 # залежностей, але помилка в зміщенні виглядала б як помилка програми.
 spl-token-interface = "2.0.0"
 solana-program-pack = "3.1.0"
+# Сисвар SlotHashes у mollusk заповнений нулями за замовчуванням: ентропія
+# вийшла б однаковою для всіх слотів, і тест «інший слот — інша панель» був би
+# зеленим ні від чого.
+solana-slot-hashes = "3.0.1"
+solana-hash = "4.2.0"
