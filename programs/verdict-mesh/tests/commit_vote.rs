@@ -22,13 +22,13 @@ mod harness;
 
 use anchor_lang::solana_program::pubkey::Pubkey;
 use harness::*;
-use mollusk_svm::{program::keyed_account_for_system_program, result::InstructionResult, Mollusk};
+use mollusk_svm::{program::keyed_account_for_system_program, result::InstructionResult};
 use solana_account::Account;
 use solana_address::Address;
 use solana_instruction::Instruction;
 use verdict_mesh::{
     events::VoteCommitted,
-    state::{DisputeState, Verdict, VoteCommit},
+    state::{Ballot, DisputeState, VoteCommit},
     vote::{commitment_of, SALT_LEN},
     VerdictMeshError,
 };
@@ -81,7 +81,7 @@ impl Fixture {
         }
     }
 
-    fn commitment_for(&self, juror: &Pubkey, choice: Verdict) -> [u8; 32] {
+    fn commitment_for(&self, juror: &Pubkey, choice: Ballot) -> [u8; 32] {
         commitment_of(&self.dispute, juror, choice, &[7u8; SALT_LEN])
     }
 
@@ -101,12 +101,12 @@ impl Fixture {
         )
     }
 
-    fn commit(&self, juror: &Pubkey, choice: Verdict) -> InstructionResult {
+    fn commit(&self, juror: &Pubkey, choice: Ballot) -> InstructionResult {
         self.commit_at(juror, choice, NOW)
     }
 
-    fn commit_at(&self, juror: &Pubkey, choice: Verdict, now: i64) -> InstructionResult {
-        at(now).process_instruction(
+    fn commit_at(&self, juror: &Pubkey, choice: Ballot, now: i64) -> InstructionResult {
+        mollusk_at(now).process_instruction(
             &self.ix(juror, self.commitment_for(juror, choice)),
             &self.accounts,
         )
@@ -115,14 +115,6 @@ impl Fixture {
     fn deadline(&self) -> i64 {
         NOW + demo_policy().commit_window
     }
-}
-
-/// Mollusk із заданим «зараз». Годинник обв'язки стоїть на `NOW`, і тести вікна
-/// мусять рухати його явно, а не покладатись на замовчування.
-fn at(now: i64) -> Mollusk {
-    let mut mollusk = mollusk();
-    mollusk.sysvars.clock.unix_timestamp = now;
-    mollusk
 }
 
 /// Стан голосу з результату виконання.
@@ -139,9 +131,9 @@ fn committed(result: &InstructionResult, dispute: &Pubkey, juror: &Pubkey) -> Vo
 fn stores_the_commitment_of_a_panel_member_unchanged() {
     let fixture = Fixture::new();
     let juror = fixture.panel[0];
-    let commitment = fixture.commitment_for(&juror, Verdict::Claimant);
+    let commitment = fixture.commitment_for(&juror, Ballot::Claimant);
 
-    let result = fixture.commit(&juror, Verdict::Claimant);
+    let result = fixture.commit(&juror, Ballot::Claimant);
     assert!(result.program_result.is_ok(), "{:?}", result.raw_result);
 
     let vote = committed(&result, &fixture.dispute, &juror);
@@ -155,7 +147,7 @@ fn stores_the_commitment_of_a_panel_member_unchanged() {
 #[test]
 fn leaves_the_choice_unset_until_the_reveal() {
     let fixture = Fixture::new();
-    let result = fixture.commit(&fixture.panel[0], Verdict::Claimant);
+    let result = fixture.commit(&fixture.panel[0], Ballot::Claimant);
 
     assert!(committed(&result, &fixture.dispute, &fixture.panel[0])
         .choice
@@ -171,8 +163,8 @@ fn the_stored_record_looks_the_same_whatever_the_choice() {
     let fixture = Fixture::new();
     let juror = fixture.panel[0];
 
-    let claimant = fixture.commit(&juror, Verdict::Claimant);
-    let respondent = fixture.commit(&juror, Verdict::Respondent);
+    let claimant = fixture.commit(&juror, Ballot::Claimant);
+    let respondent = fixture.commit(&juror, Ballot::Respondent);
 
     let vote = vote_pda(&fixture.dispute, &juror).0;
     let left = &resulting(&claimant, &vote).data;
@@ -211,7 +203,7 @@ fn announces_the_commitment_without_saying_anything_about_it() {
     let (mut mollusk, logs) = mollusk_with_logs();
     mollusk.sysvars.clock.unix_timestamp = NOW;
     let result = mollusk.process_instruction(
-        &fixture.ix(&juror, fixture.commitment_for(&juror, Verdict::Claimant)),
+        &fixture.ix(&juror, fixture.commitment_for(&juror, Ballot::Claimant)),
         &fixture.accounts,
     );
     assert!(result.program_result.is_ok(), "{:?}", result.raw_result);
@@ -229,11 +221,11 @@ fn every_panel_member_has_a_commitment_of_their_own() {
     let fixture = Fixture::new();
 
     for juror in &fixture.panel {
-        let result = fixture.commit(juror, Verdict::Respondent);
+        let result = fixture.commit(juror, Ballot::Respondent);
         assert!(result.program_result.is_ok(), "{:?}", result.raw_result);
         assert_eq!(
             committed(&result, &fixture.dispute, juror).commitment,
-            fixture.commitment_for(juror, Verdict::Respondent),
+            fixture.commitment_for(juror, Ballot::Respondent),
         );
     }
 }
@@ -245,7 +237,7 @@ fn every_panel_member_has_a_commitment_of_their_own() {
 #[test]
 fn refuses_a_signer_that_is_not_on_the_panel() {
     let fixture = Fixture::new();
-    let result = fixture.commit(&fixture.outsider, Verdict::Claimant);
+    let result = fixture.commit(&fixture.outsider, Ballot::Claimant);
     assert!(failed_with(&result, VerdictMeshError::NotOnPanel));
 }
 
@@ -255,7 +247,7 @@ fn refuses_a_signer_that_is_not_on_the_panel() {
 #[test]
 fn refuses_everyone_while_the_panel_is_empty() {
     let fixture = Fixture::build(DisputeState::Committing, 0);
-    let result = fixture.commit(&fixture.outsider, Verdict::Claimant);
+    let result = fixture.commit(&fixture.outsider, Ballot::Claimant);
     assert!(failed_with(&result, VerdictMeshError::NotOnPanel));
 }
 
@@ -272,7 +264,7 @@ fn refuses_a_vote_account_that_belongs_to_another_juror() {
         &fixture.ix_with_vote(
             &juror,
             &stolen,
-            fixture.commitment_for(&juror, Verdict::Claimant),
+            fixture.commitment_for(&juror, Ballot::Claimant),
         ),
         &fixture.accounts,
     );
@@ -287,7 +279,7 @@ fn refuses_a_second_commitment_from_the_same_juror() {
     let fixture = Fixture::new();
     let juror = fixture.panel[0];
 
-    let first = fixture.commit(&juror, Verdict::Claimant);
+    let first = fixture.commit(&juror, Ballot::Claimant);
     assert!(first.program_result.is_ok(), "{:?}", first.raw_result);
 
     // Акаунт голосу вже існує — рівно те, що побачить друга транзакція.
@@ -295,8 +287,8 @@ fn refuses_a_second_commitment_from_the_same_juror() {
     let vote = vote_pda(&fixture.dispute, &juror).0;
     replace(&mut accounts, &vote, resulting(&first, &vote).clone());
 
-    let result = at(NOW).process_instruction(
-        &fixture.ix(&juror, fixture.commitment_for(&juror, Verdict::Respondent)),
+    let result = mollusk_at(NOW).process_instruction(
+        &fixture.ix(&juror, fixture.commitment_for(&juror, Ballot::Respondent)),
         &accounts,
     );
     assert!(result.program_result.is_err());
@@ -308,7 +300,7 @@ fn refuses_a_second_commitment_from_the_same_juror() {
 #[test]
 fn accepts_a_commitment_in_the_last_second_of_the_window() {
     let fixture = Fixture::new();
-    let result = fixture.commit_at(&fixture.panel[0], Verdict::Claimant, fixture.deadline() - 1);
+    let result = fixture.commit_at(&fixture.panel[0], Ballot::Claimant, fixture.deadline() - 1);
     assert!(result.program_result.is_ok(), "{:?}", result.raw_result);
 }
 
@@ -318,7 +310,7 @@ fn accepts_a_commitment_in_the_last_second_of_the_window() {
 #[test]
 fn refuses_a_commitment_at_the_deadline() {
     let fixture = Fixture::new();
-    let result = fixture.commit_at(&fixture.panel[0], Verdict::Claimant, fixture.deadline());
+    let result = fixture.commit_at(&fixture.panel[0], Ballot::Claimant, fixture.deadline());
     assert!(failed_with(&result, VerdictMeshError::WindowClosed));
 }
 
@@ -327,7 +319,7 @@ fn refuses_a_commitment_long_after_the_window() {
     let fixture = Fixture::new();
     let result = fixture.commit_at(
         &fixture.panel[0],
-        Verdict::Claimant,
+        Ballot::Claimant,
         fixture.deadline() + 86_400,
     );
     assert!(failed_with(&result, VerdictMeshError::WindowClosed));
@@ -348,7 +340,7 @@ fn refuses_a_commitment_in_every_state_but_committing() {
         DisputeState::Finalized,
     ] {
         let fixture = Fixture::build(state, PANEL);
-        let result = fixture.commit(&fixture.panel[0], Verdict::Claimant);
+        let result = fixture.commit(&fixture.panel[0], Ballot::Claimant);
         assert!(
             failed_with(&result, VerdictMeshError::WrongState),
             "{state:?} accepted a commitment"
@@ -361,6 +353,6 @@ fn refuses_a_commitment_in_every_state_but_committing() {
 #[test]
 fn a_revealing_dispute_is_refused_even_inside_the_commit_window() {
     let fixture = Fixture::build(DisputeState::Revealing, PANEL);
-    let result = fixture.commit_at(&fixture.panel[0], Verdict::Claimant, NOW + 1);
+    let result = fixture.commit_at(&fixture.panel[0], Ballot::Claimant, NOW + 1);
     assert!(failed_with(&result, VerdictMeshError::WrongState));
 }

@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-use crate::state::Verdict;
+use crate::state::{Ballot, Verdict};
 
 /// FR-029: за подіями зовнішній спостерігач відновлює повну хронологію спору
 /// без доступу до офчейн-сервісу. Watcher у apps/api читає саме їх.
@@ -39,7 +39,7 @@ pub struct VoteCommitted {
 pub struct VoteRevealed {
     pub dispute: Pubkey,
     pub juror: Pubkey,
-    pub choice: Verdict,
+    pub choice: Ballot,
 }
 
 #[event]

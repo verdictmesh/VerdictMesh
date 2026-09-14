@@ -12,7 +12,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use anchor_lang::{
     solana_program::pubkey::Pubkey, AccountDeserialize, AnchorDeserialize, AnchorSerialize,
-    Discriminator, InstructionData, ToAccountMetas,
+    Discriminator, InstructionData, Space, ToAccountMetas,
 };
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use mollusk_svm::{program::loader_keys::LOADER_V3, result::InstructionResult, Mollusk};
@@ -205,11 +205,18 @@ pub fn missing() -> Account {
 /// Акаунт, який програма вже колись створила: дискримінатор плюс стан. Потрібен
 /// там, де тест перевіряє інструкцію, що читає вже наявний стан, і проганяти
 /// заради нього попередню інструкцію означало б зав'язати один тест на дві.
-pub fn program_account<T: AnchorSerialize + Discriminator>(state: &T) -> Account {
+///
+/// Місце виділяється під **повний** розмір типу, а не під довжину поточного
+/// значення. Різниця не теоретична: `Option::None` займає байт, `Some` — два, і
+/// акаунт, обрізаний по `None`, не приймає запису `Some`. Інструкція падала б з
+/// `AccountDidNotSerialize` там, де на ланцюгу все пройшло б, — бо там акаунт
+/// створила `init`, а не тест.
+pub fn program_account<T: AnchorSerialize + Discriminator + Space>(state: &T) -> Account {
     let mut data = T::DISCRIMINATOR.to_vec();
     state
         .serialize(&mut data)
         .expect("account state must serialize");
+    data.resize(data.len().max(T::DISCRIMINATOR.len() + T::INIT_SPACE), 0);
 
     Account {
         // Rent-exempt із запасом. Anchor не звіряє баланс наявного акаунта з
@@ -352,6 +359,14 @@ pub fn demo_policy() -> Policy {
     }
 }
 
+/// Mollusk із заданим «зараз». Годинник обв'язки стоїть на `NOW`, і тести
+/// вікон мусять рухати його явно, а не покладатись на замовчування.
+pub fn mollusk_at(now: i64) -> Mollusk {
+    let mut mollusk = mollusk();
+    mollusk.sysvars.clock.unix_timestamp = now;
+    mollusk
+}
+
 /// Спір у тому вигляді, у якому його лишає `open_dispute`. Повертається сам
 /// стан, а не готовий акаунт: тест міняє те поле, заради якого він написаний —
 /// стан, панель, слот ентропії, — і не переносить решту дванадцяти щоразу.
@@ -376,7 +391,6 @@ pub fn dispute_state(integrator: &Pubkey, dispute_id: u64, policy: &Policy, bump
         appeal_deadline: 0,
         votes_claimant: 0,
         votes_respondent: 0,
-        revealed_count: 0,
         escalated: false,
         verdict: None,
         settled: false,

@@ -46,4 +46,6 @@ pub enum VerdictMeshError {
     InvalidPanelAccounts,
     #[msg("The panel for this dispute has already been selected")]
     PanelAlreadySelected,
+    #[msg("This vote has already been revealed")]
+    AlreadyRevealed,
 }

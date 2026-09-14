@@ -11,6 +11,7 @@ pub mod vote;
 pub use errors::VerdictMeshError;
 pub use instructions::*;
 pub use state::*;
+pub use vote::SALT_LEN;
 
 declare_id!("8WyWpDD1ZbkTRGG6SRcYyWxApPsHaSgWn2SWJQ8xSgxq");
 
@@ -85,5 +86,15 @@ pub mod verdict_mesh {
     /// голосу в стані немає до розкриття — див. `instructions::commit_vote`.
     pub fn commit_vote(ctx: Context<CommitVote>, commitment: [u8; 32]) -> Result<()> {
         CommitVote::handle(ctx, commitment)
+    }
+
+    /// Розкриває голос і звіряє його з поданим відбитком. Розбіжність
+    /// відхиляється — див. `instructions::reveal_vote`.
+    pub fn reveal_vote(
+        ctx: Context<RevealVote>,
+        choice: Ballot,
+        salt: [u8; SALT_LEN],
+    ) -> Result<()> {
+        RevealVote::handle(ctx, choice, salt)
     }
 }

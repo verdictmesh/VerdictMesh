@@ -76,7 +76,6 @@ impl OpenDispute<'_> {
         dispute.appeal_deadline = 0;
         dispute.votes_claimant = 0;
         dispute.votes_respondent = 0;
-        dispute.revealed_count = 0;
         dispute.escalated = false;
         dispute.verdict = None;
         dispute.settled = false;

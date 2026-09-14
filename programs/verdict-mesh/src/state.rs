@@ -140,6 +140,37 @@ pub enum Verdict {
     StatusQuo,
 }
 
+/// Бюлетень присяжного — **два варіанти, а не три**.
+///
+/// `StatusQuo` — це те, чим закінчується невдала ескалація (`FR-027a`), а не
+/// відповідь, яку можна подати. Різниця не формальна: на панелі з трьох при
+/// кворумі два три різні відповіді ніколи не дають більшості, тож третій
+/// варіант у бюлетені був би способом одноосібно відправити будь-який спір на
+/// повторний розгляд — за чужий рахунок, бо ескалацію оплачує протокол
+/// (`FR-027`).
+///
+/// Окремий тип, а не перевірка в рантаймі, бо перевірити подання неможливо:
+/// `commit_vote` бачить лише хеш. Присяжний, який зафіксував відбиток
+/// `StatusQuo`, дізнався б про заборону аж при розкритті — коли міняти вже
+/// нічого, і мовчання коштує йому більшої частки стейку (`FR-008b`). Типом
+/// такий відбиток просто не виражається, тож пастки не існує.
+#[derive(AnchorSerialize, AnchorDeserialize, InitSpace, Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Ballot {
+    Claimant,
+    Respondent,
+}
+
+impl Ballot {
+    /// Голос як результат. Підрахунок (T019) порівнює бюлетені з вердиктом, і
+    /// переклад має бути в одному місці.
+    pub fn verdict(self) -> Verdict {
+        match self {
+            Ballot::Claimant => Verdict::Claimant,
+            Ballot::Respondent => Verdict::Respondent,
+        }
+    }
+}
+
 #[account]
 #[derive(InitSpace)]
 pub struct Config {
@@ -235,9 +266,12 @@ pub struct Dispute {
     pub commit_deadline: i64,
     pub reveal_deadline: i64,
     pub appeal_deadline: i64,
+    /// Розкриті голоси, по одному лічильнику на варіант бюлетеня. Окремого
+    /// `revealed_count` тут немає з тієї ж причини, з якої в `VoteCommit` немає
+    /// `revealed`: він дорівнював би сумі цих двох завжди, а два джерела однієї
+    /// величини рано чи пізно розходяться. Скільки розкрилось — питають у суми.
     pub votes_claimant: u8,
     pub votes_respondent: u8,
-    pub revealed_count: u8,
     /// Автоескалація застосовується один раз — FR-027a.
     pub escalated: bool,
     pub verdict: Option<Verdict>,
@@ -274,6 +308,6 @@ pub struct VoteCommit {
     pub commitment: [u8; 32],
     /// `None`, доки голос не розкрито (T018). Порожнє значення — це і є
     /// «присяжний подав відбиток, але не розкрився» для `FR-008b`.
-    pub choice: Option<Verdict>,
+    pub choice: Option<Ballot>,
     pub bump: u8,
 }

@@ -23,13 +23,13 @@
 //! твердження сторони), не міг випадково збігтися з відбитком голосу. Це
 //! копійчана обережність зараз і єдина можлива обережність потім.
 //!
-//! `salt` — власне те, що ховає голос: варіантів рівно три, і без секрету
-//! відбиток перебирається за три спроби.
+//! `salt` — власне те, що ховає голос: варіантів рівно два, і без секрету
+//! відбиток перебирається з першої спроби.
 
 use anchor_lang::prelude::*;
 use solana_keccak_hasher::hashv;
 
-use crate::state::Verdict;
+use crate::state::Ballot;
 
 /// Розділювач простору хешів. Версія в рядку — щоб зміна схеми була видимою
 /// зміною, а не тихою розбіжністю зі старими, ще не розкритими голосами.
@@ -44,7 +44,7 @@ pub const SALT_LEN: usize = 32;
 pub fn commitment_of(
     dispute: &Pubkey,
     juror: &Pubkey,
-    choice: Verdict,
+    choice: Ballot,
     salt: &[u8; SALT_LEN],
 ) -> [u8; 32] {
     hashv(&[
@@ -60,14 +60,13 @@ pub fn commitment_of(
 /// Байт вибору. Нумерація з одиниці: нуль лишається значенням, якого не існує,
 /// тож занулена пам'ять не перетворюється на валідний голос.
 ///
-/// Match без `_` навмисно: новий варіант `Verdict` має зупинити компіляцію тут,
+/// Match без `_` навмисно: новий варіант `Ballot` має зупинити компіляцію тут,
 /// а не мовчки отримати чужий байт і зіштовхнути два різні голоси в один
 /// відбиток.
-fn tag(choice: Verdict) -> u8 {
+fn tag(choice: Ballot) -> u8 {
     match choice {
-        Verdict::Claimant => 1,
-        Verdict::Respondent => 2,
-        Verdict::StatusQuo => 3,
+        Ballot::Claimant => 1,
+        Ballot::Respondent => 2,
     }
 }
 
@@ -87,8 +86,8 @@ mod tests {
         let juror = Pubkey::new_unique();
 
         assert_eq!(
-            commitment_of(&dispute, &juror, Verdict::Claimant, &salt(7)),
-            commitment_of(&dispute, &juror, Verdict::Claimant, &salt(7)),
+            commitment_of(&dispute, &juror, Ballot::Claimant, &salt(7)),
+            commitment_of(&dispute, &juror, Ballot::Claimant, &salt(7)),
         );
     }
 
@@ -102,8 +101,8 @@ mod tests {
         let copycat = Pubkey::new_unique();
 
         assert_ne!(
-            commitment_of(&dispute, &author, Verdict::Claimant, &salt(7)),
-            commitment_of(&dispute, &copycat, Verdict::Claimant, &salt(7)),
+            commitment_of(&dispute, &author, Ballot::Claimant, &salt(7)),
+            commitment_of(&dispute, &copycat, Ballot::Claimant, &salt(7)),
         );
     }
 
@@ -113,8 +112,8 @@ mod tests {
         let juror = Pubkey::new_unique();
 
         assert_ne!(
-            commitment_of(&Pubkey::new_unique(), &juror, Verdict::Claimant, &salt(7)),
-            commitment_of(&Pubkey::new_unique(), &juror, Verdict::Claimant, &salt(7)),
+            commitment_of(&Pubkey::new_unique(), &juror, Ballot::Claimant, &salt(7)),
+            commitment_of(&Pubkey::new_unique(), &juror, Ballot::Claimant, &salt(7)),
         );
     }
 
@@ -125,11 +124,10 @@ mod tests {
         let dispute = Pubkey::new_unique();
         let juror = Pubkey::new_unique();
 
-        let commitments: Vec<[u8; 32]> =
-            [Verdict::Claimant, Verdict::Respondent, Verdict::StatusQuo]
-                .into_iter()
-                .map(|choice| commitment_of(&dispute, &juror, choice, &salt(7)))
-                .collect();
+        let commitments: Vec<[u8; 32]> = [Ballot::Claimant, Ballot::Respondent]
+            .into_iter()
+            .map(|choice| commitment_of(&dispute, &juror, choice, &salt(7)))
+            .collect();
 
         for (position, commitment) in commitments.iter().enumerate() {
             assert!(
@@ -147,20 +145,20 @@ mod tests {
         let juror = Pubkey::new_unique();
 
         assert_ne!(
-            commitment_of(&dispute, &juror, Verdict::Claimant, &salt(7)),
-            commitment_of(&dispute, &juror, Verdict::Claimant, &salt(8)),
+            commitment_of(&dispute, &juror, Ballot::Claimant, &salt(7)),
+            commitment_of(&dispute, &juror, Ballot::Claimant, &salt(8)),
         );
     }
 
-    /// Голос не перебирається за три спроби, поки секрет невідомий: жоден із
-    /// трьох варіантів із **чужим** секретом не збігається з відбитком.
+    /// Голос не перебирається за два підходи, поки секрет невідомий: жоден із
+    /// варіантів бюлетеня з **чужим** секретом не збігається з відбитком.
     #[test]
     fn guessing_the_choice_without_the_secret_matches_nothing() {
         let dispute = Pubkey::new_unique();
         let juror = Pubkey::new_unique();
-        let real = commitment_of(&dispute, &juror, Verdict::Respondent, &salt(7));
+        let real = commitment_of(&dispute, &juror, Ballot::Respondent, &salt(7));
 
-        for choice in [Verdict::Claimant, Verdict::Respondent, Verdict::StatusQuo] {
+        for choice in [Ballot::Claimant, Ballot::Respondent] {
             assert_ne!(real, commitment_of(&dispute, &juror, choice, &salt(0)));
         }
     }
