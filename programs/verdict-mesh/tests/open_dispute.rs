@@ -163,7 +163,6 @@ fn opens_in_the_committing_state_with_room_for_the_extended_panel() {
     assert_eq!(dispute.state, DisputeState::Committing);
     assert!(dispute.panel.is_empty());
     assert!(dispute.verdict.is_none());
-    assert!(!dispute.settled);
     assert!(!dispute.escalated);
     assert_eq!(
         account.data.len(),

@@ -28,7 +28,7 @@ use solana_address::Address;
 use solana_instruction::Instruction;
 use verdict_mesh::{
     events::VoteCommitted,
-    state::{Ballot, DisputeState, VoteCommit},
+    state::{Ballot, Dispute, DisputeState, VoteCommit},
     vote::{commitment_of, SALT_LEN},
     VerdictMeshError,
 };
@@ -47,6 +47,28 @@ struct Fixture {
 impl Fixture {
     fn new() -> Self {
         Self::build(DisputeState::Committing, PANEL)
+    }
+
+    /// Спір після ескалації: коло друге, і відбитки, подані тут, належать йому.
+    fn escalated() -> Self {
+        let mut fixture = Self::build(DisputeState::Committing, PANEL);
+
+        let mut dispute: Dispute = decode(
+            &fixture
+                .accounts
+                .iter()
+                .find(|(key, _)| *key == addr(&fixture.dispute))
+                .expect("спір у списку")
+                .1,
+        );
+        dispute.escalated = true;
+        replace(
+            &mut fixture.accounts,
+            &fixture.dispute,
+            dispute_account(&dispute),
+        );
+
+        fixture
     }
 
     /// Спір збирається зі стану, а не прогоном `open_dispute` + `select_panel`:
@@ -355,4 +377,24 @@ fn a_revealing_dispute_is_refused_even_inside_the_commit_window() {
     let fixture = Fixture::build(DisputeState::Revealing, PANEL);
     let result = fixture.commit_at(&fixture.panel[0], Ballot::Claimant, NOW + 1);
     assert!(failed_with(&result, VerdictMeshError::WrongState));
+}
+
+/// Відбиток належить своєму колу. Без цього числа розкриття не змогло б
+/// відрізнити голос, поданий у розширеному розгляді, від того, що спізнився з
+/// початкового — а `FR-027b` слешить саме за друге.
+#[test]
+fn records_the_round_the_commitment_belongs_to() {
+    let initial = Fixture::new();
+    let result = initial.commit(&initial.panel[0], Ballot::Claimant);
+    assert_eq!(
+        committed(&result, &initial.dispute, &initial.panel[0]).round,
+        0
+    );
+
+    let extended = Fixture::escalated();
+    let result = extended.commit(&extended.panel[0], Ballot::Claimant);
+    assert_eq!(
+        committed(&result, &extended.dispute, &extended.panel[0]).round,
+        1
+    );
 }

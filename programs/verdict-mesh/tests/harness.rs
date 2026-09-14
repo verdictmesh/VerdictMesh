@@ -393,7 +393,6 @@ pub fn dispute_state(integrator: &Pubkey, dispute_id: u64, policy: &Policy, bump
         votes_respondent: 0,
         escalated: false,
         verdict: None,
-        settled: false,
         bump,
     }
 }

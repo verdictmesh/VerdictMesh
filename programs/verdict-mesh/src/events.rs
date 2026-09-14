@@ -78,6 +78,16 @@ pub struct DisputeFinalized {
     pub finalized_at: i64,
 }
 
+/// Кому дісталось злетіле зі стейків — `FR-011`. Разом із `JurorSlashed` дає
+/// повний баланс розрахунку: спостерігач бачить, що вийшло і куди пішло, не
+/// читаючи акаунтів.
+#[event]
+pub struct JurorRewarded {
+    pub dispute: Pubkey,
+    pub juror: Pubkey,
+    pub amount: u64,
+}
+
 #[event]
 pub struct JurorSlashed {
     pub dispute: Pubkey,

@@ -103,4 +103,12 @@ pub mod verdict_mesh {
     pub fn tally(ctx: Context<Tally>) -> Result<()> {
         Tally::handle(ctx)
     }
+
+    /// Слешить програні голоси й мовчання, ділить зібране між тими, хто був
+    /// правий, і випускає панель із реєстру — див. `instructions::settle_stakes`.
+    pub fn settle_stakes<'info>(
+        ctx: Context<'_, '_, 'info, 'info, SettleStakes<'info>>,
+    ) -> Result<()> {
+        SettleStakes::handle(ctx)
+    }
 }

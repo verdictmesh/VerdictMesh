@@ -133,6 +133,34 @@ impl Fixture {
         replace(&mut self.accounts, &self.dispute, dispute);
     }
 
+    /// Той самий спір після ескалації: коло друге, вікна нові, відбитки
+    /// лишились із першого.
+    fn into_round_two(mut self) -> Self {
+        let mut dispute: Dispute = decode(
+            &self
+                .accounts
+                .iter()
+                .find(|(key, _)| *key == addr(&self.dispute))
+                .expect("спір у списку")
+                .1,
+        );
+        dispute.escalated = true;
+        dispute.state = DisputeState::Committing;
+        replace(&mut self.accounts, &self.dispute, dispute_account(&dispute));
+        self
+    }
+
+    /// Присяжні переподали відбитки вже у другому колі.
+    fn reseal_round_two(&mut self) {
+        for (index, juror) in self.panel.clone().iter().enumerate() {
+            let mut vote = committed_account(&self.dispute, juror, Ballot::Claimant, &salt(index));
+            let mut state: VoteCommit = decode(&vote);
+            state.round = 1;
+            vote = program_account(&state);
+            replace(&mut self.accounts, &vote_pda(&self.dispute, juror).0, vote);
+        }
+    }
+
     fn dispute_after(&self, result: &InstructionResult) -> Dispute {
         decode(resulting(result, &self.dispute))
     }
@@ -157,6 +185,7 @@ fn committed_account(
         juror: *juror,
         commitment: commitment_of(dispute, juror, choice, secret),
         choice: None,
+        round: 0,
         bump: vote_pda(dispute, juror).1,
     })
 }
@@ -212,6 +241,7 @@ fn refuses_a_commitment_copied_from_another_juror() {
         juror: copycat,
         commitment: commitment_of(&fixture.dispute, &author, Ballot::Claimant, &salt(0)),
         choice: None,
+        round: 0,
         bump: vote_pda(&fixture.dispute, &copycat).1,
     });
     replace(
@@ -240,6 +270,7 @@ fn refuses_a_commitment_computed_for_another_dispute() {
         juror,
         commitment: commitment_of(&elsewhere, &juror, Ballot::Claimant, &salt(0)),
         choice: None,
+        round: 0,
         bump: vote_pda(&fixture.dispute, &juror).1,
     });
     replace(
@@ -426,5 +457,32 @@ fn refuses_a_reveal_once_the_dispute_has_moved_on() {
 fn accepts_a_reveal_while_the_dispute_is_already_revealing() {
     let fixture = Fixture::build([Ballot::Claimant; PANEL], DisputeState::Revealing);
     let result = fixture.reveal(0, Ballot::Claimant);
+    assert!(result.program_result.is_ok(), "{:?}", result.raw_result);
+}
+
+// ── коло розгляду ───────────────────────────────────────────────────────────
+
+/// Відбиток, поданий у початковому розгляді й не розкритий до підрахунку,
+/// спізнився назавжди. Прийняти його в розширеному колі означало б дати
+/// присяжному вирішувати, оприлюднювати свій голос чи ні, **побачивши перший
+/// підрахунок** — і тим скасувати слешинг, який `FR-027b` призначає саме за те
+/// мовчання.
+#[test]
+fn refuses_a_commitment_left_over_from_the_previous_round() {
+    let fixture = Fixture::build([Ballot::Claimant; PANEL], DisputeState::Committing);
+    let escalated = fixture.into_round_two();
+
+    let result = escalated.reveal(0, Ballot::Claimant);
+    assert!(failed_with(&result, VerdictMeshError::StaleCommitment));
+}
+
+/// Відбиток свого кола розкривається як звичайно.
+#[test]
+fn accepts_a_commitment_made_in_the_current_round() {
+    let fixture = Fixture::build([Ballot::Claimant; PANEL], DisputeState::Committing);
+    let mut escalated = fixture.into_round_two();
+    escalated.reseal_round_two();
+
+    let result = escalated.reveal(0, Ballot::Claimant);
     assert!(result.program_result.is_ok(), "{:?}", result.raw_result);
 }

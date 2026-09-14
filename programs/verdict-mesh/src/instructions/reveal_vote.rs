@@ -53,6 +53,14 @@ impl RevealVote<'_> {
         // Одноразово: друге розкриття порахувало б той самий голос двічі, і
         // панель із трьох дала б кворум силами одного присяжного.
         require!(vote.choice.is_none(), VerdictMeshError::AlreadyRevealed);
+        // Відбиток першого кола, не розкритий до підрахунку, спізнився назавжди.
+        // Дозволити його зараз означало б дати присяжному вирішувати,
+        // оприлюднювати свій голос чи ні, **побачивши перший підрахунок**, — і
+        // тим скасувати слешинг, який `FR-027b` призначає саме за те мовчання.
+        require!(
+            vote.round == dispute.round(),
+            VerdictMeshError::StaleCommitment
+        );
         require!(
             commitment_of(&dispute_key, &juror, choice, &salt) == vote.commitment,
             VerdictMeshError::CommitmentMismatch

@@ -48,4 +48,8 @@ pub enum VerdictMeshError {
     PanelAlreadySelected,
     #[msg("This vote has already been revealed")]
     AlreadyRevealed,
+    #[msg("A commitment from an earlier round can no longer be revealed")]
+    StaleCommitment,
+    #[msg("The juror accounts do not enumerate the panel of this dispute")]
+    InvalidSettlementAccounts,
 }

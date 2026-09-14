@@ -78,7 +78,6 @@ impl OpenDispute<'_> {
         dispute.votes_respondent = 0;
         dispute.escalated = false;
         dispute.verdict = None;
-        dispute.settled = false;
         dispute.bump = ctx.bumps.dispute;
 
         // FR-029: за подіями зовнішній спостерігач відновлює хронологію спору
