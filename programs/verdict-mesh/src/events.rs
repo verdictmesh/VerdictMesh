@@ -42,11 +42,33 @@ pub struct VoteRevealed {
     pub choice: Ballot,
 }
 
+/// Спір пішов на розширену панель — `FR-027`. Голоси, що спричинили ескалацію,
+/// у самій події: інакше сторона бачить, що розгляд подовжився, і не бачить
+/// чому.
+///
+/// Списку тих, хто не розкрився, тут немає навмисно, хоча `FR-027b` саме їх і
+/// слешить. Підрахунок їх не знає — він бачить два числа, а не акаунти голосів,
+/// — і тягнути заради події всю панель акаунтами означало б впертись у ліміт
+/// транзакції там, де спостерігач однаково виводить цей список сам: `FR-029`
+/// дає йому `VoteCommitted` без парного `VoteRevealed`.
 #[event]
 pub struct DisputeEscalated {
     pub dispute: Pubkey,
-    pub panel: Vec<Pubkey>,
-    pub not_revealed: Vec<Pubkey>,
+    pub votes_claimant: u8,
+    pub votes_respondent: u8,
+    pub commit_deadline: i64,
+    pub reveal_deadline: i64,
+}
+
+/// Вердикт винесено — `FR-010`. Числа поруч із результатом, бо вердикт без
+/// підстави сторона перевірити не може.
+#[event]
+pub struct DisputeTallied {
+    pub dispute: Pubkey,
+    pub verdict: Verdict,
+    pub votes_claimant: u8,
+    pub votes_respondent: u8,
+    pub appeal_deadline: i64,
 }
 
 #[event]

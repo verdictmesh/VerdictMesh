@@ -181,6 +181,24 @@ impl Fixture {
         let dispute: Dispute = decode(resulting(result, &self.dispute));
         dispute.panel
     }
+
+    /// Той самий спір після ескалації (`FR-027`, T019): панель уже має
+    /// початковий склад, `escalated` піднято, вікно подання відкрите заново.
+    fn escalated_with(&self, panel: Vec<Pubkey>) -> Vec<(Address, Account)> {
+        let (_, bump) = dispute_pda(&self.integrator, 0);
+        let mut dispute = dispute_state(&self.integrator, 0, &self.policy, bump);
+        dispute.panel = panel;
+        dispute.escalated = true;
+
+        let mut accounts = self.accounts.clone();
+        replace(&mut accounts, &self.dispute, dispute_account(&dispute));
+        accounts
+    }
+
+    fn active_disputes(&self, result: &InstructionResult, wallet: &Pubkey) -> u16 {
+        let juror: Juror = decode(resulting(result, &juror_pda(wallet).0));
+        juror.active_disputes
+    }
 }
 
 /// Адреса сисвара як `Address` — константа програми, взята без перекладу через
@@ -591,4 +609,97 @@ fn keeps_the_integrator_out_of_the_instruction() {
         .accounts
         .iter()
         .all(|meta| meta.pubkey != integrator));
+}
+
+// ── добір після ескалації ───────────────────────────────────────────────────
+
+/// `FR-027`: розширена панель — це доповнення, а не новий жереб. Ті, хто вже
+/// голосував, лишаються на своїх місцях, і їхні голоси лишаються чинними.
+#[test]
+fn tops_an_escalated_panel_up_to_the_extended_size() {
+    let fixture = Fixture::new();
+    let seated: Vec<Pubkey> = fixture.jurors[..fixture.policy.panel_size as usize].to_vec();
+    let accounts = fixture.escalated_with(seated.clone());
+
+    let result = mollusk().process_instruction(&fixture.ix(), &accounts);
+    assert!(result.program_result.is_ok(), "{:?}", result.raw_result);
+
+    let dispute: Dispute = decode(resulting(&result, &fixture.dispute));
+    assert_eq!(
+        dispute.panel.len(),
+        fixture.policy.extended_panel_size as usize
+    );
+    assert_eq!(&dispute.panel[..seated.len()], &seated[..]);
+
+    // Добрані — інші люди, а не ті самі вдруге: присяжний двічі в панелі мав би
+    // подвійну вагу голосу.
+    let added = &dispute.panel[seated.len()..];
+    assert!(added.iter().all(|wallet| !seated.contains(wallet)));
+    assert_eq!(
+        added.iter().collect::<std::collections::HashSet<_>>().len(),
+        added.len()
+    );
+}
+
+/// Лічильник піднімається лише тим, кого щойно посадили. Другий інкремент тим,
+/// хто вже сидів, лишив би їх у реєстрі назавжди: розрахунок (T020) зніме
+/// рівно одиницю.
+#[test]
+fn locks_only_the_jurors_the_top_up_added() {
+    let fixture = Fixture::new();
+    let seated: Vec<Pubkey> = fixture.jurors[..fixture.policy.panel_size as usize].to_vec();
+    let accounts = fixture.escalated_with(seated.clone());
+
+    let result = mollusk().process_instruction(&fixture.ix(), &accounts);
+    assert!(result.program_result.is_ok(), "{:?}", result.raw_result);
+
+    let dispute: Dispute = decode(resulting(&result, &fixture.dispute));
+    for wallet in &seated {
+        assert_eq!(
+            fixture.active_disputes(&result, wallet),
+            0,
+            "вже посаджений присяжний отримав другий інкремент"
+        );
+    }
+    for wallet in &dispute.panel[seated.len()..] {
+        assert_eq!(fixture.active_disputes(&result, wallet), 1);
+    }
+}
+
+/// Укомплектована розширена панель добору не приймає — інакше третій виклик
+/// підняв би `active_disputes` тим, кого вже посадили.
+#[test]
+fn refuses_a_top_up_of_a_full_extended_panel() {
+    let fixture = Fixture::new();
+    let full: Vec<Pubkey> = fixture.jurors[..fixture.policy.extended_panel_size as usize].to_vec();
+    let accounts = fixture.escalated_with(full);
+
+    let result = mollusk().process_instruction(&fixture.ix(), &accounts);
+    assert!(failed_with(&result, VerdictMeshError::PanelAlreadySelected));
+}
+
+/// Ті, хто вже в панелі, кандидатами не є — тож реєстру мусить вистачити на
+/// добір **понад** них. Шестеро присяжних, троє сидять, розширена панель на
+/// п'ять: двох добрати є з кого. Якщо ж вільних менше, ніж місць, це
+/// `RegistryTooSmall`, а не мовчазна недоукомплектована панель.
+#[test]
+fn refuses_a_top_up_the_registry_cannot_fill() {
+    let fixture = Fixture::new();
+    // П'ятеро з шести вже сидять — вільний один, а місць бракує двох.
+    let seated: Vec<Pubkey> = fixture.jurors[..JURORS as usize - 1].to_vec();
+    let mut dispute = dispute_state(
+        &fixture.integrator,
+        0,
+        &fixture.policy,
+        dispute_pda(&fixture.integrator, 0).1,
+    );
+    dispute.panel = seated;
+    dispute.escalated = true;
+    dispute.policy.extended_panel_size = JURORS as u8 + 1;
+
+    let mut accounts = fixture.accounts.clone();
+    replace(&mut accounts, &fixture.dispute, dispute_account(&dispute));
+
+    let result = mollusk().process_instruction(&fixture.ix(), &accounts);
+    assert!(failed_with(&result, VerdictMeshError::RegistryTooSmall));
 }

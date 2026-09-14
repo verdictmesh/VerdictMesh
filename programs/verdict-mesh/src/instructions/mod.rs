@@ -5,6 +5,7 @@ pub mod register_integrator;
 pub mod reveal_vote;
 pub mod select_panel;
 pub mod stake;
+pub mod tally;
 pub mod unstake;
 
 // Глоб потрібен макросу `#[program]`: згенеровані `#[derive(Accounts)]` модулі
@@ -18,4 +19,5 @@ pub use register_integrator::*;
 pub use reveal_vote::*;
 pub use select_panel::*;
 pub use stake::*;
+pub use tally::*;
 pub use unstake::*;

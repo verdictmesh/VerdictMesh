@@ -97,4 +97,10 @@ pub mod verdict_mesh {
     ) -> Result<()> {
         RevealVote::handle(ctx, choice, salt)
     }
+
+    /// Підбиває підсумок голосування: вердикт, одноразова ескалація або
+    /// статус-кво. Нічия інструкція — див. `instructions::tally`.
+    pub fn tally(ctx: Context<Tally>) -> Result<()> {
+        Tally::handle(ctx)
+    }
 }

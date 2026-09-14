@@ -27,6 +27,11 @@ use crate::{
 /// **Інструкція нічия.** Підпису не вимагаємо: результат детермінований і вже
 /// зафіксований, тож дозволяти його комусь одному означало б лише дати цьому
 /// комусь можливість не виконати відбір узагалі.
+///
+/// **Вона ж добирає панель після ескалації** (`FR-027`, T019). Другого шляху
+/// відбору не заводимо: він мусив би повторити перелічення реєстру, звірку
+/// адрес і облік `active_disputes` — і розійтися з цим при першій же правці.
+/// Різниця лише в тому, скільки місць треба заповнити і хто вже не кандидат.
 impl<'info> SelectPanel<'info> {
     /// Сигнатура з явними лайфтаймами не косметика: `remaining_accounts` мусять
     /// жити стільки ж, скільки самі акаунти, інакше `Account::try_from` до них
@@ -39,14 +44,24 @@ impl<'info> SelectPanel<'info> {
             dispute.state == DisputeState::Committing,
             VerdictMeshError::WrongState
         );
-        // Порожня панель — і є ознакою того, що відбір ще не робили. Другий
-        // відбір мусить впасти: він дав би ту саму панель ще раз, а разом із
-        // нею — другий інкремент `active_disputes` у тих самих присяжних, тобто
-        // блокування виходу, яке ніколи не знімається.
+        // Скільки присяжних має бути в панелі **зараз**. Після ескалації
+        // (`FR-027`, T019) це розширений розмір, і та сама інструкція добирає
+        // бракуючих — не заводячи другого шляху відбору, який довелося б
+        // тримати в узгодженні з цим.
+        let target = usize::from(if dispute.escalated {
+            dispute.policy.extended_panel_size
+        } else {
+            dispute.policy.panel_size
+        });
+        // Панель, укомплектована до цільового розміру, вдруге не відбирається:
+        // повторний відбір дав би другий інкремент `active_disputes` у тих
+        // самих присяжних, тобто блокування виходу, яке ніколи не знімається.
         require!(
-            dispute.panel.is_empty(),
+            dispute.panel.len() < target,
             VerdictMeshError::PanelAlreadySelected
         );
+        let needed = u8::try_from(target - dispute.panel.len())
+            .map_err(|_| VerdictMeshError::InvalidPolicy)?;
         // Панель, відібрана після закриття вікна подання, не має часу голосувати.
         require!(
             Clock::get()?.unix_timestamp < dispute.commit_deadline,
@@ -74,13 +89,20 @@ impl<'info> SelectPanel<'info> {
             // `FR-011a`: придатність міряється політикою **цього** спору. Реєстр
             // спільний для всіх інтеграторів, тож єдиного порогу не існує — і
             // саме тому вступ до реєстру його не перевіряє (T014).
-            if juror.stake >= policy.juror_stake {
+            //
+            // Хто вже в панелі, кандидатом не є. Це і робить добір після
+            // ескалації доповненням, а не переграванням: чинні присяжні
+            // лишаються з голосами, які вже подали, а жереб іде лише за
+            // місцями, що додалися. Тягнути тут «продовжити той самий жереб
+            // глибше» не можна — реєстр між двома відборами міг змінитись, і
+            // продовження дало б інших присяжних на вже зайняті місця.
+            if juror.stake >= policy.juror_stake && !dispute.panel.contains(&entry.wallet) {
                 candidates.push((slot, juror));
             }
         }
 
         require!(
-            candidates.len() >= policy.panel_size as usize,
+            candidates.len() >= usize::from(needed),
             VerdictMeshError::RegistryTooSmall
         );
 
@@ -92,7 +114,7 @@ impl<'info> SelectPanel<'info> {
         let drawn = panel::draw(
             &entropy,
             u32::try_from(candidates.len()).map_err(|_| VerdictMeshError::Overflow)?,
-            policy.panel_size,
+            needed,
         )?;
 
         for position in drawn {
