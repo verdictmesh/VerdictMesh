@@ -52,4 +52,8 @@ pub enum VerdictMeshError {
     StaleCommitment,
     #[msg("The juror accounts do not enumerate the panel of this dispute")]
     InvalidSettlementAccounts,
+    #[msg("Protocol treasury cannot be the default key")]
+    InvalidTreasury,
+    #[msg("The arbitration deposit is paid by the party opening the dispute")]
+    NotTheDepositor,
 }

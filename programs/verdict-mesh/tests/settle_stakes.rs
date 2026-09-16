@@ -29,8 +29,9 @@ use solana_account::Account;
 use solana_address::Address;
 use solana_instruction::{AccountMeta, Instruction};
 use verdict_mesh::{
-    events::{DisputeFinalized, JurorRewarded, JurorSlashed},
+    events::{DisputeFeeSettled, DisputeFinalized, JurorRewarded, JurorSlashed},
     state::{Ballot, Dispute, DisputeState, Juror, Policy, Verdict, VoteCommit},
+    vault::JUROR_FEE_BPS,
     VerdictMeshError,
 };
 
@@ -53,6 +54,10 @@ struct Fixture {
     accounts: Vec<(Address, Account)>,
     pairs: Vec<Pubkey>,
     policy: Policy,
+    mint: Pubkey,
+    crank: Pubkey,
+    treasury_tokens: Pubkey,
+    dispute_vault: Pubkey,
 }
 
 impl Fixture {
@@ -75,7 +80,31 @@ impl Fixture {
         tallied.verdict = Some(verdict);
         tallied.appeal_deadline = APPEAL_DEADLINE;
 
-        let mut accounts = vec![(addr(&dispute), dispute_account(&tallied))];
+        let mint = Pubkey::new_unique();
+        let crank = Pubkey::new_unique();
+        let treasury = Pubkey::new_unique();
+        let treasury_tokens = Pubkey::new_unique();
+        let dispute_vault = dispute_vault_pda(&dispute).0;
+
+        let mut accounts = vec![
+            (addr(&dispute), dispute_account(&tallied)),
+            (addr(&crank), wallet(1_000_000_000)),
+            (
+                addr(&config_pda().0),
+                config_account(&mint, &Pubkey::new_unique(), &treasury),
+            ),
+            (addr(&mint), settlement_mint()),
+            // Сховище спору тримає рівно депозит — те, що поклав туди
+            // `open_dispute`. Порожнє сховище було б станом, якого на ланцюгу
+            // не буває, і тести розподілу перевіряли б неіснуючий випадок.
+            (addr(&dispute_vault), vault_account(&mint, policy.deposit)),
+            (
+                addr(&stake_vault_pda().0),
+                vault_account(&mint, staked() * panel.len() as u64),
+            ),
+            (addr(&treasury_tokens), token_account(&mint, &treasury, 0)),
+            keyed_account_for_token_program(),
+        ];
         let mut pairs = Vec::with_capacity(2 * panel.len());
 
         for (wallet, did) in panel.iter().zip(did) {
@@ -112,7 +141,20 @@ impl Fixture {
             accounts,
             pairs,
             policy,
+            mint,
+            crank,
+            treasury_tokens,
+            dispute_vault,
         }
+    }
+
+    /// Сховище спору з іншим балансом. Потрібне рівно там, де перевіряється
+    /// нестача (`FR-026c`): решта тестів мусить бачити депозит, а не число,
+    /// підібране під очікування.
+    fn holding(mut self, amount: u64) -> Self {
+        let account = vault_account(&self.mint, amount);
+        replace(&mut self.accounts, &self.dispute_vault, account);
+        self
     }
 
     fn ix(&self) -> Instruction {
@@ -123,6 +165,13 @@ impl Fixture {
         let mut ix = anchor_ix(
             verdict_mesh::accounts::SettleStakes {
                 dispute: self.dispute,
+                crank: self.crank,
+                config: config_pda().0,
+                settlement_mint: self.mint,
+                dispute_vault: self.dispute_vault,
+                stake_vault: stake_vault_pda().0,
+                treasury_tokens: self.treasury_tokens,
+                token_program: TOKEN_PROGRAM,
             },
             verdict_mesh::instruction::SettleStakes {},
         );
@@ -164,6 +213,27 @@ impl Fixture {
 
     fn slash(&self, bps: u16) -> u64 {
         staked() * u64::from(bps) / 10_000
+    }
+
+    /// Частка присяжних в оплаті розгляду — `FR-026b`.
+    fn fee_to_jurors(&self) -> u64 {
+        self.policy.deposit * u64::from(JUROR_FEE_BPS) / 10_000
+    }
+
+    fn fee_to_protocol(&self) -> u64 {
+        self.policy.deposit - self.fee_to_jurors()
+    }
+
+    fn balance(&self, result: &InstructionResult, key: &Pubkey) -> u64 {
+        token_state(resulting(result, key)).amount
+    }
+
+    /// Скільки всього записано за присяжними панелі. Число, яке має ходити в
+    /// крок зі сховищем стейків.
+    fn recorded(&self, result: &InstructionResult) -> u64 {
+        (0..self.panel.len())
+            .map(|index| self.stake_of(result, index))
+            .sum()
     }
 }
 
@@ -305,15 +375,17 @@ fn hands_what_was_slashed_to_the_jurors_who_were_right() {
     );
     let result = fixture.ok();
 
-    let pot = fixture.slash(fixture.policy.slash_bps_wrong);
+    let pot = fixture.slash(fixture.policy.slash_bps_wrong) + fixture.fee_to_jurors();
     let gained = fixture.stake_of(&result, 0) - staked() + fixture.stake_of(&result, 1) - staked();
     assert_eq!(gained, pot);
 }
 
-/// Сума записів після розрахунку не перевищує тієї, що була: сховище спільне, і
-/// розподіл, який створює токени з нічого, вивів би чужі стейки.
+/// Найважливіша рівність файлу: сума записів росте рівно на стільки, на скільки
+/// приросло сховище стейків. Слешинг лише пересуває записи, комісія доливає
+/// токени — і будь-яка інша арифметика означала б, що останній, хто виходить із
+/// реєстру, недорахується чужого стейку.
 #[test]
-fn never_hands_out_more_than_it_took() {
+fn keeps_the_records_in_step_with_the_stake_vault() {
     for verdict in [Verdict::Claimant, Verdict::Respondent, Verdict::StatusQuo] {
         let fixture = Fixture::build(
             &[
@@ -325,10 +397,25 @@ fn never_hands_out_more_than_it_took() {
             DisputeState::Tallied,
             true,
         );
+        let before = staked() * 3;
         let result = fixture.ok();
 
-        let total: u64 = (0..3).map(|index| fixture.stake_of(&result, index)).sum();
-        assert!(total <= 3 * staked(), "{verdict:?} створив стейк із нічого");
+        let recorded = fixture.recorded(&result);
+        let vault = fixture.balance(&result, &stake_vault_pda().0);
+
+        // Приросло рівно на комісію — і в сховищі, і в записах. Слешинг у цій
+        // сумі не видно взагалі, і саме так і має бути: він нічого не створює
+        // і нічого не знищує, лише переставляє між своїми.
+        assert_eq!(
+            vault,
+            before + fixture.fee_to_jurors(),
+            "{verdict:?}: у сховищі стейків не те, що переказали"
+        );
+        assert_eq!(
+            recorded,
+            before + fixture.fee_to_jurors(),
+            "{verdict:?}: сума записів розійшлася зі сховищем"
+        );
     }
 }
 
@@ -347,7 +434,7 @@ fn leaves_no_dust_behind_when_the_pot_does_not_divide() {
     );
     let result = fixture.ok();
 
-    let pot = fixture.slash(fixture.policy.slash_bps_wrong);
+    let pot = fixture.slash(fixture.policy.slash_bps_wrong) + fixture.fee_to_jurors();
     let handed: u64 = (0..3)
         .map(|index| fixture.stake_of(&result, index) - staked())
         .sum();
@@ -370,7 +457,7 @@ fn hands_a_status_quo_pot_to_those_who_actually_revealed() {
     );
     let result = fixture.ok();
 
-    let pot = fixture.slash(fixture.policy.slash_bps_no_reveal);
+    let pot = fixture.slash(fixture.policy.slash_bps_no_reveal) + fixture.fee_to_jurors();
     let handed = fixture.stake_of(&result, 0) - staked() + fixture.stake_of(&result, 1) - staked();
     assert_eq!(handed, pot);
 }
@@ -393,6 +480,200 @@ fn settles_a_panel_that_left_nobody_to_pay() {
         );
         assert_eq!(fixture.locks_of(&result, index), 1);
     }
+}
+
+// ── FR-026b: оплата розгляду ────────────────────────────────────────────────
+
+/// Депозит розходиться повністю: більша частина — присяжним, залишок —
+/// протоколу, а сховище спору закривається порожнім. Сума, що лишилась би в
+/// ньому, не належала б нікому: інструкції, здатної її дістати, у програмі
+/// немає (`FR-014`).
+#[test]
+fn splits_the_deposit_between_the_jurors_and_the_protocol() {
+    let fixture = Fixture::new(
+        &[
+            Did::Voted(Ballot::Claimant),
+            Did::Voted(Ballot::Claimant),
+            Did::Voted(Ballot::Respondent),
+        ],
+        Verdict::Claimant,
+    );
+    let before = staked() * 3;
+    let result = fixture.ok();
+
+    assert_eq!(
+        fixture.balance(&result, &stake_vault_pda().0),
+        before + fixture.fee_to_jurors()
+    );
+    assert_eq!(
+        fixture.balance(&result, &fixture.treasury_tokens),
+        fixture.fee_to_protocol()
+    );
+}
+
+/// Комісія приходить присяжному тим самим записом, що й злетіле зі стейків, —
+/// але під неї треба справді перевести токени. Тест дивиться на обидва боки
+/// одразу: у переможця більше на свою частку, і рівно на неї ж більше в
+/// сховищі стейків.
+#[test]
+fn pays_the_review_to_those_whose_vote_matched() {
+    let fixture = Fixture::new(
+        &[
+            Did::Voted(Ballot::Claimant),
+            Did::Voted(Ballot::Respondent),
+            Did::Voted(Ballot::Respondent),
+        ],
+        Verdict::Respondent,
+    );
+    let result = fixture.ok();
+
+    let pot = fixture.slash(fixture.policy.slash_bps_wrong) + fixture.fee_to_jurors();
+    for index in [1, 2] {
+        assert_eq!(fixture.stake_of(&result, index), staked() + pot / 2);
+    }
+    assert_eq!(
+        fixture.stake_of(&result, 0),
+        staked() - fixture.slash(fixture.policy.slash_bps_wrong)
+    );
+}
+
+/// Статус-кво не залишає панель без оплати. Збігатися з вердиктом там немає з
+/// чим, але розгляд відбувся, і той, хто розкрився, зробив ту саму роботу —
+/// це те саме рішення, що й у розподілі злетілого.
+#[test]
+fn pays_the_review_even_when_the_panel_ended_in_a_status_quo() {
+    let fixture = Fixture::build(
+        &[
+            Did::Voted(Ballot::Claimant),
+            Did::Voted(Ballot::Respondent),
+            Did::Sealed,
+        ],
+        Verdict::StatusQuo,
+        DisputeState::Tallied,
+        true,
+    );
+    let before = staked() * 3;
+    let result = fixture.ok();
+
+    assert_eq!(
+        fixture.balance(&result, &stake_vault_pda().0),
+        before + fixture.fee_to_jurors()
+    );
+}
+
+/// Панель змовчала цілком — платити нікому, і частка присяжних не має де
+/// осісти. Вона йде протоколу, а не лишається у сховищі, яке закривається: там
+/// вона просто зникла б.
+#[test]
+fn hands_the_whole_review_to_the_protocol_when_nobody_was_right() {
+    let fixture = Fixture::new(
+        &[Did::Sealed, Did::Missing, Did::Sealed],
+        Verdict::StatusQuo,
+    );
+    let before = staked() * 3;
+    let result = fixture.ok();
+
+    assert_eq!(
+        fixture.balance(&result, &fixture.treasury_tokens),
+        fixture.policy.deposit
+    );
+    assert_eq!(fixture.balance(&result, &stake_vault_pda().0), before);
+}
+
+/// `FR-026c`: недобір падає на протокол, а не на присяжного. Присяжний рахує
+/// свій заробіток наперед з оголошеної ціни розгляду і не має як перевірити,
+/// скільки дійшло до сховища; протокол має.
+#[test]
+fn lets_the_protocol_go_short_before_a_juror_does() {
+    let short = usdc(4);
+    let fixture = Fixture::new(
+        &[
+            Did::Voted(Ballot::Claimant),
+            Did::Voted(Ballot::Claimant),
+            Did::Voted(Ballot::Respondent),
+        ],
+        Verdict::Claimant,
+    )
+    .holding(short);
+    let before = staked() * 3;
+    let result = fixture.ok();
+
+    assert_eq!(short, fixture.fee_to_jurors());
+    assert_eq!(
+        fixture.balance(&result, &stake_vault_pda().0),
+        before + fixture.fee_to_jurors()
+    );
+    assert_eq!(fixture.balance(&result, &fixture.treasury_tokens), 0);
+}
+
+/// Сховище спору закривається завжди — інакше на кожен розгляд лишався б
+/// порожній токен-акаунт із замкненою орендою, і накопичувалась би вона рівно з
+/// тією швидкістю, з якою протокол працює. Оренда дістається кранку: це і є
+/// причина взагалі викликати дозвільну інструкцію.
+#[test]
+fn closes_the_dispute_vault_and_pays_the_crank_its_rent() {
+    let fixture = Fixture::new(&[Did::Voted(Ballot::Claimant); 3], Verdict::Claimant);
+    let result = fixture.ok();
+
+    // Закритий акаунт — це нуль лампортів і стерті дані; розпакувати з нього
+    // баланс уже неможливо, і саме це й означає «закритий».
+    let vault = resulting(&result, &fixture.dispute_vault);
+    assert_eq!(vault.lamports, 0, "сховище спору лишилось відкритим");
+    assert!(
+        vault.data.iter().all(|byte| *byte == 0),
+        "у закритому сховищі лишились дані"
+    );
+    assert!(
+        resulting(&result, &fixture.crank).lamports > 1_000_000_000,
+        "оренда сховища не дійшла до кранка"
+    );
+}
+
+/// Скарбниця перевіряється за власником із `Config`, а не «якийсь токен-акаунт
+/// того самого мінта». Без цього комісію протоколу забирав би той, хто першим
+/// викличе кранк зі своїм акаунтом.
+#[test]
+fn refuses_a_treasury_account_owned_by_somebody_else() {
+    let fixture = Fixture::new(&[Did::Voted(Ballot::Claimant); 3], Verdict::Claimant);
+
+    let mut accounts = fixture.accounts.clone();
+    replace(
+        &mut accounts,
+        &fixture.treasury_tokens,
+        token_account(&fixture.mint, &Pubkey::new_unique(), 0),
+    );
+
+    let result = mollusk_at(APPEAL_DEADLINE).process_instruction(&fixture.ix(), &accounts);
+    assert!(result.program_result.is_err());
+}
+
+/// `FR-029`: куди розійшлась оплата, видно з подій. Двох чисел досить, щоб
+/// звести баланс сховища, якого після розрахунку вже не існує.
+#[test]
+fn announces_where_the_review_payment_went() {
+    let fixture = Fixture::new(
+        &[
+            Did::Voted(Ballot::Claimant),
+            Did::Voted(Ballot::Claimant),
+            Did::Voted(Ballot::Respondent),
+        ],
+        Verdict::Claimant,
+    );
+    let (mut mollusk, logs) = mollusk_with_logs();
+    mollusk.sysvars.clock.unix_timestamp = APPEAL_DEADLINE;
+
+    let result = mollusk.process_instruction(&fixture.ix(), &fixture.accounts);
+    assert!(result.program_result.is_ok(), "{:?}", result.raw_result);
+
+    let events: Vec<DisputeFeeSettled> = emitted(&logs);
+    assert_eq!(events.len(), 1);
+    assert_eq!(events[0].dispute, fixture.dispute);
+    assert_eq!(events[0].jurors, fixture.fee_to_jurors());
+    assert_eq!(events[0].protocol, fixture.fee_to_protocol());
+    assert_eq!(
+        events[0].jurors + events[0].protocol,
+        fixture.policy.deposit
+    );
 }
 
 // ── реєстр ──────────────────────────────────────────────────────────────────
@@ -609,11 +890,14 @@ fn announces_the_reward_and_the_finalization() {
     let result = mollusk.process_instruction(&fixture.ix(), &fixture.accounts);
     assert!(result.program_result.is_ok(), "{:?}", result.raw_result);
 
+    // Подія несе те, що присяжний справді отримав, — злетіле й комісію разом.
+    // Розділяти їх у події означало б обіцяти спостерігачу два джерела там, де
+    // виплата одна: `DisputeFeeSettled` уже каже, скільки з цього — оплата.
     let rewards: Vec<JurorRewarded> = emitted(&logs);
     assert_eq!(rewards.len(), 2);
     assert_eq!(
         rewards.iter().map(|event| event.amount).sum::<u64>(),
-        fixture.slash(fixture.policy.slash_bps_wrong)
+        fixture.slash(fixture.policy.slash_bps_wrong) + fixture.fee_to_jurors()
     );
 
     let finalized: Vec<DisputeFinalized> = emitted(&logs);

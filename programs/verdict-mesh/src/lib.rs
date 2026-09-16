@@ -6,6 +6,7 @@ pub mod instructions;
 pub mod panel;
 pub mod seeds;
 pub mod state;
+pub mod vault;
 pub mod vote;
 
 pub use errors::VerdictMeshError;
@@ -25,11 +26,11 @@ declare_id!("8WyWpDD1ZbkTRGG6SRcYyWxApPsHaSgWn2SWJQ8xSgxq");
 pub mod verdict_mesh {
     use super::*;
 
-    /// Разова ініціалізація протоколу: розрахунковий актив і ключ ролі
-    /// reporter. Інструкції, що змінює записане, у програмі немає — див.
-    /// `instructions::initialize`.
-    pub fn initialize(ctx: Context<Initialize>, reporter: Pubkey) -> Result<()> {
-        Initialize::handle(ctx, reporter)
+    /// Разова ініціалізація протоколу: розрахунковий актив, ключ ролі reporter
+    /// і адреса скарбниці. Інструкції, що змінює записане, у програмі немає —
+    /// див. `instructions::initialize`.
+    pub fn initialize(ctx: Context<Initialize>, reporter: Pubkey, treasury: Pubkey) -> Result<()> {
+        Initialize::handle(ctx, reporter, treasury)
     }
 
     /// Закріплює за інтегратором політику арбітражу. Політика перевіряється

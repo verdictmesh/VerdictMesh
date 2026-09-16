@@ -1,8 +1,8 @@
 //! T010 — `Config` і `initialize` (`FR-011a`, `FR-017`).
 //!
 //! `Config` — єдиний глобальний акаунт протоколу і водночас місце, де живуть
-//! обидві прив'язки, які потім ніхто не може посунути: спільний розрахунковий
-//! актив і ключ ролі reporter. Тому тести тут перевіряють не стільки успішний
+//! три прив'язки, які потім ніхто не може посунути: спільний розрахунковий
+//! актив, ключ ролі reporter і адресу скарбниці. Тому тести тут перевіряють не стільки успішний
 //! запис, скільки те, чого зробити **не можна**: записати вдруге, підсунути не
 //! той PDA, оголосити розрахунковим активом акаунт, який не є мінтом.
 
@@ -23,6 +23,7 @@ struct Fixture {
     config: Pubkey,
     mint: Pubkey,
     reporter: Pubkey,
+    treasury: Pubkey,
     accounts: Vec<(solana_address::Address, Account)>,
 }
 
@@ -31,6 +32,7 @@ impl Fixture {
         let payer = Pubkey::new_unique();
         let mint = Pubkey::new_unique();
         let reporter = Pubkey::new_unique();
+        let treasury = Pubkey::new_unique();
         let (config, _) = config_pda();
 
         let accounts = vec![
@@ -45,6 +47,7 @@ impl Fixture {
             config,
             mint,
             reporter,
+            treasury,
             accounts,
         }
     }
@@ -54,6 +57,16 @@ impl Fixture {
     }
 
     fn ix_with(&self, config: Pubkey, mint: Pubkey, reporter: Pubkey) -> Instruction {
+        self.ix_full(config, mint, reporter, self.treasury)
+    }
+
+    fn ix_full(
+        &self,
+        config: Pubkey,
+        mint: Pubkey,
+        reporter: Pubkey,
+        treasury: Pubkey,
+    ) -> Instruction {
         anchor_ix(
             verdict_mesh::accounts::Initialize {
                 payer: self.payer,
@@ -61,7 +74,7 @@ impl Fixture {
                 settlement_mint: mint,
                 system_program: SYSTEM_PROGRAM,
             },
-            verdict_mesh::instruction::Initialize { reporter },
+            verdict_mesh::instruction::Initialize { reporter, treasury },
         )
     }
 }
@@ -76,6 +89,7 @@ fn writes_the_settlement_mint_and_the_reporter_key() {
     let config: Config = decode(resulting(&result, &fixture.config));
     assert_eq!(config.settlement_mint, fixture.mint);
     assert_eq!(config.reporter, fixture.reporter);
+    assert_eq!(config.treasury, fixture.treasury);
     assert_eq!(config.bump, config_pda().1);
 }
 
@@ -200,4 +214,44 @@ fn does_not_require_the_mint_to_sign() {
 
     assert!(!mint.is_signer);
     assert!(!mint.is_writable);
+}
+
+/// Скарбниця з нульовим ключем ламає не комісію, а **фіналізацію**: розрахунок
+/// спору переказує її частку (`FR-026b`) і падає на токен-акаунті, якого в
+/// нульового ключа немає. Разом із переказом падає весь кранк — слешинг і вихід
+/// присяжних із реєстру теж, — тож кожен спір такого протоколу застрягає
+/// назавжди. Виправити нічим: інструкції оновлення `Config` не існує.
+#[test]
+fn rejects_the_default_key_as_treasury() {
+    let fixture = Fixture::new();
+
+    let result = mollusk().process_instruction(
+        &fixture.ix_full(
+            fixture.config,
+            fixture.mint,
+            fixture.reporter,
+            Pubkey::default(),
+        ),
+        &fixture.accounts,
+    );
+
+    assert!(failed_with(&result, VerdictMeshError::InvalidTreasury));
+}
+
+/// Скарбниця — адреса призначення, а не роль. Ключ, який нічого не підписує і
+/// нічого не викликає, не може ані змінити вердикт, ані дістати чужі кошти:
+/// саме тому `FR-026b` не суперечить `FR-014`. Тест дивиться на список акаунтів
+/// інструкції — скарбниці в ньому немає взагалі, вона лише аргумент.
+#[test]
+fn does_not_take_the_treasury_as_an_account() {
+    let fixture = Fixture::new();
+
+    assert!(
+        !fixture
+            .ix()
+            .accounts
+            .iter()
+            .any(|meta| meta.pubkey == addr(&fixture.treasury)),
+        "the treasury is a destination address, never a signer or an account"
+    );
 }

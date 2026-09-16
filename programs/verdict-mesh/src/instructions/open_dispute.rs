@@ -1,10 +1,13 @@
 use anchor_lang::prelude::*;
+use anchor_spl::token_interface::{
+    transfer_checked, Mint, TokenAccount, TokenInterface, TransferChecked,
+};
 
 use crate::{
     errors::VerdictMeshError,
-    events::DisputeOpened,
+    events::{DepositCollected, DisputeOpened},
     seeds,
-    state::{Dispute, DisputeState, Integrator},
+    state::{Config, Dispute, DisputeState, Integrator},
 };
 
 impl OpenDispute<'_> {
@@ -14,10 +17,10 @@ impl OpenDispute<'_> {
     /// розгляду не змінювались до фіналізації, а посилання на `Integrator`
     /// цього не дає.
     ///
-    /// Депозит за розгляд тут ще не переказується — сховище депозитів з'являється
-    /// разом із рештою токен-логіки (T021, `FR-026`). Сума, яку винна сторона,
-    /// уже зафіксована знімком політики, тож переказ додається, не змінюючи
-    /// нічого із записаного тут.
+    /// Депозит за розгляд знімається тут і зараз — `FR-026`. Він же і є ціна
+    /// розгляду (`FR-026d`), тож спору без оплаченого розгляду не існує в
+    /// принципі: сховище створюється й наповнюється тією ж транзакцією, що
+    /// відкриває спір, і панель ніколи не працює в борг.
     pub fn handle(
         ctx: Context<OpenDispute>,
         claimant: Pubkey,
@@ -80,6 +83,30 @@ impl OpenDispute<'_> {
         dispute.verdict = None;
         dispute.bump = ctx.bumps.dispute;
 
+        // Переказ **після** запису стану: сховище виводиться з адреси спору, і
+        // до її створення переказувати нікуди. Порядок безпечний — обидві
+        // половини в одній транзакції, тож спір без депозиту не лишається.
+        let deposit = policy.deposit;
+        transfer_checked(
+            CpiContext::new(
+                ctx.accounts.token_program.to_account_info(),
+                TransferChecked {
+                    from: ctx.accounts.depositor_tokens.to_account_info(),
+                    mint: ctx.accounts.settlement_mint.to_account_info(),
+                    to: ctx.accounts.dispute_vault.to_account_info(),
+                    authority: ctx.accounts.depositor.to_account_info(),
+                },
+            ),
+            deposit,
+            ctx.accounts.settlement_mint.decimals,
+        )?;
+
+        emit!(DepositCollected {
+            dispute: dispute.key(),
+            depositor: claimant,
+            amount: deposit,
+        });
+
         // FR-029: за подіями зовнішній спостерігач відновлює хронологію спору
         // без доступу до офчейн-сервісу. Watcher (T027) читає саме цю.
         emit!(DisputeOpened {
@@ -100,11 +127,31 @@ impl OpenDispute<'_> {
 #[derive(Accounts)]
 #[instruction(claimant: Pubkey, respondent: Pubkey)]
 pub struct OpenDispute<'info> {
-    /// Оренду акаунта спору платить той, хто ініціює транзакцію, а не PDA
+    /// Оренду акаунтів спору платить той, хто ініціює транзакцію, а не PDA
     /// ескроу: у PDA може не бути лампортів, і вимагати їх від нього означало б
     /// вимагати від інтегратора тримати баланс у чужій програмі.
     #[account(mut)]
     pub payer: Signer<'info>,
+
+    #[account(seeds = [seeds::CONFIG], bump = config.bump)]
+    pub config: Account<'info, Config>,
+
+    /// Депозит іде в розрахунковому активі протоколу, а не в активі спору:
+    /// `FR-011a` тримає економіку присяжних незалежною від того, над чим саме
+    /// сперечаються сторони.
+    #[account(address = config.settlement_mint)]
+    pub settlement_mint: InterfaceAccount<'info, Mint>,
+
+    /// Депозит вносить **сторона, яка відкриває спір** — `FR-026`, і це саме
+    /// той, кого спір записує як `claimant`. Рівність тут не формальність: без
+    /// неї ескроу міг би відкрити спір «від імені» позивача, а заплатити з
+    /// чужого гаманця, і `FR-026a` не мав би на чому триматись — вартість
+    /// розгляду несла б людина, яка про спір не знала.
+    ///
+    /// Підпис проходить крізь CPI: ескроу підписує спір своїм PDA, позивач —
+    /// зовнішню транзакцію.
+    #[account(constraint = depositor.key() == claimant @ VerdictMeshError::NotTheDepositor)]
+    pub depositor: Signer<'info>,
 
     #[account(
         mut,
@@ -145,6 +192,32 @@ pub struct OpenDispute<'info> {
         bump,
     )]
     pub dispute: Account<'info, Dispute>,
+
+    #[account(
+        mut,
+        token::mint = settlement_mint,
+        token::authority = depositor,
+    )]
+    pub depositor_tokens: InterfaceAccount<'info, TokenAccount>,
+
+    /// Сховище цього спору — і тільки цього. Окреме на спір, а не спільне:
+    /// сюди ж ляже апеляційна застава (`FR-021`), яку доведеться повертати
+    /// поіменно, а зі спільного сховища «чия саме це сума» не читається.
+    ///
+    /// Авторитет — `Config`, той самий PDA, що й у сховища стейків: приватного
+    /// ключа до нього не існує, тож депозит виходить лише тим шляхом, який
+    /// програма підпише сама (`FR-014`).
+    #[account(
+        init,
+        payer = payer,
+        seeds = [seeds::DISPUTE_VAULT, dispute.key().as_ref()],
+        bump,
+        token::mint = settlement_mint,
+        token::authority = config,
+    )]
+    pub dispute_vault: InterfaceAccount<'info, TokenAccount>,
+
+    pub token_program: Interface<'info, TokenInterface>,
 
     pub system_program: Program<'info, System>,
 }

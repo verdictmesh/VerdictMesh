@@ -59,7 +59,10 @@ impl Fixture {
         let tokens: Vec<Pubkey> = (0..count).map(|_| Pubkey::new_unique()).collect();
 
         let mut accounts = vec![
-            (addr(&config_pda().0), config_account(&mint, &reporter)),
+            (
+                addr(&config_pda().0),
+                config_account(&mint, &reporter, &Pubkey::new_unique()),
+            ),
             (addr(&mint), settlement_mint()),
             (
                 addr(&registry_pda().0),

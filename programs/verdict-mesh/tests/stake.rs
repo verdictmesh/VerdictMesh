@@ -90,7 +90,10 @@ impl Fixture {
 
         let accounts = vec![
             (addr(&juror), wallet(10_000_000_000)),
-            (addr(&config_pda().0), config_account(&mint, &reporter)),
+            (
+                addr(&config_pda().0),
+                config_account(&mint, &reporter, &Pubkey::new_unique()),
+            ),
             (addr(&mint), settlement_mint()),
             (addr(&registry_pda().0), registry),
             (addr(&juror_pda(&juror).0), missing()),

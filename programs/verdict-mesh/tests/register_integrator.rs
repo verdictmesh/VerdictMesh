@@ -43,7 +43,11 @@ impl Fixture {
             (addr(&integrator), missing()),
             (
                 addr(&config),
-                config_account(&Pubkey::new_unique(), &Pubkey::new_unique()),
+                config_account(
+                    &Pubkey::new_unique(),
+                    &Pubkey::new_unique(),
+                    &Pubkey::new_unique(),
+                ),
             ),
             (addr(&escrow_program), executable_program()),
             keyed_account_for_system_program(),

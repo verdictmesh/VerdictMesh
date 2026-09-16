@@ -7,11 +7,12 @@ use crate::{errors::VerdictMeshError, seeds, state::Config};
 ///
 /// `Config` записується один раз і не має інструкції оновлення — це не забутий
 /// функціонал. Ключ, здатний переставити `settlement_mint` під уже застейкані
-/// кошти або переписати `reporter` посеред спору, був би саме тим ключем, якого
-/// за `FR-014` у системі бути не повинно. Змінити ці два поля можна лише
-/// міграцією програми, тобто на очах у всіх (docs/PLAN.md → «Модель даних»).
+/// кошти, переписати `reporter` посеред спору чи перевести на себе комісію
+/// протоколу, був би саме тим ключем, якого за `FR-014` у системі бути не
+/// повинно. Змінити ці поля можна лише міграцією програми, тобто на очах у всіх
+/// (docs/PLAN.md → «Модель даних»).
 impl Initialize<'_> {
-    pub fn handle(ctx: Context<Initialize>, reporter: Pubkey) -> Result<()> {
+    pub fn handle(ctx: Context<Initialize>, reporter: Pubkey, treasury: Pubkey) -> Result<()> {
         // Нульовий ключ — валідна адреса, приватного ключа до якої не існує. Без
         // цієї перевірки помилка клієнта дала б `Config`, у якому `attest_report`
         // недосяжний назавжди: виправити нема чим, інструкції оновлення немає.
@@ -20,10 +21,20 @@ impl Initialize<'_> {
             Pubkey::default(),
             VerdictMeshError::InvalidReporter
         );
+        // Те саме для скарбниці, але наслідок інший: розрахунок спору переказує
+        // її частку (`FR-026b`) і впаде на токен-акаунті, якого в нульового
+        // ключа не існує. Впаде **вся** фіналізація — разом зі слешингом і
+        // виходом присяжних із реєстру, тобто спір застрягне назавжди.
+        require_keys_neq!(
+            treasury,
+            Pubkey::default(),
+            VerdictMeshError::InvalidTreasury
+        );
 
         let config = &mut ctx.accounts.config;
         config.settlement_mint = ctx.accounts.settlement_mint.key();
         config.reporter = reporter;
+        config.treasury = treasury;
         config.bump = ctx.bumps.config;
 
         Ok(())

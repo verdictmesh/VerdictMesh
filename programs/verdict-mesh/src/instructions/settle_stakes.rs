@@ -1,10 +1,15 @@
 use anchor_lang::prelude::*;
+use anchor_spl::token_interface::{
+    close_account, transfer_checked, CloseAccount, Mint, TokenAccount, TokenInterface,
+    TransferChecked,
+};
 
 use crate::{
     errors::VerdictMeshError,
-    events::{DisputeFinalized, JurorRewarded, JurorSlashed},
+    events::{DisputeFeeSettled, DisputeFinalized, JurorRewarded, JurorSlashed},
     seeds,
-    state::{Dispute, DisputeState, Juror, Verdict, VoteCommit, BPS_DENOMINATOR},
+    state::{Config, Dispute, DisputeState, Juror, Verdict, VoteCommit},
+    vault::{self, FeeSplit},
 };
 
 /// Розрахунок стейків панелі — `FR-011`, `FR-008b`, `FR-027b`.
@@ -30,19 +35,33 @@ use crate::{
 /// зійшлась, — теж. Мовчання карається й тут: саме воно ескалацію й спричинило
 /// (`FR-027b`).
 ///
-/// **Частка комісії за розгляд (`FR-011`) тут не роздається** — депозит і його
-/// розподіл живуть у `vault.rs` (T021, `FR-026b`). Тут ділиться лише те, що
-/// злетіло зі стейків: без цього правильний голос не приносив би нічого, а
-/// сховище накопичувало б суму, якої ніхто не може забрати.
+/// **Оплата розгляду роздається тут же, і це одна інструкція навмисно.**
+/// Депозит (`FR-026`) ділиться між тими самими присяжними, яких щойно перебрав
+/// слешинг, — множина «хто був правий» рахується один раз і не може розійтися
+/// між двома кранками. Друга причина важливіша за першу: окрема інструкція
+/// мала б власне вікно, у якому спір уже фіналізований, а комісія ще ні, і
+/// порядок двох дозвільних викликів вирішував би, чи дістанеться присяжному
+/// заробіток. Математика ділення — у `vault.rs`.
 ///
-/// **Інструкція нічия і остання.** Дозвільний кранк без підпису; він же знімає
-/// `active_disputes` — по одиниці, а не в нуль: присяжний сидить у кількох
-/// панелях одночасно.
+/// **Комісія приходить присяжному тим самим записом, що й злетіле.** Різниця
+/// лише в тому, що під неї треба справді перевести токени: злетіле вже лежить
+/// у сховищі стейків, а депозит — у сховищі спору. Тому частка присяжних
+/// переказується `dispute_vault → stake_vault` рівно тією сумою, на яку зросте
+/// сума записів, і рівність «сховище ≥ сума записів» не хитається.
+///
+/// **Інструкція остання і дозвільна.** Підписати її може будь-хто; єдине, що
+/// дає підпис, — оренду закритого сховища спору. Це не привілей, а причина
+/// взагалі викликати кранк, без якої спір лишався б нефіналізованим, доки
+/// комусь не стане цікаво. Він же знімає `active_disputes` — по одиниці, а не в
+/// нуль: присяжний сидить у кількох панелях одночасно.
 impl<'info> SettleStakes<'info> {
     pub fn handle(ctx: Context<'_, '_, 'info, 'info, SettleStakes<'info>>) -> Result<()> {
         let now = Clock::get()?.unix_timestamp;
         let dispute_key = ctx.accounts.dispute.key();
-        let dispute = &mut ctx.accounts.dispute;
+        // Читання, а не `&mut`: єдина зміна в самому спорі — перехід у
+        // `Finalized` в кінці, а незакрита мутабельна позика не дала б передати
+        // решту акаунтів у переказ комісії.
+        let dispute = &ctx.accounts.dispute;
 
         require!(
             dispute.state == DisputeState::Tallied,
@@ -80,7 +99,7 @@ impl<'info> SettleStakes<'info> {
                 None => policy.slash_bps_no_reveal,
             };
 
-            let slashed = share_of(juror.stake, bps)?;
+            let slashed = vault::share_of(juror.stake, bps)?;
             juror.stake = juror
                 .stake
                 .checked_sub(slashed)
@@ -110,6 +129,25 @@ impl<'info> SettleStakes<'info> {
         // сховищі — вивести його нікому й нічим, бо інструкції, що дає комусь
         // владу над коштами, у програмі немає (`FR-014`).
         let winners = jurors.iter().filter(|(_, _, won)| *won).count();
+
+        // Оплата розгляду — `FR-026b`. Ділиться те, що справді лежить у сховищі
+        // спору, а частка присяжних рахується від оголошеної ціни: нестача,
+        // якщо колись виникне, має падати на протокол, а не на присяжного.
+        let fee = vault::split_fee(
+            ctx.accounts.dispute_vault.amount,
+            policy.deposit,
+            winners > 0,
+        )?;
+        Self::pay_fee(&ctx, &fee)?;
+
+        // Комісія доливається в те саме відро, що й злетіле зі стейків: обидві
+        // суми дістаються тим самим людям за той самий розгляд, і рахувати їх
+        // окремо означало б двічі ділити з залишком — тобто загубити копійку
+        // там, де вона нічия.
+        pot = pot
+            .checked_add(fee.jurors)
+            .ok_or(VerdictMeshError::Overflow)?;
+
         if winners > 0 {
             let winners = u64::try_from(winners).map_err(|_| VerdictMeshError::Overflow)?;
             let each = pot / winners;
@@ -140,7 +178,13 @@ impl<'info> SettleStakes<'info> {
             store(&ctx.remaining_accounts[2 * seat], juror)?;
         }
 
-        dispute.state = DisputeState::Finalized;
+        ctx.accounts.dispute.state = DisputeState::Finalized;
+
+        emit!(DisputeFeeSettled {
+            dispute: dispute_key,
+            jurors: fee.jurors,
+            protocol: fee.protocol,
+        });
 
         emit!(DisputeFinalized {
             dispute: dispute_key,
@@ -149,6 +193,57 @@ impl<'info> SettleStakes<'info> {
         });
 
         Ok(())
+    }
+
+    /// Виводить оплату розгляду зі сховища спору і закриває його.
+    ///
+    /// Сховище закривається **завжди**, навіть коли ділити не було чого:
+    /// порожній токен-акаунт на кожен спір — це оренда, замкнена назавжди, і
+    /// накопичується вона рівно з тією швидкістю, з якою протокол працює.
+    fn pay_fee(
+        ctx: &Context<'_, '_, 'info, 'info, SettleStakes<'info>>,
+        fee: &FeeSplit,
+    ) -> Result<()> {
+        let config_bump = ctx.accounts.config.bump;
+        let signer_seeds: &[&[&[u8]]] = &[&[seeds::CONFIG, &[config_bump]]];
+        let decimals = ctx.accounts.settlement_mint.decimals;
+
+        let pay = |to: AccountInfo<'info>, amount: u64| -> Result<()> {
+            if amount == 0 {
+                return Ok(());
+            }
+
+            transfer_checked(
+                CpiContext::new_with_signer(
+                    ctx.accounts.token_program.to_account_info(),
+                    TransferChecked {
+                        from: ctx.accounts.dispute_vault.to_account_info(),
+                        mint: ctx.accounts.settlement_mint.to_account_info(),
+                        to,
+                        authority: ctx.accounts.config.to_account_info(),
+                    },
+                    signer_seeds,
+                ),
+                amount,
+                decimals,
+            )
+        };
+
+        // Частка присяжних переїжджає у сховище стейків, бо саме там живуть їхні
+        // баланси: `Juror.stake` — це запис проти того сховища, і збільшити його,
+        // не долив токенів, означало б пообіцяти більше, ніж є.
+        pay(ctx.accounts.stake_vault.to_account_info(), fee.jurors)?;
+        pay(ctx.accounts.treasury_tokens.to_account_info(), fee.protocol)?;
+
+        close_account(CpiContext::new_with_signer(
+            ctx.accounts.token_program.to_account_info(),
+            CloseAccount {
+                account: ctx.accounts.dispute_vault.to_account_info(),
+                destination: ctx.accounts.crank.to_account_info(),
+                authority: ctx.accounts.config.to_account_info(),
+            },
+            signer_seeds,
+        ))
     }
 }
 
@@ -196,17 +291,6 @@ fn revealed_choice<'info>(
     Ok(vote.choice.map(|choice| choice.verdict()))
 }
 
-/// Частка від суми в базисних пунктах. Через `u128`, бо добуток `u64` на
-/// десять тисяч не вміщається в `u64` — а це стейк, а не лічильник.
-fn share_of(amount: u64, bps: u16) -> Result<u64> {
-    let share = u128::from(amount)
-        .checked_mul(u128::from(bps))
-        .ok_or(VerdictMeshError::Overflow)?
-        / u128::from(BPS_DENOMINATOR);
-
-    u64::try_from(share).map_err(|_| VerdictMeshError::Overflow.into())
-}
-
 /// Записує змінений стан присяжного назад в акаунт: Anchor робить це сам лише
 /// для полів контексту, `remaining_accounts` — на совісті інструкції.
 fn store(info: &AccountInfo, juror: &Juror) -> Result<()> {
@@ -242,6 +326,52 @@ pub struct SettleStakes<'info> {
         bump = dispute.bump,
     )]
     pub dispute: Account<'info, Dispute>,
+
+    /// Хто завгодно. Підпис потрібен лише тому, що оренду закритого сховища
+    /// спору треба комусь віддати, і найчесніший отримувач — той, хто взяв на
+    /// себе виклик кранка.
+    #[account(mut)]
+    pub crank: Signer<'info>,
+
+    #[account(seeds = [seeds::CONFIG], bump = config.bump)]
+    pub config: Account<'info, Config>,
+
+    #[account(address = config.settlement_mint)]
+    pub settlement_mint: InterfaceAccount<'info, Mint>,
+
+    /// Сховище цього спору. Закривається тут — тому й `mut`.
+    #[account(
+        mut,
+        seeds = [seeds::DISPUTE_VAULT, dispute.key().as_ref()],
+        bump,
+        token::mint = settlement_mint,
+        token::authority = config,
+    )]
+    pub dispute_vault: InterfaceAccount<'info, TokenAccount>,
+
+    /// Сюди переїжджає частка присяжних: `Juror.stake` — запис проти цього
+    /// сховища, і зростати він може лише разом із ним.
+    #[account(
+        mut,
+        seeds = [seeds::STAKE_VAULT],
+        bump,
+        token::mint = settlement_mint,
+        token::authority = config,
+    )]
+    pub stake_vault: InterfaceAccount<'info, TokenAccount>,
+
+    /// Токен-акаунт скарбниці протоколу — `FR-026b`. Перевіряється за власником
+    /// із `Config`, а не за адресою самого акаунта: адреса ATA виводиться з
+    /// власника й мінта, обидва вже прив'язані, а зберігати її окремо означало б
+    /// друге джерело того самого факту.
+    #[account(
+        mut,
+        token::mint = settlement_mint,
+        token::authority = config.treasury,
+    )]
+    pub treasury_tokens: InterfaceAccount<'info, TokenAccount>,
+
+    pub token_program: Interface<'info, TokenInterface>,
     // `remaining_accounts`: пари (`Juror`, `VoteCommit`) на кожне місце панелі,
     // у її порядку. Акаунт голосу може бути порожнім — це присяжний, який
     // відбитка не подавав.

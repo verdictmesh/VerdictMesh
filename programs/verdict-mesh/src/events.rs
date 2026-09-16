@@ -16,6 +16,16 @@ pub struct DisputeOpened {
     pub opened_at: i64,
 }
 
+/// Депозит за розгляд внесено — `FR-026`. Сума в події тому, що вона є
+/// знімком політики на момент відкриття: інтегратор змінить `Policy` завтра, а
+/// сторона має бачити, скільки з неї взяли сьогодні (`FR-026d`).
+#[event]
+pub struct DepositCollected {
+    pub dispute: Pubkey,
+    pub depositor: Pubkey,
+    pub amount: u64,
+}
+
 #[event]
 pub struct PanelSelected {
     pub dispute: Pubkey,
@@ -86,6 +96,16 @@ pub struct JurorRewarded {
     pub dispute: Pubkey,
     pub juror: Pubkey,
     pub amount: u64,
+}
+
+/// Куди розійшлась оплата розгляду — `FR-026b`. Двох чисел досить, щоб звести
+/// баланс сховища спору: разом вони дорівнюють тому, що в ньому лежало, а сам
+/// акаунт після цього закривається.
+#[event]
+pub struct DisputeFeeSettled {
+    pub dispute: Pubkey,
+    pub jurors: u64,
+    pub protocol: u64,
 }
 
 #[event]

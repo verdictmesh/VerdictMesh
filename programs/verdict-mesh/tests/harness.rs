@@ -230,10 +230,11 @@ pub fn program_account<T: AnchorSerialize + Discriminator + Space>(state: &T) ->
 }
 
 /// Готовий `Config` — те, що лишає по собі `initialize`.
-pub fn config_account(settlement_mint: &Pubkey, reporter: &Pubkey) -> Account {
+pub fn config_account(settlement_mint: &Pubkey, reporter: &Pubkey, treasury: &Pubkey) -> Account {
     program_account(&Config {
         settlement_mint: *settlement_mint,
         reporter: *reporter,
+        treasury: *treasury,
         bump: config_pda().1,
     })
 }
@@ -410,6 +411,18 @@ pub fn dispute_account(dispute: &Dispute) -> Account {
 
 pub fn stake_vault_pda() -> (Pubkey, u8) {
     Pubkey::find_program_address(&[seeds::STAKE_VAULT], &PROGRAM_ID)
+}
+
+pub fn dispute_vault_pda(dispute: &Pubkey) -> (Pubkey, u8) {
+    Pubkey::find_program_address(&[seeds::DISPUTE_VAULT, dispute.as_ref()], &PROGRAM_ID)
+}
+
+/// Токен-акаунт під владою PDA програми — сховище стейків або сховище спору.
+/// Окремий помічник, бо `token_account` навмисно робить акаунти звичайних
+/// гаманців: підробити владу PDA тест не має права ніде, крім тих місць, де
+/// саме її й перевіряє.
+pub fn vault_account(mint: &Pubkey, amount: u64) -> Account {
+    token_account(mint, &config_pda().0, amount)
 }
 
 /// Акаунт самої програми. Потрібен там, де інструкція має необов'язкові
