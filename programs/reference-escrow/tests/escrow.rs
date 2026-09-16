@@ -50,10 +50,12 @@ struct Fixture {
     vault: Pubkey,
     buyer_tokens: Pubkey,
     seller_tokens: Pubkey,
-    /// Токени під депозит за розгляд. Розрахунковий актив протоколу, а не актив
-    /// угоди — `FR-011a`.
-    buyer_deposit: Pubkey,
-    seller_deposit: Pubkey,
+    /// Токени сторін у розрахунковому активі протоколу, а не в активі угоди
+    /// (`FR-011a`). З них іде і застава за розгляд при укладанні (`FR-026e`), і
+    /// депозит при відкритті спору (`FR-026`).
+    buyer_settlement: Pubkey,
+    seller_settlement: Pubkey,
+    bond_vault: Pubkey,
     accounts: Vec<(Address, Account)>,
 }
 
@@ -66,12 +68,13 @@ impl Fixture {
         let settlement_mint = Pubkey::new_unique();
         let buyer_tokens = Pubkey::new_unique();
         let seller_tokens = Pubkey::new_unique();
-        let buyer_deposit = Pubkey::new_unique();
-        let seller_deposit = Pubkey::new_unique();
+        let buyer_settlement = Pubkey::new_unique();
+        let seller_settlement = Pubkey::new_unique();
 
         let (integrator, _) = mesh_integrator_pda(&authority);
         let (escrow, _) = escrow_pda(&buyer, DEAL);
         let (vault, _) = escrow_vault_pda(&escrow);
+        let (bond_vault, _) = bond_vault_pda(&escrow);
         let (dispute, _) = mesh_dispute_pda(&integrator, 0);
 
         let accounts = vec![
@@ -85,6 +88,7 @@ impl Fixture {
             ),
             (addr(&escrow), missing()),
             (addr(&vault), missing()),
+            (addr(&bond_vault), missing()),
             (addr(&buyer_tokens), token_account(&mint, &buyer, usdc(500))),
             (addr(&seller_tokens), token_account(&mint, &seller, 0)),
             // VerdictMesh — потрібне лише спору, але фікстура одна на весь файл:
@@ -95,11 +99,11 @@ impl Fixture {
                 mesh_config_account(&settlement_mint),
             ),
             (
-                addr(&buyer_deposit),
+                addr(&buyer_settlement),
                 token_account(&settlement_mint, &buyer, usdc(50)),
             ),
             (
-                addr(&seller_deposit),
+                addr(&seller_settlement),
                 token_account(&settlement_mint, &seller, usdc(50)),
             ),
             (addr(&dispute), missing()),
@@ -120,8 +124,9 @@ impl Fixture {
             vault,
             buyer_tokens,
             seller_tokens,
-            buyer_deposit,
-            seller_deposit,
+            buyer_settlement,
+            seller_settlement,
+            bond_vault,
             accounts,
         }
     }
@@ -138,10 +143,16 @@ impl Fixture {
                 seller: self.seller,
                 mint: self.mint,
                 integrator,
+                config: mesh_config_pda().0,
+                settlement_mint: self.settlement_mint,
                 escrow: self.escrow,
                 buyer_tokens: self.buyer_tokens,
                 vault: self.vault,
+                buyer_bond_tokens: self.buyer_settlement,
+                seller_bond_tokens: self.seller_settlement,
+                bond_vault: self.bond_vault,
                 token_program: TOKEN_PROGRAM,
+                settlement_token_program: TOKEN_PROGRAM,
                 system_program: SYSTEM_PROGRAM,
             },
             reference_escrow::instruction::CreateEscrow {
@@ -158,7 +169,14 @@ impl Fixture {
         assert!(result.program_result.is_ok(), "{:?}", result.raw_result);
 
         let mut accounts = self.accounts.clone();
-        for key in [&self.escrow, &self.vault, &self.buyer_tokens] {
+        for key in [
+            &self.escrow,
+            &self.vault,
+            &self.buyer_tokens,
+            &self.bond_vault,
+            &self.buyer_settlement,
+            &self.seller_settlement,
+        ] {
             replace(&mut accounts, key, resulting(&result, key).clone());
         }
         accounts
@@ -177,7 +195,12 @@ impl Fixture {
                 mint: self.mint,
                 seller_tokens: self.seller_tokens,
                 vault: self.vault,
+                settlement_mint: self.settlement_mint,
+                buyer_bond_tokens: self.buyer_settlement,
+                seller_bond_tokens: self.seller_settlement,
+                bond_vault: self.bond_vault,
                 token_program: TOKEN_PROGRAM,
+                settlement_token_program: TOKEN_PROGRAM,
             },
             reference_escrow::instruction::ReleaseMilestone { milestone },
         )
@@ -189,9 +212,9 @@ impl Fixture {
 
     fn dispute_ix(&self, claimant: Pubkey, milestone: u8) -> Instruction {
         let tokens = if claimant == self.seller {
-            self.seller_deposit
+            self.seller_settlement
         } else {
-            self.buyer_deposit
+            self.buyer_settlement
         };
         self.dispute_ix_full(claimant, tokens, self.integrator, milestone)
     }
@@ -320,10 +343,16 @@ fn refuses_a_deal_where_both_sides_are_the_same_key() {
             seller: fixture.buyer,
             mint: fixture.mint,
             integrator: fixture.integrator,
+            config: mesh_config_pda().0,
+            settlement_mint: fixture.settlement_mint,
             escrow: fixture.escrow,
             buyer_tokens: fixture.buyer_tokens,
             vault: fixture.vault,
+            buyer_bond_tokens: fixture.buyer_settlement,
+            seller_bond_tokens: fixture.buyer_settlement,
+            bond_vault: fixture.bond_vault,
             token_program: TOKEN_PROGRAM,
+            settlement_token_program: TOKEN_PROGRAM,
             system_program: SYSTEM_PROGRAM,
         },
         reference_escrow::instruction::CreateEscrow {
@@ -572,7 +601,8 @@ fn takes_each_side_position_from_its_role() {
 
 /// Депозит за розгляд платить ініціатор (`FR-026`), і в **розрахунковому**
 /// активі протоколу, а не в активі угоди. Каса угоди при цьому не зрушила: спір
-/// не дає VerdictMesh жодної влади над цими коштами.
+/// не дає VerdictMesh жодної влади над цими коштами. Застава, замкнена при
+/// укладанні, теж лишається на місці — вона розійдеться разом із самою віхою.
 #[test]
 fn charges_the_initiator_the_review_deposit_and_leaves_the_deal_alone() {
     let fixture = Fixture::new();
@@ -582,9 +612,10 @@ fn charges_the_initiator_the_review_deposit_and_leaves_the_deal_alone() {
     assert!(result.program_result.is_ok(), "{:?}", result.raw_result);
 
     let deposit = demo_policy().deposit;
+    let bonds = deposit * milestones().len() as u64;
     assert_eq!(
-        token_state(resulting(&result, &fixture.seller_deposit)).amount,
-        usdc(50) - deposit
+        token_state(resulting(&result, &fixture.seller_settlement)).amount,
+        usdc(50) - bonds - deposit
     );
     assert_eq!(
         token_state(resulting(
@@ -639,7 +670,12 @@ fn refuses_a_dispute_under_a_policy_the_deal_never_agreed_to() {
     ));
 
     let result = mollusk().process_instruction(
-        &fixture.dispute_ix_full(fixture.seller, fixture.seller_deposit, other_integrator, 1),
+        &fixture.dispute_ix_full(
+            fixture.seller,
+            fixture.seller_settlement,
+            other_integrator,
+            1,
+        ),
         &accounts,
     );
     assert!(failed_with(&result, EscrowError::WrongIntegrator));
@@ -672,7 +708,7 @@ fn refuses_a_second_dispute_over_the_same_milestone() {
     for key in [
         &fixture.escrow,
         &fixture.integrator,
-        &fixture.seller_deposit,
+        &fixture.seller_settlement,
     ] {
         replace(&mut accounts, key, resulting(&first, key).clone());
     }

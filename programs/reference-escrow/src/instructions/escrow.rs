@@ -2,12 +2,16 @@ use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{
     transfer_checked, Mint, TokenAccount, TokenInterface, TransferChecked,
 };
-use verdict_mesh::{program::VerdictMesh, state::Integrator};
+use verdict_mesh::{
+    program::VerdictMesh,
+    state::{Config, Integrator},
+};
 
 use crate::{
     claims::{claim_of, Position},
     errors::EscrowError,
     events::{EscrowOpened, MilestoneDisputed, MilestoneReleased},
+    instructions::bond::Bonds,
     seeds,
     state::{Escrow, Milestone, MilestoneState, MAX_MILESTONES},
 };
@@ -27,9 +31,19 @@ use crate::{
 /// **Політика перевіряється тут, а не в момент спору.** `Integrator`, який
 /// вказує на іншу програму ескроу, не зміг би відкрити спір з цієї — і
 /// з'ясувалося б це в найгіршу мить, коли гроші вже замкнені, а звернутись
-/// нікуди.
-impl CreateEscrow<'_> {
-    pub fn handle(ctx: Context<CreateEscrow>, deal_id: u64, milestones: Vec<u64>) -> Result<()> {
+/// нікуди. З тієї ж причини тут же звіряється й актив застави.
+///
+/// **Разом з предметом угоди замикається застава за розгляд** — по депозиту на
+/// кожну віху з кожного боку (`FR-026e`). Це і є те джерело, з якого
+/// відшкодовується депозит переможцю: в ескроу «переможець забирає віху»
+/// іншого не існує, бо програвша сторона не отримує нічого, з чого можна було б
+/// утримати. Чому саме так — `instructions::bond`.
+impl<'info> CreateEscrow<'info> {
+    pub fn handle(
+        ctx: Context<'_, '_, '_, 'info, CreateEscrow<'info>>,
+        deal_id: u64,
+        milestones: Vec<u64>,
+    ) -> Result<()> {
         let buyer = ctx.accounts.buyer.key();
         let seller = ctx.accounts.seller.key();
         require_keys_neq!(buyer, seller, EscrowError::InvalidParties);
@@ -53,6 +67,16 @@ impl CreateEscrow<'_> {
             EscrowError::WrongArbitrationProgram
         );
 
+        // Застава відшкодовує депозит, а депозит іде в розрахунковому активі
+        // протоколу (`FR-011a`). Застава в будь-якому іншому активі не
+        // відшкодувала б нічого — і виявилось би це в момент виплати, коли
+        // розгляд уже відбувся.
+        require_keys_eq!(
+            ctx.accounts.settlement_mint.key(),
+            ctx.accounts.config.settlement_mint,
+            EscrowError::WrongSettlementMint
+        );
+
         transfer_checked(
             CpiContext::new(
                 ctx.accounts.token_program.to_account_info(),
@@ -69,10 +93,22 @@ impl CreateEscrow<'_> {
 
         let count = u8::try_from(milestones.len()).map_err(|_| EscrowError::InvalidMilestones)?;
 
+        // Застава — знімок депозиту, а не посилання на політику: угода не має
+        // дорожчати після того, як її підписали.
+        let bond = ctx.accounts.integrator.policy.deposit;
+        ctx.accounts.bonds().hold(
+            &ctx.accounts.buyer.to_account_info(),
+            &ctx.accounts.seller.to_account_info(),
+            bond,
+            milestones.len() as u64,
+        )?;
+
         let escrow = &mut ctx.accounts.escrow;
         escrow.buyer = buyer;
         escrow.seller = seller;
         escrow.mint = ctx.accounts.mint.key();
+        escrow.settlement_mint = ctx.accounts.settlement_mint.key();
+        escrow.bond = bond;
         escrow.integrator = ctx.accounts.integrator.key();
         escrow.deal_id = deal_id;
         escrow.milestones = milestones
@@ -92,9 +128,22 @@ impl CreateEscrow<'_> {
             integrator: escrow.integrator,
             total,
             milestones: count,
+            bond,
         });
 
         Ok(())
+    }
+
+    /// Каса застав і токен-акаунти сторін — у розрахунковому активі. Рух застави
+    /// живе в одному місці на всі три інструкції: `instructions::bond`.
+    fn bonds(&self) -> Bonds<'_, 'info> {
+        Bonds {
+            mint: &self.settlement_mint,
+            vault: &self.bond_vault,
+            buyer_tokens: &self.buyer_bond_tokens,
+            seller_tokens: &self.seller_bond_tokens,
+            token_program: &self.settlement_token_program,
+        }
     }
 }
 
@@ -105,8 +154,15 @@ impl CreateEscrow<'_> {
 /// дати йому платити собі, а дозвільний виклик перетворив би ескроу на кран.
 /// Незгода замовника — не безвихідь: у виконавця є спір (`dispute`), і
 /// відмовляти без підстав коштує депозиту й програного розгляду.
-impl ReleaseMilestone<'_> {
-    pub fn handle(ctx: Context<ReleaseMilestone>, milestone: u8) -> Result<()> {
+///
+/// **Разом із віхою повертається її застава — обом сторонам** (`FR-026e`).
+/// Віха, закрита без спору, розгляду не коштувала нікому, і тримати за неї
+/// заставу далі означало б лишити в касі замкненими справжні гроші, а не оренду.
+impl<'info> ReleaseMilestone<'info> {
+    pub fn handle(
+        ctx: Context<'_, '_, '_, 'info, ReleaseMilestone<'info>>,
+        milestone: u8,
+    ) -> Result<()> {
         let amount = {
             let entry = ctx.accounts.escrow.entry(milestone)?;
             require!(
@@ -137,6 +193,10 @@ impl ReleaseMilestone<'_> {
             ctx.accounts.mint.decimals,
         )?;
 
+        ctx.accounts
+            .bonds()
+            .refund(&ctx.accounts.escrow, ctx.accounts.escrow.bond)?;
+
         ctx.accounts.escrow.entry_mut(milestone)?.state = MilestoneState::Released;
 
         emit!(MilestoneReleased {
@@ -146,6 +206,16 @@ impl ReleaseMilestone<'_> {
         });
 
         Ok(())
+    }
+
+    fn bonds(&self) -> Bonds<'_, 'info> {
+        Bonds {
+            mint: &self.settlement_mint,
+            vault: &self.bond_vault,
+            buyer_tokens: &self.buyer_bond_tokens,
+            seller_tokens: &self.seller_bond_tokens,
+            token_program: &self.settlement_token_program,
+        }
     }
 }
 
@@ -277,6 +347,16 @@ pub struct CreateEscrow<'info> {
     /// вигаданий `Integrator` нічим.
     pub integrator: Account<'info, Integrator>,
 
+    /// Глобальний акаунт протоколу — потрібен рівно заради `settlement_mint`.
+    /// Seed-ів звідси не виводимо: `Config` створюється один раз і за фіксованою
+    /// адресою (`initialize`), тож акаунта цього типу, який належить VerdictMesh
+    /// і при цьому не є тим самим, не існує. Перевірку типом Anchor робить сам.
+    pub config: Account<'info, Config>,
+
+    /// Актив застави — розрахунковий актив протоколу. Може бути тим самим, що й
+    /// актив угоди, і це не заважає: каси різні.
+    pub settlement_mint: InterfaceAccount<'info, Mint>,
+
     #[account(
         init,
         payer = buyer,
@@ -301,7 +381,31 @@ pub struct CreateEscrow<'info> {
     )]
     pub vault: InterfaceAccount<'info, TokenAccount>,
 
+    #[account(mut, token::mint = settlement_mint, token::authority = buyer)]
+    pub buyer_bond_tokens: InterfaceAccount<'info, TokenAccount>,
+
+    #[account(mut, token::mint = settlement_mint, token::authority = seller)]
+    pub seller_bond_tokens: InterfaceAccount<'info, TokenAccount>,
+
+    /// Каса застав — окрема від каси угоди, бо активи різні й доля в них різна:
+    /// предмет угоди дістається одній стороні, застава розходиться між обома.
+    #[account(
+        init,
+        payer = buyer,
+        seeds = [seeds::BOND_VAULT, escrow.key().as_ref()],
+        bump,
+        token::mint = settlement_mint,
+        token::authority = escrow,
+    )]
+    pub bond_vault: InterfaceAccount<'info, TokenAccount>,
+
     pub token_program: Interface<'info, TokenInterface>,
+
+    /// Програма токена **розрахункового** активу. Окремим акаунтом, бо актив
+    /// угоди й актив протоколу можуть жити в різних програмах токена — класична
+    /// `Tokenkeg` і Token-2022 не той самий `program_id`. Коли вони збігаються,
+    /// клієнт передає один акаунт двічі.
+    pub settlement_token_program: Interface<'info, TokenInterface>,
 
     pub system_program: Program<'info, System>,
 }
@@ -337,7 +441,29 @@ pub struct ReleaseMilestone<'info> {
     )]
     pub vault: InterfaceAccount<'info, TokenAccount>,
 
+    #[account(address = escrow.settlement_mint)]
+    pub settlement_mint: InterfaceAccount<'info, Mint>,
+
+    /// Застава повертається обом сторонам, тож обидва акаунти передаються
+    /// завжди й обидва прив'язані до ролей з угоди.
+    #[account(mut, token::mint = settlement_mint, token::authority = escrow.buyer)]
+    pub buyer_bond_tokens: InterfaceAccount<'info, TokenAccount>,
+
+    #[account(mut, token::mint = settlement_mint, token::authority = escrow.seller)]
+    pub seller_bond_tokens: InterfaceAccount<'info, TokenAccount>,
+
+    #[account(
+        mut,
+        seeds = [seeds::BOND_VAULT, escrow.key().as_ref()],
+        bump,
+        token::mint = settlement_mint,
+        token::authority = escrow,
+    )]
+    pub bond_vault: InterfaceAccount<'info, TokenAccount>,
+
     pub token_program: Interface<'info, TokenInterface>,
+
+    pub settlement_token_program: Interface<'info, TokenInterface>,
 }
 
 /// Акаунти VerdictMesh тут навмисно **не типізовані**: їх перевіряє той, кому

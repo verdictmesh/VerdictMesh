@@ -3,3 +3,4 @@
 /// помилки компіляції, вона дає PDA, за якою нічого немає.
 pub const ESCROW: &[u8] = b"escrow";
 pub const ESCROW_VAULT: &[u8] = b"escrow_vault";
+pub const BOND_VAULT: &[u8] = b"bond_vault";

@@ -7,6 +7,7 @@ use verdict_mesh::state::{Dispute, DisputeState, Verdict};
 use crate::{
     errors::EscrowError,
     events::MilestoneSettled,
+    instructions::bond::{BondSplit, Bonds},
     seeds,
     state::{Escrow, MilestoneState},
 };
@@ -38,15 +39,20 @@ use crate::{
 /// кранка, немає. Напрямок виплати ззовні не підказати: обидва токен-акаунти
 /// прив'язані до сторін угоди констрейнтами.
 ///
-/// **Депозит за розгляд не відшкодовується, і це не пропуск.** `FR-026a`
-/// утримує вартість розгляду «з частки, що належить програвшій стороні, **до
-/// виплати їй**» — тобто передбачає, що програвша сторона щось отримує. У спорі
-/// над віхою вона не отримує нічого: віху цілком забирає переможець. Джерела,
-/// з якого можна було б відшкодувати, в цій угоді не існує, а брати з інших віх
-/// означало б переписати умови, на які сторони погоджувались. Тому діє `FR-026c`
-/// у чистому вигляді: різниця не стягується ні з кого. Ескроу, що ділить кошти
-/// між сторонами, а не віддає їх одній, утримати може — і `T038` мусить сказати
-/// інтеграторам, де саме.
+/// **Депозит відшкодовується із застави, а не з предмета спору** — `FR-026a`,
+/// `FR-026e`. Утримувати з частки програвшого нічим: віху цілком забирає
+/// переможець, і програвша сторона не отримує **нічого**. Тому джерело лежить
+/// поза предметом спору — застава, замкнена з обох боків при укладанні угоди
+/// (`instructions::bond`). Переможець-ініціатор отримує назад свою заставу і
+/// депозит із застави програвшого; програв сам ініціатор — обидві застави
+/// повертаються, бо розгляд уже оплачений його депозитом.
+///
+/// **Статус-кво застав не рухає.** Віха повертається в `Pending`, тобто лишається
+/// предметом, який ще може стати спором, і застава мусить лишатись за нею —
+/// інакше наступний розгляд над тією ж віхою не мав би з чого відшкодовувати.
+/// Ніхто при цьому застави не втрачає: вона повернеться разом із віхою, коли ту
+/// нарешті закриють. Ціна невдалої ескалації лишається рівно одна — депозит
+/// ініціатора (`FR-027a`).
 impl<'info> SettleMilestone<'info> {
     pub fn handle(
         ctx: Context<'_, '_, '_, 'info, SettleMilestone<'info>>,
@@ -109,6 +115,31 @@ impl<'info> SettleMilestone<'info> {
             None => (MilestoneState::Pending, 0),
         };
 
+        // Застави розходяться лише разом із віхою. Статус-кво лишає її
+        // `Pending` — і застава лишається за нею.
+        let reimbursed = if winner.is_some() {
+            let split = BondSplit::on_verdict(
+                ctx.accounts.escrow.bond,
+                // Депозит із самого спору, а не з політики інтегратора:
+                // політика змінна, а спір несе знімок (`FR-003`), за яким
+                // ініціатор і платив.
+                dispute.policy.deposit,
+                verdict == Verdict::Claimant,
+            )?;
+            ctx.accounts.bonds().settle(
+                &ctx.accounts.escrow,
+                split,
+                dispute.claimant == ctx.accounts.escrow.seller,
+            )?;
+
+            split
+                .claimant
+                .checked_sub(ctx.accounts.escrow.bond)
+                .ok_or(EscrowError::Overflow)?
+        } else {
+            0
+        };
+
         ctx.accounts.escrow.entry_mut(milestone)?.state = state;
 
         emit!(MilestoneSettled {
@@ -117,9 +148,22 @@ impl<'info> SettleMilestone<'info> {
             dispute: dispute_key,
             winner,
             amount: paid,
+            reimbursed,
         });
 
         Ok(())
+    }
+
+    /// Каса застав і токен-акаунти сторін у розрахунковому активі — рух застави
+    /// живе в одному місці на всі три інструкції: `instructions::bond`.
+    fn bonds(&self) -> Bonds<'_, 'info> {
+        Bonds {
+            mint: &self.settlement_mint,
+            vault: &self.bond_vault,
+            buyer_tokens: &self.buyer_bond_tokens,
+            seller_tokens: &self.seller_bond_tokens,
+            token_program: &self.settlement_token_program,
+        }
     }
 
     /// Виплата з каси угоди підписом самої угоди. Приватного ключа до її PDA не
@@ -159,24 +203,24 @@ pub struct SettleMilestone<'info> {
         seeds = [seeds::ESCROW, escrow.buyer.as_ref(), &escrow.deal_id.to_le_bytes()],
         bump = escrow.bump,
     )]
-    pub escrow: Account<'info, Escrow>,
+    pub escrow: Box<Account<'info, Escrow>>,
 
     /// Розгляд, чий вердикт виконується. Тип із VerdictMesh, тож Anchor звіряє
     /// власника акаунта: виписати собі вердикт, виклавши `Dispute` цією ж
     /// програмою, нічим. **Read-only** — ескроу нічого в чужому стані не міняє.
-    pub dispute: Account<'info, Dispute>,
+    pub dispute: Box<Account<'info, Dispute>>,
 
     #[account(address = escrow.mint)]
-    pub mint: InterfaceAccount<'info, Mint>,
+    pub mint: Box<InterfaceAccount<'info, Mint>>,
 
     /// Обидва токен-акаунти передаються завжди, і кожен прив'язаний до свого
     /// власника з угоди. Передавати лише акаунт переможця означало б дати тому,
     /// хто викликає дозвільну інструкцію, вибирати отримувача.
     #[account(mut, token::mint = mint, token::authority = escrow.buyer)]
-    pub buyer_tokens: InterfaceAccount<'info, TokenAccount>,
+    pub buyer_tokens: Box<InterfaceAccount<'info, TokenAccount>>,
 
     #[account(mut, token::mint = mint, token::authority = escrow.seller)]
-    pub seller_tokens: InterfaceAccount<'info, TokenAccount>,
+    pub seller_tokens: Box<InterfaceAccount<'info, TokenAccount>>,
 
     #[account(
         mut,
@@ -185,7 +229,30 @@ pub struct SettleMilestone<'info> {
         token::mint = mint,
         token::authority = escrow,
     )]
-    pub vault: InterfaceAccount<'info, TokenAccount>,
+    pub vault: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    #[account(address = escrow.settlement_mint)]
+    pub settlement_mint: Box<InterfaceAccount<'info, Mint>>,
+
+    /// Застава розходиться між обома сторонами, і навіть коли одна з часток
+    /// нульова, обидва акаунти передаються — інакше той, хто викликає дозвільну
+    /// інструкцію, вибирав би, кому дістанеться відшкодування.
+    #[account(mut, token::mint = settlement_mint, token::authority = escrow.buyer)]
+    pub buyer_bond_tokens: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    #[account(mut, token::mint = settlement_mint, token::authority = escrow.seller)]
+    pub seller_bond_tokens: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    #[account(
+        mut,
+        seeds = [seeds::BOND_VAULT, escrow.key().as_ref()],
+        bump,
+        token::mint = settlement_mint,
+        token::authority = escrow,
+    )]
+    pub bond_vault: Box<InterfaceAccount<'info, TokenAccount>>,
 
     pub token_program: Interface<'info, TokenInterface>,
+
+    pub settlement_token_program: Interface<'info, TokenInterface>,
 }

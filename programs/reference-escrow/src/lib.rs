@@ -25,11 +25,11 @@ declare_id!("4iYF4WRdtuSmjTXH5fSa2ow5WrdeonEoeoY3epypfTHo");
 pub mod reference_escrow {
     use super::*;
 
-    /// Замикає всю суму угоди й розписує її по віхах. Підписують обидві
-    /// сторони — разом з угодою вони приймають політику розгляду. Див.
-    /// `instructions::escrow`.
-    pub fn create_escrow(
-        ctx: Context<CreateEscrow>,
+    /// Замикає всю суму угоди й розписує її по віхах, а разом з нею — заставу за
+    /// розгляд з обох сторін (`FR-026e`). Підписують обидві сторони: разом з
+    /// угодою вони приймають політику розгляду. Див. `instructions::escrow`.
+    pub fn create_escrow<'info>(
+        ctx: Context<'_, '_, '_, 'info, CreateEscrow<'info>>,
         deal_id: u64,
         milestones: Vec<u64>,
     ) -> Result<()> {
@@ -37,8 +37,12 @@ pub mod reference_escrow {
     }
 
     /// Закриває віху без спору: замовник віддає свої гроші добровільно, і
-    /// більше ніхто цього зробити не може — див. `instructions::escrow`.
-    pub fn release_milestone(ctx: Context<ReleaseMilestone>, milestone: u8) -> Result<()> {
+    /// більше ніхто цього зробити не може. Застава віхи повертається обом
+    /// сторонам разом із нею — див. `instructions::escrow`.
+    pub fn release_milestone<'info>(
+        ctx: Context<'_, '_, '_, 'info, ReleaseMilestone<'info>>,
+        milestone: u8,
+    ) -> Result<()> {
         ReleaseMilestone::handle(ctx, milestone)
     }
 

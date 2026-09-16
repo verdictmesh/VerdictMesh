@@ -45,6 +45,10 @@ fn disputed_amount() -> u64 {
     milestones()[DISPUTED as usize]
 }
 
+/// Застава за розгляд однієї віхи з одного боку — стільки ж, скільки депозит у
+/// демо-політиці (`docs/PLAN.md`).
+const BOND: u64 = 5_000_000;
+
 /// Угода, у якій одна віха вже під розглядом, і сам розгляд. Обидва акаунти
 /// викладені фікстурою, а не отримані прогоном попередніх інструкцій: виплата
 /// має перевірятись сама по собі, а не разом з усім, що до неї привело.
@@ -52,10 +56,14 @@ struct Fixture {
     buyer: Pubkey,
     seller: Pubkey,
     mint: Pubkey,
+    settlement_mint: Pubkey,
     escrow: Pubkey,
     vault: Pubkey,
+    bond_vault: Pubkey,
     buyer_tokens: Pubkey,
     seller_tokens: Pubkey,
+    buyer_bond_tokens: Pubkey,
+    seller_bond_tokens: Pubkey,
     integrator: Pubkey,
     dispute: Pubkey,
     accounts: Vec<(Address, Account)>,
@@ -72,12 +80,16 @@ impl Fixture {
         let seller = Pubkey::new_unique();
         let authority = Pubkey::new_unique();
         let mint = Pubkey::new_unique();
+        let settlement_mint = Pubkey::new_unique();
         let buyer_tokens = Pubkey::new_unique();
         let seller_tokens = Pubkey::new_unique();
+        let buyer_bond_tokens = Pubkey::new_unique();
+        let seller_bond_tokens = Pubkey::new_unique();
 
         let (integrator, _) = mesh_integrator_pda(&authority);
         let (escrow, escrow_bump) = escrow_pda(&buyer, DEAL);
         let (vault, _) = escrow_vault_pda(&escrow);
+        let (bond_vault, _) = bond_vault_pda(&escrow);
         let (dispute, _) = mesh_dispute_pda(&integrator, 0);
 
         let (claimant, respondent) = if by_seller {
@@ -100,13 +112,40 @@ impl Fixture {
         let accounts = vec![
             (
                 addr(&escrow),
-                escrow_account(&buyer, &seller, &mint, &integrator, escrow_bump, &dispute),
+                escrow_account(
+                    &buyer,
+                    &seller,
+                    &mint,
+                    &settlement_mint,
+                    &integrator,
+                    escrow_bump,
+                    &dispute,
+                ),
             ),
             (addr(&dispute), mesh_dispute_account(&hearing)),
             (addr(&mint), spl_mint(DECIMALS as u8)),
+            (addr(&settlement_mint), spl_mint(DECIMALS as u8)),
             (addr(&buyer_tokens), token_account(&mint, &buyer, 0)),
             (addr(&seller_tokens), token_account(&mint, &seller, 0)),
             (addr(&vault), token_account(&mint, &escrow, total())),
+            (
+                addr(&buyer_bond_tokens),
+                token_account(&settlement_mint, &buyer, 0),
+            ),
+            (
+                addr(&seller_bond_tokens),
+                token_account(&settlement_mint, &seller, 0),
+            ),
+            // У касі застав — обидві застави кожної з трьох віх: рівно те, що
+            // замикає `create_escrow`.
+            (
+                addr(&bond_vault),
+                token_account(
+                    &settlement_mint,
+                    &escrow,
+                    2 * BOND * milestones().len() as u64,
+                ),
+            ),
             keyed_account_for_token_program(),
         ];
 
@@ -114,10 +153,14 @@ impl Fixture {
             buyer,
             seller,
             mint,
+            settlement_mint,
             escrow,
             vault,
+            bond_vault,
             buyer_tokens,
             seller_tokens,
+            buyer_bond_tokens,
+            seller_bond_tokens,
             integrator,
             dispute,
             accounts,
@@ -148,7 +191,12 @@ impl Fixture {
                 buyer_tokens,
                 seller_tokens,
                 vault: self.vault,
+                settlement_mint: self.settlement_mint,
+                buyer_bond_tokens: self.buyer_bond_tokens,
+                seller_bond_tokens: self.seller_bond_tokens,
+                bond_vault: self.bond_vault,
                 token_program: TOKEN_PROGRAM,
+                settlement_token_program: TOKEN_PROGRAM,
             },
             reference_escrow::instruction::SettleMilestone { milestone },
         )
@@ -175,10 +223,12 @@ impl Fixture {
 
 /// Угода, у якій віха `DISPUTED` уже під названим розглядом. Це те, що лишає по
 /// собі `dispute_milestone` (T022).
+#[allow(clippy::too_many_arguments)]
 fn escrow_account(
     buyer: &Pubkey,
     seller: &Pubkey,
     mint: &Pubkey,
+    settlement_mint: &Pubkey,
     integrator: &Pubkey,
     bump: u8,
     dispute: &Pubkey,
@@ -203,6 +253,8 @@ fn escrow_account(
             buyer: *buyer,
             seller: *seller,
             mint: *mint,
+            settlement_mint: *settlement_mint,
+            bond: BOND,
             integrator: *integrator,
             deal_id: DEAL,
             milestones,

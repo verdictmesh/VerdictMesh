@@ -30,4 +30,6 @@ pub enum EscrowError {
     MilestoneNotUnderThisDispute,
     #[msg("The verdict names a party that is not in this deal")]
     VerdictNamesAStranger,
+    #[msg("The review bond must be held in the settlement asset of the protocol")]
+    WrongSettlementMint,
 }

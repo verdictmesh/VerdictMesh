@@ -254,6 +254,13 @@ pub fn escrow_vault_pda(escrow: &Pubkey) -> (Pubkey, u8) {
     )
 }
 
+pub fn bond_vault_pda(escrow: &Pubkey) -> (Pubkey, u8) {
+    Pubkey::find_program_address(
+        &[reference_escrow::seeds::BOND_VAULT, escrow.as_ref()],
+        &ESCROW_PROGRAM,
+    )
+}
+
 pub fn mesh_config_pda() -> (Pubkey, u8) {
     Pubkey::find_program_address(&[verdict_mesh::seeds::CONFIG], &MESH_PROGRAM)
 }
