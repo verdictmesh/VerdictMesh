@@ -51,4 +51,14 @@ pub mod reference_escrow {
     ) -> Result<()> {
         DisputeMilestone::handle(ctx, milestone)
     }
+
+    /// Виконує вердикт над віхою: читає `Dispute`, робить чотири перевірки і
+    /// розподіляє кошти сам. Нічия інструкція без жодного підпису — див.
+    /// `instructions::settle`.
+    pub fn settle_milestone<'info>(
+        ctx: Context<'_, '_, '_, 'info, SettleMilestone<'info>>,
+        milestone: u8,
+    ) -> Result<()> {
+        SettleMilestone::handle(ctx, milestone)
+    }
 }

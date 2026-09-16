@@ -26,7 +26,7 @@ use spl_token_interface::state::{
     Account as SplTokenAccount, AccountState as SplAccountState, Mint as SplMint,
 };
 use std::{cell::RefCell, rc::Rc};
-use verdict_mesh::state::{Config, Integrator, Policy};
+use verdict_mesh::state::{Config, Dispute, DisputeState, Integrator, Policy};
 
 pub const ESCROW_PROGRAM: Pubkey = reference_escrow::ID;
 pub const MESH_PROGRAM: Pubkey = verdict_mesh::ID;
@@ -314,6 +314,66 @@ pub fn mesh_config_account(settlement_mint: &Pubkey) -> Account {
             bump: mesh_config_pda().1,
         },
     )
+}
+
+/// Спір у тому вигляді, у якому його лишає `open_dispute`. Повертається сам
+/// стан, а не готовий акаунт: тест міняє те поле, заради якого він написаний —
+/// вердикт, стан, дедлайн, — і не переносить решту двадцяти щоразу.
+pub fn mesh_dispute_state(
+    integrator: &Pubkey,
+    dispute_id: u64,
+    escrow: &Pubkey,
+    claimant: &Pubkey,
+    respondent: &Pubkey,
+    amount: u64,
+) -> Dispute {
+    let policy = demo_policy();
+
+    Dispute {
+        integrator: *integrator,
+        dispute_id,
+        policy,
+        escrow_ref: *escrow,
+        claimant: *claimant,
+        respondent: *respondent,
+        amount,
+        state: DisputeState::Tallied,
+        panel: Vec::new(),
+        report_hash: [0u8; 32],
+        claimant_claim_hash: [1u8; 32],
+        respondent_claim_hash: [2u8; 32],
+        opened_at: NOW,
+        entropy_slot: SLOT - 1,
+        commit_deadline: NOW + policy.commit_window,
+        reveal_deadline: NOW + policy.commit_window + policy.reveal_window,
+        appeal_deadline: APPEAL_DEADLINE,
+        votes_claimant: 2,
+        votes_respondent: 1,
+        escalated: false,
+        verdict: None,
+        bump: 0,
+    }
+}
+
+/// Вікно апеляції закривається тут — раніше виконувати вердикт не можна.
+pub const APPEAL_DEADLINE: i64 = NOW + 10_000;
+
+/// Акаунт спору з місцем під розширену панель — рівно стільки виділяє
+/// `open_dispute`.
+pub fn mesh_dispute_account(dispute: &Dispute) -> Account {
+    let mut account = program_account(&MESH_PROGRAM, dispute);
+    account
+        .data
+        .resize(Dispute::space(dispute.policy.extended_panel_size), 0);
+    account
+}
+
+/// Mollusk із заданим «зараз». Годинник обв'язки стоїть на `NOW`, і тести вікон
+/// мусять рухати його явно, а не покладатись на замовчування.
+pub fn mollusk_at(now: i64) -> Mollusk {
+    let mut mollusk = mollusk();
+    mollusk.sysvars.clock.unix_timestamp = now;
+    mollusk
 }
 
 /// Зареєстрований інтегратор, чия програма ескроу — саме ця. Такий `Integrator`

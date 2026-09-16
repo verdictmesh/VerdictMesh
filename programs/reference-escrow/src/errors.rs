@@ -18,4 +18,16 @@ pub enum EscrowError {
     WrongArbitrationProgram,
     #[msg("Arithmetic overflow")]
     Overflow,
+    #[msg("This dispute was opened over another escrow")]
+    NotOurDispute,
+    #[msg("The dispute has no verdict yet")]
+    VerdictPending,
+    #[msg("The verdict is frozen while the dispute is under appeal")]
+    VerdictUnderAppeal,
+    #[msg("The appeal window has not closed yet")]
+    AppealWindowOpen,
+    #[msg("This milestone is not under the dispute that was brought")]
+    MilestoneNotUnderThisDispute,
+    #[msg("The verdict names a party that is not in this deal")]
+    VerdictNamesAStranger,
 }

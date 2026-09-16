@@ -33,3 +33,17 @@ pub struct MilestoneDisputed {
     pub claimant: Pubkey,
     pub amount: u64,
 }
+
+/// Вердикт виконано — `FR-012`. `winner` порожній рівно за статус-кво: розгляд
+/// закінчився, кошти не рухались, віха повернулась туди, звідки її взяли.
+/// Самого вердикту тут немає навмисно — його вже оголосив VerdictMesh
+/// (`DisputeTallied`), і другий запис того самого факту рано чи пізно
+/// розійшовся б з першим.
+#[event]
+pub struct MilestoneSettled {
+    pub escrow: Pubkey,
+    pub milestone: u8,
+    pub dispute: Pubkey,
+    pub winner: Option<Pubkey>,
+    pub amount: u64,
+}
