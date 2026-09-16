@@ -2421,7 +2421,17 @@ version = "0.1.0"
 dependencies = [
  "anchor-lang",
  "anchor-spl",
+ "base64 0.22.1",
  "mollusk-svm",
+ "mollusk-svm-programs-token",
+ "solana-account 4.3.2",
+ "solana-address 2.6.1",
+ "solana-instruction 3.4.1",
+ "solana-instruction-error",
+ "solana-keccak-hasher 2.2.1",
+ "solana-program-pack 3.1.0",
+ "solana-svm-log-collector",
+ "spl-token-interface",
  "verdict-mesh",
 ]
 

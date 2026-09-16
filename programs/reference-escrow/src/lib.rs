@@ -1,5 +1,16 @@
 use anchor_lang::prelude::*;
 
+pub mod claims;
+pub mod errors;
+pub mod events;
+pub mod instructions;
+pub mod seeds;
+pub mod state;
+
+pub use errors::EscrowError;
+pub use instructions::*;
+pub use state::*;
+
 declare_id!("4iYF4WRdtuSmjTXH5fSa2ow5WrdeonEoeoY3epypfTHo");
 
 /// Milestone-ескроу, який купує арбітраж у VerdictMesh замість того, щоб писати
@@ -14,14 +25,30 @@ declare_id!("4iYF4WRdtuSmjTXH5fSa2ow5WrdeonEoeoY3epypfTHo");
 pub mod reference_escrow {
     use super::*;
 
-    pub fn initialize(_ctx: Context<Initialize>) -> Result<()> {
-        Ok(())
+    /// Замикає всю суму угоди й розписує її по віхах. Підписують обидві
+    /// сторони — разом з угодою вони приймають політику розгляду. Див.
+    /// `instructions::escrow`.
+    pub fn create_escrow(
+        ctx: Context<CreateEscrow>,
+        deal_id: u64,
+        milestones: Vec<u64>,
+    ) -> Result<()> {
+        CreateEscrow::handle(ctx, deal_id, milestones)
     }
-}
 
-#[derive(Accounts)]
-pub struct Initialize<'info> {
-    #[account(mut)]
-    pub payer: Signer<'info>,
-    pub system_program: Program<'info, System>,
+    /// Закриває віху без спору: замовник віддає свої гроші добровільно, і
+    /// більше ніхто цього зробити не може — див. `instructions::escrow`.
+    pub fn release_milestone(ctx: Context<ReleaseMilestone>, milestone: u8) -> Result<()> {
+        ReleaseMilestone::handle(ctx, milestone)
+    }
+
+    /// Відкриває спір над віхою одним CPI у VerdictMesh, підписуючи його
+    /// власним PDA. Уся інтеграція — тут; вердикт звідси витягнуть, а не
+    /// проштовхнуть сюди. Див. `instructions::escrow`.
+    pub fn dispute_milestone<'info>(
+        ctx: Context<'_, '_, '_, 'info, DisputeMilestone<'info>>,
+        milestone: u8,
+    ) -> Result<()> {
+        DisputeMilestone::handle(ctx, milestone)
+    }
 }
