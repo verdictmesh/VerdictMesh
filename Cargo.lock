@@ -5272,6 +5272,7 @@ dependencies = [
  "base64 0.22.1",
  "mollusk-svm",
  "mollusk-svm-programs-token",
+ "serde_json",
  "solana-account 4.3.2",
  "solana-address 2.6.1",
  "solana-hash 4.5.0",

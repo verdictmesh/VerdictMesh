@@ -375,6 +375,54 @@ fn refuses_to_execute_the_same_verdict_twice() {
     ));
 }
 
+/// `SC-008` — вимір, а не приклад. Один вдалий випадок доводить, що захист є;
+/// критерій вимагає «100% випадків», тобто кожного результату, яким розгляд
+/// узагалі може закінчитись, і з обох боків угоди. Друга половина критерію —
+/// «не змінює жодного балансу» — перевіряється **всіма** касами й акаунтами
+/// сторін, а не лише тим, куди пішла віха: повторний виклик, що зачепив би
+/// заставу, теж порушив би `FR-013`.
+#[test]
+fn refuses_every_replay_of_an_executed_verdict_without_moving_a_balance() {
+    let outcomes = [Verdict::Claimant, Verdict::Respondent, Verdict::StatusQuo];
+
+    for by_seller in [true, false] {
+        for verdict in outcomes {
+            let case = format!("{verdict:?}, opened by seller: {by_seller}");
+            let fixture = Fixture::build(by_seller, Some(verdict), DisputeState::Tallied);
+            let first = fixture.ok();
+
+            let money = [
+                fixture.vault,
+                fixture.buyer_tokens,
+                fixture.seller_tokens,
+                fixture.bond_vault,
+                fixture.buyer_bond_tokens,
+                fixture.seller_bond_tokens,
+            ];
+            let settled: Vec<u64> = money
+                .iter()
+                .map(|key| fixture.balance(&first, key))
+                .collect();
+
+            let mut accounts = fixture.accounts.clone();
+            for key in std::iter::once(&fixture.escrow).chain(money.iter()) {
+                replace(&mut accounts, key, resulting(&first, key).clone());
+            }
+
+            let second =
+                mollusk_at(APPEAL_DEADLINE).process_instruction(&fixture.ix(DISPUTED), &accounts);
+
+            assert!(
+                failed_with(&second, EscrowError::MilestoneNotUnderThisDispute),
+                "{case}"
+            );
+            for (key, expected) in money.iter().zip(settled) {
+                assert_eq!(fixture.balance(&second, key), expected, "{case}");
+            }
+        }
+    }
+}
+
 /// Найтонший спосіб виконати вердикт двічі — принести **інший** спір цієї ж
 /// угоди. За `escrow_ref` він зійдеться, за вердиктом теж, і без звірки адреси
 /// зі станом віхи давно виконаний розгляд розпорядився б чужою віхою.
