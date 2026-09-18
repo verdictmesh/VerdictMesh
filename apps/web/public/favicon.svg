@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="VerdictMesh">
+  <rect width="32" height="32" rx="5" fill="hsl(222 18% 6%)" />
+  <!-- three seats; the verdict is what the panel agrees on, not what any one seat holds -->
+  <circle cx="9" cy="11" r="3" fill="hsl(40 14% 92%)" />
+  <circle cx="23" cy="11" r="3" fill="hsl(40 14% 92%)" />
+  <circle cx="16" cy="23" r="3" fill="hsl(36 88% 58%)" />
+  <path d="M9 11 L23 11 L16 23 Z" fill="none" stroke="hsl(222 10% 27%)" stroke-width="1.5" />
+</svg>

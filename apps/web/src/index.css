@@ -1,0 +1,106 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* VerdictMesh design system — dense, calm, dark-first instrument.
+   All colors are HSL tokens. Never hardcode colors in components. */
+
+@layer base {
+  :root,
+  .dark {
+    --background: 222 18% 6%;
+    --foreground: 40 14% 92%;
+
+    --surface: 222 16% 9%;
+    --surface-2: 222 14% 12%;
+
+    --card: 222 16% 9%;
+    --card-foreground: 40 14% 92%;
+
+    --popover: 222 16% 10%;
+    --popover-foreground: 40 14% 92%;
+
+    --primary: 40 14% 92%;
+    --primary-foreground: 222 18% 7%;
+
+    --secondary: 222 14% 14%;
+    --secondary-foreground: 40 14% 92%;
+
+    --muted: 222 14% 13%;
+    --muted-foreground: 220 9% 56%;
+
+    --accent: 36 88% 58%;
+    --accent-foreground: 222 18% 7%;
+
+    --destructive: 10 68% 56%;
+    --destructive-foreground: 40 14% 95%;
+
+    --border: 222 12% 17%;
+    --border-strong: 222 10% 27%;
+    --input: 222 12% 17%;
+    --ring: 36 88% 58%;
+
+    /* evidence classes */
+    --confirmed: 152 22% 58%;
+    --claimed: 36 84% 60%;
+    --unestablished: 220 8% 50%;
+
+    /* countdown */
+    --clock: 42 20% 95%;
+    --clock-urgent: 10 72% 60%;
+
+    --radius: 0.25rem;
+
+    --font-body: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-body);
+    font-feature-settings: "ss01", "cv05";
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background-color: hsl(var(--accent) / 0.28);
+  }
+}
+
+@layer components {
+  .mono {
+    font-family: var(--font-mono);
+    font-variant-ligatures: none;
+  }
+
+  .label-xs {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    line-height: 1.2;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .rule {
+    border-color: hsl(var(--border));
+  }
+
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .focus-ring:focus-visible {
+    outline: 1px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+}
