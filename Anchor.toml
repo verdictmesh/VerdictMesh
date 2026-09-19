@@ -5,6 +5,13 @@ anchor_version = "0.32.1"
 resolution = true
 skip-lint = false
 
+# Both clusters carry the same addresses on purpose. On a fresh clone without
+# target/deploy, the Anchor CLI keys programs from this section; with no
+# localnet entry it generates random keypairs and rewrites declare_id! to match.
+[programs.localnet]
+verdict_mesh = "8WyWpDD1ZbkTRGG6SRcYyWxApPsHaSgWn2SWJQ8xSgxq"
+reference_escrow = "4iYF4WRdtuSmjTXH5fSa2ow5WrdeonEoeoY3epypfTHo"
+
 [programs.devnet]
 verdict_mesh = "8WyWpDD1ZbkTRGG6SRcYyWxApPsHaSgWn2SWJQ8xSgxq"
 reference_escrow = "4iYF4WRdtuSmjTXH5fSa2ow5WrdeonEoeoY3epypfTHo"
