@@ -1,0 +1,65 @@
+# The demo prototype on GitHub Pages: https://verdictmesh.github.io/VerdictMesh/
+#
+# What gets published is apps/web on invented data — four screens, no network,
+# nothing on it is a statement about the chain. The on-chain programs are not
+# built here: Pages serves the prototype, devnet serves the programs.
+name: pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# A second push must not overtake the first: deployments run in order, not in parallel.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        # takes the version from package.json → packageManager
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm --filter @verdictmesh/web exec vite build
+        env:
+          # A project site lives under /<repo>/, not at the domain root.
+          PAGES_BASE: /${{ github.event.repository.name }}/
+
+      # Pages has no SPA fallback: a direct hit on /hearing/VM-1042 would be a 404.
+      # Serving the app as the 404 page lets the router take over from there.
+      - run: cp apps/web/dist/index.html apps/web/dist/404.html
+
+      # Pages is enabled once by the repository owner: Settings → Pages → Source:
+      # "GitHub Actions". GITHUB_TOKEN cannot create the site itself, so this step
+      # only reads the existing configuration.
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/web/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -7,8 +7,10 @@ import App from './App'
 const rootElement = document.getElementById('root')
 if (!rootElement) throw new Error('Failed to find the root element')
 
+// BASE_URL is '/' everywhere except GitHub Pages, where the site lives under /<repo>/
+// and the router has to know it, or every link would point at the domain root.
 createRoot(rootElement).render(
-  <BrowserRouter>
+  <BrowserRouter basename={import.meta.env.BASE_URL}>
     <App />
   </BrowserRouter>,
 )
