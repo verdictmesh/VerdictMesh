@@ -1,0 +1,494 @@
+{
+  "id": "bd5f7439-b0eb-48d3-ac75-4fc31686663f",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.disputes": {
+      "name": "disputes",
+      "schema": "",
+      "columns": {
+        "pda": {
+          "name": "pda",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "integrator": {
+          "name": "integrator",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "escrow_ref": {
+          "name": "escrow_ref",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "claimant": {
+          "name": "claimant",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "respondent": {
+          "name": "respondent",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "amount": {
+          "name": "amount",
+          "type": "numeric(20, 0)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "state": {
+          "name": "state",
+          "type": "dispute_state",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "panel": {
+          "name": "panel",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "report_hash": {
+          "name": "report_hash",
+          "type": "char(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "claimant_claim_hash": {
+          "name": "claimant_claim_hash",
+          "type": "char(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "respondent_claim_hash": {
+          "name": "respondent_claim_hash",
+          "type": "char(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "opened_at": {
+          "name": "opened_at",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "commit_deadline": {
+          "name": "commit_deadline",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reveal_deadline": {
+          "name": "reveal_deadline",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "appeal_deadline": {
+          "name": "appeal_deadline",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "votes_claimant": {
+          "name": "votes_claimant",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "votes_respondent": {
+          "name": "votes_respondent",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "escalated": {
+          "name": "escalated",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "verdict": {
+          "name": "verdict",
+          "type": "verdict",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "synced_slot": {
+          "name": "synced_slot",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "disputes_state_opened_idx": {
+          "name": "disputes_state_opened_idx",
+          "columns": [
+            {
+              "expression": "state",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "opened_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "disputes_integrator_idx": {
+          "name": "disputes_integrator_idx",
+          "columns": [
+            {
+              "expression": "integrator",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "disputes_panel_idx": {
+          "name": "disputes_panel_idx",
+          "columns": [
+            {
+              "expression": "panel",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "gin",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "disputes_deny_all": {
+          "name": "disputes_deny_all",
+          "as": "RESTRICTIVE",
+          "for": "ALL",
+          "to": [
+            "anon",
+            "authenticated"
+          ],
+          "using": "false",
+          "withCheck": "false"
+        }
+      },
+      "checkConstraints": {
+        "disputes_amount_non_negative": {
+          "name": "disputes_amount_non_negative",
+          "value": "\"disputes\".\"amount\" >= 0"
+        },
+        "disputes_votes_claimant_non_negative": {
+          "name": "disputes_votes_claimant_non_negative",
+          "value": "\"disputes\".\"votes_claimant\" >= 0"
+        },
+        "disputes_votes_respondent_non_negative": {
+          "name": "disputes_votes_respondent_non_negative",
+          "value": "\"disputes\".\"votes_respondent\" >= 0"
+        },
+        "disputes_synced_slot_non_negative": {
+          "name": "disputes_synced_slot_non_negative",
+          "value": "\"disputes\".\"synced_slot\" >= 0"
+        },
+        "disputes_reveal_after_commit": {
+          "name": "disputes_reveal_after_commit",
+          "value": "\"disputes\".\"reveal_deadline\" > \"disputes\".\"commit_deadline\""
+        },
+        "disputes_appeal_after_reveal": {
+          "name": "disputes_appeal_after_reveal",
+          "value": "\"disputes\".\"appeal_deadline\" = 0 or \"disputes\".\"appeal_deadline\" >= \"disputes\".\"reveal_deadline\""
+        },
+        "disputes_verdict_matches_state": {
+          "name": "disputes_verdict_matches_state",
+          "value": "(\"disputes\".\"verdict\" is null) = (\"disputes\".\"state\" in ('OptimisticPending', 'Committing', 'Revealing'))"
+        },
+        "disputes_report_hash_lower_hex": {
+          "name": "disputes_report_hash_lower_hex",
+          "value": "\"disputes\".\"report_hash\" ~ '^[0-9a-f]{64}$'"
+        },
+        "disputes_claimant_claim_hash_lower_hex": {
+          "name": "disputes_claimant_claim_hash_lower_hex",
+          "value": "\"disputes\".\"claimant_claim_hash\" ~ '^[0-9a-f]{64}$'"
+        },
+        "disputes_respondent_claim_hash_lower_hex": {
+          "name": "disputes_respondent_claim_hash_lower_hex",
+          "value": "\"disputes\".\"respondent_claim_hash\" ~ '^[0-9a-f]{64}$'"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.evidence": {
+      "name": "evidence",
+      "schema": "",
+      "columns": {
+        "dispute_pda": {
+          "name": "dispute_pda",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "evidence_kind",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "slot": {
+          "name": "slot",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "payload": {
+          "name": "payload",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fetched_at": {
+          "name": "fetched_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "evidence_dispute_slot_idx": {
+          "name": "evidence_dispute_slot_idx",
+          "columns": [
+            {
+              "expression": "dispute_pda",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "slot",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "evidence_dispute_pda_disputes_pda_fk": {
+          "name": "evidence_dispute_pda_disputes_pda_fk",
+          "tableFrom": "evidence",
+          "tableTo": "disputes",
+          "columnsFrom": [
+            "dispute_pda"
+          ],
+          "columnsTo": [
+            "pda"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "evidence_dispute_pda_source_pk": {
+          "name": "evidence_dispute_pda_source_pk",
+          "columns": [
+            "dispute_pda",
+            "source"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {
+        "evidence_deny_all": {
+          "name": "evidence_deny_all",
+          "as": "RESTRICTIVE",
+          "for": "ALL",
+          "to": [
+            "anon",
+            "authenticated"
+          ],
+          "using": "false",
+          "withCheck": "false"
+        }
+      },
+      "checkConstraints": {
+        "evidence_slot_non_negative": {
+          "name": "evidence_slot_non_negative",
+          "value": "\"evidence\".\"slot\" >= 0"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.reports": {
+      "name": "reports",
+      "schema": "",
+      "columns": {
+        "dispute_pda": {
+          "name": "dispute_pda",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "content": {
+          "name": "content",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "content_hash": {
+          "name": "content_hash",
+          "type": "char(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "model": {
+          "name": "model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "reports_dispute_pda_disputes_pda_fk": {
+          "name": "reports_dispute_pda_disputes_pda_fk",
+          "tableFrom": "reports",
+          "tableTo": "disputes",
+          "columnsFrom": [
+            "dispute_pda"
+          ],
+          "columnsTo": [
+            "pda"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "reports_dispute_pda_version_pk": {
+          "name": "reports_dispute_pda_version_pk",
+          "columns": [
+            "dispute_pda",
+            "version"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {
+        "reports_deny_all": {
+          "name": "reports_deny_all",
+          "as": "RESTRICTIVE",
+          "for": "ALL",
+          "to": [
+            "anon",
+            "authenticated"
+          ],
+          "using": "false",
+          "withCheck": "false"
+        }
+      },
+      "checkConstraints": {
+        "reports_version_positive": {
+          "name": "reports_version_positive",
+          "value": "\"reports\".\"version\" >= 1"
+        },
+        "reports_content_hash_lower_hex": {
+          "name": "reports_content_hash_lower_hex",
+          "value": "\"reports\".\"content_hash\" ~ '^[0-9a-f]{64}$'"
+        }
+      },
+      "isRLSEnabled": true
+    }
+  },
+  "enums": {
+    "public.dispute_state": {
+      "name": "dispute_state",
+      "schema": "public",
+      "values": [
+        "OptimisticPending",
+        "Committing",
+        "Revealing",
+        "Tallied",
+        "Appealed",
+        "Finalized"
+      ]
+    },
+    "public.evidence_kind": {
+      "name": "evidence_kind",
+      "schema": "public",
+      "values": [
+        "transaction",
+        "account"
+      ]
+    },
+    "public.verdict": {
+      "name": "verdict",
+      "schema": "public",
+      "values": [
+        "Claimant",
+        "Respondent",
+        "StatusQuo"
+      ]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}
