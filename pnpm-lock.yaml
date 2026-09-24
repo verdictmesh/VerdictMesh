@@ -26,6 +26,9 @@ importers:
       '@anthropic-ai/sdk':
         specifier: ^0.70.0
         version: 0.70.1(zod@4.4.3)
+      '@coral-xyz/anchor':
+        specifier: ^0.32.1
+        version: 0.32.1(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)
       '@hono/node-server':
         specifier: ^1.19.0
         version: 1.19.17(hono@4.13.3)
@@ -35,9 +38,15 @@ importers:
       '@solana/web3.js':
         specifier: ^1.98.4
         version: 1.98.4(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)
+      '@verdictmesh/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       '@verdictmesh/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      drizzle-orm:
+        specifier: 0.45.2
+        version: 0.45.2(postgres@3.4.9)
       hono:
         specifier: ^4.9.0
         version: 4.13.3
@@ -127,7 +136,7 @@ importers:
     dependencies:
       '@coral-xyz/anchor':
         specifier: ^0.32.1
-        version: 0.32.1(bufferutil@4.1.0)(typescript@5.9.3)
+        version: 0.32.1(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)
       '@noble/hashes':
         specifier: ^1.8.0
         version: 1.8.0
@@ -2512,7 +2521,7 @@ snapshots:
 
   '@coral-xyz/anchor-errors@0.31.1': {}
 
-  '@coral-xyz/anchor@0.32.1(bufferutil@4.1.0)(typescript@5.9.3)':
+  '@coral-xyz/anchor@0.32.1(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)':
     dependencies:
       '@coral-xyz/anchor-errors': 0.31.1
       '@coral-xyz/borsh': 0.31.1(@solana/web3.js@1.98.4(bufferutil@4.1.0)(typescript@5.9.3))
