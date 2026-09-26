@@ -1,6 +1,7 @@
 import { utils } from '@coral-xyz/anchor'
-import type { Commitment, Connection } from '@solana/web3.js'
+import type { Commitment, Connection, Finality } from '@solana/web3.js'
 import { PublicKey } from '@solana/web3.js'
+import type { EvidenceChain } from './evidence.js'
 import { verdictMeshIdl } from './idl/verdict-mesh.js'
 import type { Chain, ChainAccount } from './watcher.js'
 
@@ -28,6 +29,9 @@ const disputeDiscriminator = (): number[] => {
  * rollback takes the slot number back with it.
  */
 const COMMITMENT: Commitment = 'confirmed'
+
+/** The same level, under the narrower type that history calls accept. */
+const FINALITY: Finality = 'confirmed'
 
 export function solanaChain(connection: Connection, programId: PublicKey): Chain {
   return {
@@ -81,6 +85,62 @@ export function solanaChain(connection: Connection, programId: PublicKey): Chain
 
       return async () => {
         await connection.removeOnLogsListener(subscription)
+      }
+    },
+  }
+}
+
+/**
+ * The chain as the evidence collector needs it — three RPC calls, no
+ * decisions.
+ */
+export function solanaEvidenceChain(connection: Connection): EvidenceChain {
+  return {
+    async readAccount(address) {
+      const { context, value } = await connection.getAccountInfoAndContext(
+        new PublicKey(address),
+        COMMITMENT,
+      )
+      if (!value) return null
+
+      return { slot: context.slot, owner: value.owner.toBase58(), data: value.data }
+    },
+
+    async signaturesFor(address, limit) {
+      const signatures = await connection.getSignaturesForAddress(
+        new PublicKey(address),
+        { limit },
+        FINALITY,
+      )
+
+      return signatures.map((entry) => ({
+        signature: entry.signature,
+        slot: entry.slot,
+        failed: entry.err !== null,
+      }))
+    },
+
+    async readTransaction(signature) {
+      const transaction = await connection.getTransaction(signature, {
+        commitment: FINALITY,
+        // Without it a v0 transaction is not "unsupported", it is an error for
+        // the whole call — and a wallet is free to send v0.
+        maxSupportedTransactionVersion: 0,
+      })
+      if (!transaction) return null
+
+      const { message } = transaction.transaction
+      // Signers always come first among the static keys: an address lookup
+      // table can never supply a signer.
+      const signers = message.staticAccountKeys
+        .slice(0, message.header.numRequiredSignatures)
+        .map((key) => key.toBase58())
+
+      return {
+        slot: transaction.slot,
+        blockTime: transaction.blockTime ?? null,
+        signers,
+        logs: transaction.meta?.logMessages ?? null,
       }
     },
   }

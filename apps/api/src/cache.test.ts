@@ -1,7 +1,8 @@
-import { createDb, disputes } from '@verdictmesh/db'
+import { createDb, disputes, evidence } from '@verdictmesh/db'
 import { getTableColumns } from 'drizzle-orm'
 import { describe, expect, it, vi } from 'vitest'
-import { postgresCache, saveDisputes } from './cache.js'
+import { postgresCache, postgresEvidenceStore, saveDisputes, saveEvidence } from './cache.js'
+import type { EvidenceRow } from './evidence.js'
 import type { DisputeRow } from './watcher.js'
 
 /**
@@ -81,6 +82,60 @@ describe('storing snapshots', () => {
   it('builds no statement for an empty batch', async () => {
     const insert = vi.spyOn(db, 'insert')
     await postgresCache(db).save([])
+    expect(insert).not.toHaveBeenCalled()
+    insert.mockRestore()
+  })
+})
+
+const fact = (source: string, slot: number, payload: EvidenceRow['payload'] = {}): EvidenceRow => ({
+  disputePda: 'HFCNHUwPxRqqW6gaLd3uUjJcEUfjnRptJHYas4ua59fB',
+  kind: 'account',
+  source,
+  slot,
+  payload,
+})
+
+describe('storing evidence', () => {
+  it('updates a row only from a read of a later slot', () => {
+    const { sql } = saveEvidence(db, [fact('a', 10)]).toSQL()
+
+    expect(sql).toContain('on conflict ("dispute_pda","source") do update set')
+    expect(sql).toContain('where "evidence"."slot" < excluded."slot"')
+  })
+
+  /**
+   * The key of `evidence` is composite, and drizzle marks `primary` only on a
+   * single-column key — reading the key off the columns would put both key
+   * columns into `set`.
+   */
+  it('takes every column but the composite key from excluded', () => {
+    const { sql } = saveEvidence(db, [fact('a', 10)]).toSQL()
+    const updated = sql.slice(sql.indexOf('do update set'))
+
+    for (const column of Object.values(getTableColumns(evidence))) {
+      if (column.name === 'dispute_pda' || column.name === 'source') {
+        expect(updated).not.toContain(`excluded."${column.name}"`)
+      } else {
+        expect(updated).toContain(`excluded."${column.name}"`)
+      }
+    }
+  })
+
+  it('leaves one row per source in a batch — the freshest', () => {
+    const { params } = saveEvidence(db, [
+      fact('a', 10, { read: 'old' }),
+      fact('a', 12, { read: 'new' }),
+      fact('b', 3),
+    ]).toSQL()
+
+    expect(params).toContain(JSON.stringify({ read: 'new' }))
+    expect(params).not.toContain(JSON.stringify({ read: 'old' }))
+    expect(params.filter((value) => value === 'a' || value === 'b')).toEqual(['a', 'b'])
+  })
+
+  it('builds no statement for an empty set', async () => {
+    const insert = vi.spyOn(db, 'insert')
+    await postgresEvidenceStore(db).save([])
     expect(insert).not.toHaveBeenCalled()
     insert.mockRestore()
   })

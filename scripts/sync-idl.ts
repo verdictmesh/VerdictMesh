@@ -10,9 +10,10 @@
  *   anywhere without a fresh build anyway, and a type drifting from the actual
  *   surface of the program should be a red typecheck rather than a surprise on
  *   devnet.
- * - the **value** (`apps/api/src/idl/*.ts`) for `BorshCoder` in the watcher.
- *   The service on a host will never reach `target/`, so the IDL travels with
- *   it.
+ * - the **value** (`apps/api/src/idl/*.ts`) for `BorshCoder` in the watcher
+ *   and the evidence collector. The service on a host will never reach
+ *   `target/`, so the IDL travels with it. The collector decodes the escrow's
+ *   events and account as well, hence `reference_escrow` here too.
  *
  * Two forms are not two copies of one text: `target/types/*.ts` camel-cases
  * field names while `target/idl/*.json` leaves them in snake_case, and
@@ -28,6 +29,10 @@ const PROGRAMS = ['verdict_mesh', 'reference_escrow'] as const
 /** Whose surface the off-chain service needs as a value, not just as a type. */
 const RUNTIME: Partial<Record<(typeof PROGRAMS)[number], { path: string; name: string }>> = {
   verdict_mesh: { path: '../apps/api/src/idl/verdict-mesh.ts', name: 'verdictMeshIdl' },
+  reference_escrow: {
+    path: '../apps/api/src/idl/reference-escrow.ts',
+    name: 'referenceEscrowIdl',
+  },
 }
 
 const header = (program: string, name: string) => `/**
