@@ -1,4 +1,4 @@
-import { BN, BorshCoder, EventParser } from '@coral-xyz/anchor'
+import { BN, BorshCoder } from '@coral-xyz/anchor'
 import { PublicKey } from '@solana/web3.js'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { verdictMeshIdl } from './idl/verdict-mesh.js'
@@ -215,7 +215,7 @@ describe('the account surface as a boundary', () => {
 })
 
 describe('disputes mentioned in logs', () => {
-  const parser = new EventParser(programId, coder)
+  const coders = new Map([[programId.toBase58(), coder]])
 
   const opened = encodeEvent('DisputeOpened', {
     dispute: key(9),
@@ -237,13 +237,13 @@ describe('disputes mentioned in logs', () => {
   })
 
   it('collects addresses without repeats', () => {
-    const found = disputesInLogs(parser, invocation(programId, opened, committed, otherCommitted))
+    const found = disputesInLogs(coders, invocation(programId, opened, committed, otherCommitted))
     expect(found).toEqual([key(9).toBase58(), key(8).toBase58()])
   })
 
   /** The juror registry is not a dispute: these two have no `dispute` field. */
   it('does not mistake a registry event for a dispute', () => {
-    expect(disputesInLogs(parser, invocation(programId, staked))).toEqual([])
+    expect(disputesInLogs(coders, invocation(programId, staked))).toEqual([])
   })
 
   /**
@@ -253,17 +253,35 @@ describe('disputes mentioned in logs', () => {
    */
   it('ignores events of another program', () => {
     const stranger = new PublicKey(new Uint8Array(32).fill(42))
-    expect(disputesInLogs(parser, invocation(stranger, opened))).toEqual([])
+    expect(disputesInLogs(coders, invocation(stranger, opened))).toEqual([])
   })
 
   it('survives a truncated log quietly', () => {
     const truncated = [`Program ${programId.toBase58()} invoke [1]`, 'Log truncated']
-    expect(disputesInLogs(parser, truncated)).toEqual([])
+    expect(disputesInLogs(coders, truncated)).toEqual([])
+  })
+
+  /**
+   * Escrows open disputes through CPI, so `DisputeOpened` is logged at depth 2.
+   * `EventParser` from anchor loses it (see `logs.ts`), and the watcher learnt
+   * of every new dispute only from the next rewrite, up to five minutes later.
+   */
+  it('finds a dispute opened through CPI by an escrow', () => {
+    const escrowProgram = new PublicKey(new Uint8Array(32).fill(43)).toBase58()
+    const logs = [
+      `Program ${escrowProgram} invoke [1]`,
+      `Program ${programId.toBase58()} invoke [2]`,
+      `Program data: ${opened}`,
+      `Program ${programId.toBase58()} success`,
+      `Program ${escrowProgram} success`,
+    ]
+
+    expect(disputesInLogs(coders, logs)).toEqual([key(9).toBase58()])
   })
 
   it('survives a line that is not an event quietly', () => {
     const noise = invocation(programId, Buffer.from('not an event').toString('base64'))
-    expect(disputesInLogs(parser, noise)).toEqual([])
+    expect(disputesInLogs(coders, noise)).toEqual([])
   })
 })
 

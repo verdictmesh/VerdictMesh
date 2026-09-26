@@ -1,9 +1,10 @@
-import { BN, BorshCoder, EventParser } from '@coral-xyz/anchor'
+import { BN, BorshCoder } from '@coral-xyz/anchor'
 import type { PublicKey } from '@solana/web3.js'
 import type { disputes } from '@verdictmesh/db'
 import { disputeState, verdict as verdictContract } from '@verdictmesh/shared'
 import { z } from 'zod'
 import { verdictMeshIdl } from './idl/verdict-mesh.js'
+import { parseLogs } from './logs.js'
 
 /**
  * A Postgres mirror of on-chain dispute state — `FR-029`.
@@ -178,16 +179,23 @@ export function disputeSnapshot(account: ChainAccount, slot: number): DisputeRow
  * The addresses of the disputes mentioned in the logs of one transaction,
  * without repeats.
  *
- * Parsing goes through `EventParser` rather than scanning for `Program data:`
- * lines, because the parser follows the call stack: an event emitted by
- * **another** program in the same transaction never gets here. The `dispute`
- * field is not taken on faith either — `JurorStaked` and `JurorUnstaked` do not
- * have one at all, they are about the registry.
+ * Parsing follows the call stack rather than scanning for `Program data:`
+ * lines: an event emitted by **another** program in the same transaction never
+ * gets here. It is `parseLogs` and not `EventParser` from anchor, which loses
+ * every event of a program called through CPI — and escrows open disputes
+ * exactly that way. The `dispute` field is not taken on faith either —
+ * `JurorStaked` and `JurorUnstaked` do not have one at all, they are about the
+ * registry.
+ *
+ * `coders` holds one entry: this program at its address in the network.
  */
-export function disputesInLogs(parser: EventParser, logs: readonly string[]): string[] {
+export function disputesInLogs(
+  coders: ReadonlyMap<string, BorshCoder>,
+  logs: readonly string[],
+): string[] {
   const seen = new Set<string>()
 
-  for (const event of parser.parseLogs([...logs])) {
+  for (const event of parseLogs(logs, coders).events) {
     const dispute: unknown = event.data.dispute
     const parsed = pubkey.safeParse(dispute)
     if (parsed.success) seen.add(parsed.data)
@@ -280,7 +288,7 @@ const DEFAULT_RESYNC_MS = 5 * 60 * 1000
 export function createWatcher(options: WatcherOptions): Watcher {
   const { chain, cache, log, programId } = options
   const resyncIntervalMs = options.resyncIntervalMs ?? DEFAULT_RESYNC_MS
-  const parser = new EventParser(programId, coder)
+  const coders = new Map([[programId.toBase58(), coder]])
 
   let unsubscribe: (() => Promise<void>) | null = null
   let resync: ReturnType<typeof setInterval> | null = null
@@ -324,7 +332,7 @@ export function createWatcher(options: WatcherOptions): Watcher {
   }
 
   const onLogs = (logs: readonly string[]): void => {
-    const addresses = disputesInLogs(parser, logs)
+    const addresses = disputesInLogs(coders, logs)
     if (addresses.length === 0) return
 
     // This handler runs inside a WebSocket callback: an error thrown out of it
