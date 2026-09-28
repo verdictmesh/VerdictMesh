@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import type Anthropic from '@anthropic-ai/sdk'
+import { AnthropicError, APIConnectionError } from '@anthropic-ai/sdk'
 import { PublicKey } from '@solana/web3.js'
 import type { FactFindingReport } from '@verdictmesh/shared'
 import { factFindingReport } from '@verdictmesh/shared'
@@ -14,6 +15,7 @@ import {
   checkReport,
   createReporter,
   type Generated,
+  MalformedReport,
   needsReport,
   type Positions,
   REPORT_MODEL,
@@ -587,6 +589,53 @@ describe('reporter', () => {
     expect(saved).toHaveLength(1)
   })
 
+  /** A late report is read; a missing one is not. */
+  it('asks again at once when the answer was not a report', async () => {
+    const generate = vi
+      .fn<() => Promise<Generated>>()
+      .mockRejectedValueOnce(new MalformedReport('Unterminated string'))
+      .mockResolvedValue({ report: generated(), model: 'claude-opus-5' })
+    const { reporter, saved, log } = harness({ generate })
+
+    reporter.consider([dispute()])
+    await reporter.idle()
+
+    expect(generate).toHaveBeenCalledTimes(2)
+    expect(saved).toHaveLength(1)
+    expect(log.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ dispute: pda }),
+      'malformed report, asking again',
+    )
+  })
+
+  it('asks again only once', async () => {
+    const generate = vi
+      .fn<() => Promise<Generated>>()
+      .mockRejectedValue(new MalformedReport('Unterminated string'))
+    const { reporter, saved, log } = harness({ generate })
+
+    reporter.consider([dispute()])
+    await reporter.idle()
+
+    expect(generate).toHaveBeenCalledTimes(2)
+    expect(saved).toHaveLength(0)
+    expect(log.error).toHaveBeenCalledWith(
+      expect.objectContaining({ attempt: 1 }),
+      'report generation failed',
+    )
+  })
+
+  /** The SDK has already retried an API error; the fallback, a refusal. */
+  it('does not ask again at once after any other failure', async () => {
+    const generate = vi.fn<() => Promise<Generated>>().mockRejectedValue(new Error('overloaded'))
+    const { reporter } = harness({ generate })
+
+    reporter.consider([dispute()])
+    await reporter.idle()
+
+    expect(generate).toHaveBeenCalledTimes(1)
+  })
+
   it('gives up on a dispute after the last allowed attempt', async () => {
     const generate = vi.fn<() => Promise<Generated>>().mockRejectedValue(new Error('refused'))
     const { reporter } = harness({ generate, maxAttempts: 2 })
@@ -626,7 +675,7 @@ describe('the Anthropic model', () => {
         betas: ['server-side-fallback-2026-07-01'],
         thinking: { type: 'adaptive' },
         output_config: expect.objectContaining({
-          effort: 'medium',
+          effort: 'low',
           format: expect.objectContaining({ type: 'json_schema' }),
         }),
         system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
@@ -648,6 +697,44 @@ describe('the Anthropic model', () => {
     })
   })
 
+  it('keeps the output ceiling low enough to cut a runaway string short', async () => {
+    const { client, stream } = fakeClient({
+      stop_reason: 'end_turn',
+      parsed_output: generated(),
+      model: REPORT_MODEL,
+    })
+
+    await anthropicReportModel(client).generate(request)
+
+    expect(stream).toHaveBeenCalledWith(expect.objectContaining({ max_tokens: 4_096 }))
+  })
+
+  it('calls an output the SDK could not parse malformed', async () => {
+    const stream = vi.fn(() => ({
+      finalMessage: async () => {
+        throw new AnthropicError('Failed to parse structured output: Unterminated string')
+      },
+    }))
+    const client = { beta: { messages: { stream } } } as unknown as Anthropic
+
+    await expect(anthropicReportModel(client).generate(request)).rejects.toBeInstanceOf(
+      MalformedReport,
+    )
+  })
+
+  it('leaves an error on the wire as it is', async () => {
+    const stream = vi.fn(() => ({
+      finalMessage: async () => {
+        throw new APIConnectionError({ message: 'socket hang up' })
+      },
+    }))
+    const client = { beta: { messages: { stream } } } as unknown as Anthropic
+
+    const failure = anthropicReportModel(client).generate(request)
+    await expect(failure).rejects.toBeInstanceOf(APIConnectionError)
+    await expect(failure).rejects.not.toBeInstanceOf(MalformedReport)
+  })
+
   it('fails on a refusal instead of storing an empty report', async () => {
     const { client } = fakeClient({
       stop_reason: 'refusal',
@@ -661,14 +748,16 @@ describe('the Anthropic model', () => {
   it('fails on a report cut off at max_tokens', async () => {
     const { client } = fakeClient({ stop_reason: 'max_tokens', parsed_output: null })
 
-    await expect(anthropicReportModel(client).generate(request)).rejects.toThrow(/max_tokens/)
+    const failure = anthropicReportModel(client).generate(request)
+    await expect(failure).rejects.toThrow(/max_tokens/)
+    await expect(failure).rejects.toBeInstanceOf(MalformedReport)
   })
 
   it('fails when nothing could be parsed', async () => {
     const { client } = fakeClient({ stop_reason: 'end_turn', parsed_output: null })
 
-    await expect(anthropicReportModel(client).generate(request)).rejects.toThrow(
-      /no parseable report/,
+    await expect(anthropicReportModel(client).generate(request)).rejects.toBeInstanceOf(
+      MalformedReport,
     )
   })
 })

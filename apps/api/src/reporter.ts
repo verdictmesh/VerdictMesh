@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import type Anthropic from '@anthropic-ai/sdk'
+import { AnthropicError, APIError } from '@anthropic-ai/sdk'
 import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod'
 import type { reports } from '@verdictmesh/db'
 import { type FactFindingReport, factFindingReport } from '@verdictmesh/shared'
@@ -39,8 +40,9 @@ import type { DisputeRow, WatcherLog } from './watcher.js'
  * published body without our code (`FR-017b`).
  *
  * What is not here: writing the fingerprint on chain (`attest_report`, T030)
- * and marking a report unavailable when the model is down (T032). A failed
- * generation is logged and retried by the next rewrite, up to a limit.
+ * and marking a report unavailable when the model is down (T032). An answer
+ * that is not a report is asked for again at once; any other failure is
+ * logged and retried by the next rewrite, up to a limit.
  */
 
 /** The full model id goes into `reports.model`; reports of different models are not comparable. */
@@ -136,7 +138,8 @@ How to fill the report:
 - timeline: what happened on chain, oldest first. "at" is the blockTime (unix seconds) of the cited transaction.
 - claims: exactly one entry per party. Copy the party's statement as given; if it is null, write that the position is known only by its fingerprint. Assess it against the evidence: "supported", "unsupported" or "contradicted".
 - gaps: what a juror would need that the evidence does not show — for example whether off-chain work was delivered. Name each gap instead of filling it with a guess.
-- summary: a neutral account of the dispute in at most 150 words. Amounts are in base units of the token, as in the evidence.
+- summary: a neutral account of the dispute in at most 120 words. Amounts are in base units of the token, as in the evidence.
+- Length: every statement, timeline entry and gap is one sentence of at most 300 characters. At most 12 facts, 12 timeline entries and 6 gaps. Close every string you open.
 - Write in English. Be concise: jurors read this on a phone.`
 
 export interface ReportRequest {
@@ -188,7 +191,18 @@ export interface Generated {
 }
 
 export interface ReportModel {
+  /** Throws `MalformedReport` when the answer came but is not a report. */
   generate(request: ReportRequest): Promise<Generated>
+}
+
+/**
+ * The model answered, but not with a report: a string never closed, the answer
+ * cut off at `max_tokens`, or a value the contract does not allow. Unlike an
+ * API error — which the SDK has already retried — or a refusal — which the
+ * fallback has already re-run — this one is worth asking again at once.
+ */
+export class MalformedReport extends Error {
+  override name = 'MalformedReport'
 }
 
 /**
@@ -199,9 +213,11 @@ const outputFormat = betaZodOutputFormat(factFindingReport)
 
 export interface AnthropicModelOptions {
   /**
-   * `medium`, as `PLAN.md` set it against `SC-003`: the report is an
-   * extraction with judgement, not a research task, and every level up is
-   * paid for in seconds of the thirty.
+   * `low`, measured against `SC-003`: on the same five devnet disputes
+   * `medium` took 22–36 s from opening to report, two of five over thirty,
+   * while `low` took 25–28 s. The price is care — at `low` the model more
+   * often marks a fact confirmed without citing it — and `checkReport` is
+   * what pays it: such a fact is demoted, not shown as confirmed.
    */
   effort?: 'low' | 'medium' | 'high'
 }
@@ -219,13 +235,18 @@ export function anthropicReportModel(
   client: Anthropic,
   options: AnthropicModelOptions = {},
 ): ReportModel {
-  const effort = options.effort ?? 'medium'
+  const effort = options.effort ?? 'low'
 
   return {
     async generate(request) {
       const stream = client.beta.messages.stream({
         model: REPORT_MODEL,
-        max_tokens: 16_000,
+        // A report takes 2 000–2 300 output tokens at `low`, thinking included.
+        // The ceiling is there for a runaway string (`maxLength` does not reach
+        // the grammar — see `docs/TASKS.md` → T029): at ≈ 80 tokens a second,
+        // 4 096 cuts one off in under a minute, while 16 000 would burn three
+        // before the retry could even start.
+        max_tokens: 4_096,
         betas: ['server-side-fallback-2026-07-01'],
         fallbacks: 'default',
         thinking: { type: 'adaptive' },
@@ -236,7 +257,15 @@ export function anthropicReportModel(
         messages: [{ role: 'user', content: request.input }],
       })
 
-      const message = await stream.finalMessage()
+      const message = await stream.finalMessage().catch((error: unknown) => {
+        // The SDK parses the output inside the stream and throws a bare
+        // `AnthropicError` when it cannot; everything that went wrong on the
+        // wire is an `APIError` and stays what it is.
+        if (error instanceof AnthropicError && !(error instanceof APIError)) {
+          throw new MalformedReport(error.message, { cause: error })
+        }
+        throw error
+      })
 
       if (message.stop_reason === 'refusal') {
         throw new Error(
@@ -244,9 +273,10 @@ export function anthropicReportModel(
         )
       }
       if (message.stop_reason === 'max_tokens') {
-        throw new Error('The report was cut off at max_tokens')
+        throw new MalformedReport('The report was cut off at max_tokens')
       }
-      if (!message.parsed_output) throw new Error('The model returned no parseable report')
+      if (!message.parsed_output)
+        throw new MalformedReport('The model returned no parseable report')
 
       return { report: message.parsed_output, model: message.model }
     },
@@ -471,7 +501,14 @@ export function createReporter(options: ReporterOptions): Reporter {
     await evidence.save(set.rows)
 
     const positions = recoverPositions(dispute, escrowOwner(set), programs)
-    const generated = await model.generate(buildRequest(dispute, set, positions))
+    const request = buildRequest(dispute, set, positions)
+    // One immediate retry, for a malformed answer only. A report that arrives
+    // late is still read; one that never arrives is not (`SC-003`, `FR-018`).
+    const generated = await model.generate(request).catch((error: unknown) => {
+      if (!(error instanceof MalformedReport)) throw error
+      log.warn({ err: error, dispute: dispute.pda }, 'malformed report, asking again')
+      return model.generate(request)
+    })
     const { report, demoted, stripped } = checkReport(generated.report, set, dispute.pda, positions)
 
     const row: ReportRow = {
