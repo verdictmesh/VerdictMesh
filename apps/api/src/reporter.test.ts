@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import type Anthropic from '@anthropic-ai/sdk'
-import { AnthropicError, APIConnectionError } from '@anthropic-ai/sdk'
+import { APIConnectionError } from '@anthropic-ai/sdk'
 import { PublicKey } from '@solana/web3.js'
 import type { FactFindingReport } from '@verdictmesh/shared'
 import { factFindingReport } from '@verdictmesh/shared'
@@ -8,12 +8,14 @@ import { describe, expect, it, vi } from 'vitest'
 import { claimOf, referenceEscrowPositions } from './claims.js'
 import type { EvidenceRow, EvidenceSet, KnownProgram } from './evidence.js'
 import { referenceEscrowIdl } from './idl/reference-escrow.js'
+import { reportJsonSchema } from './report-schema.js'
 import {
   anthropicReportModel,
   buildRequest,
   canonicalJson,
   checkReport,
   createReporter,
+  firstReport,
   type Generated,
   MalformedReport,
   needsReport,
@@ -440,7 +442,12 @@ describe('which disputes need a report', () => {
 const silentLog = () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn() })
 
 function harness(
-  options: { has?: boolean; generate?: () => Promise<Generated>; maxAttempts?: number } = {},
+  options: {
+    has?: boolean
+    generate?: () => Promise<Generated>
+    maxAttempts?: number
+    copies?: number
+  } = {},
 ) {
   const order: string[] = []
   const saved: ReportRow[] = []
@@ -479,6 +486,8 @@ function harness(
     programs,
     log,
     maxAttempts: options.maxAttempts ?? 3,
+    // One copy unless a test is about copies: call counts then read as attempts.
+    copies: options.copies ?? 1,
     now: () => {
       clock += 4_000
       return clock
@@ -656,40 +665,40 @@ function fakeClient(message: Record<string, unknown>) {
   return { client, stream }
 }
 
+/** An answer as the API sends it: the report is the text of the message. */
+const answer = (text: string, overrides: Record<string, unknown> = {}) => ({
+  stop_reason: 'end_turn',
+  content: [{ type: 'text', text }],
+  model: REPORT_MODEL,
+  ...overrides,
+})
+
 const request = buildRequest(dispute(), evidence(), positions)
 
 describe('the Anthropic model', () => {
-  it('asks claude-opus-5 for the contract schema, with fallbacks and a cached prefix', async () => {
-    const { client, stream } = fakeClient({
-      stop_reason: 'end_turn',
-      parsed_output: generated(),
-      model: REPORT_MODEL,
-    })
+  it('asks claude-opus-5 for the report schema, with fallbacks and a cached prefix', async () => {
+    const { client, stream } = fakeClient(answer(JSON.stringify(generated())))
+    const controller = new AbortController()
 
-    await anthropicReportModel(client).generate(request)
+    await anthropicReportModel(client).generate(request, controller.signal)
 
     expect(stream).toHaveBeenCalledWith(
       expect.objectContaining({
         model: 'claude-opus-5',
+        max_tokens: 4_096,
         fallbacks: 'default',
         betas: ['server-side-fallback-2026-07-01'],
         thinking: { type: 'adaptive' },
-        output_config: expect.objectContaining({
-          effort: 'low',
-          format: expect.objectContaining({ type: 'json_schema' }),
-        }),
+        output_config: { effort: 'low', format: { type: 'json_schema', schema: reportJsonSchema } },
         system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
         messages: [{ role: 'user', content: request.input }],
       }),
+      { signal: controller.signal },
     )
   })
 
-  it('returns the parsed report and the model that served it', async () => {
-    const { client } = fakeClient({
-      stop_reason: 'end_turn',
-      parsed_output: generated(),
-      model: 'claude-opus-4-8',
-    })
+  it('returns the report and the model that served it', async () => {
+    const { client } = fakeClient(answer(JSON.stringify(generated()), { model: 'claude-opus-4-8' }))
 
     await expect(anthropicReportModel(client).generate(request)).resolves.toEqual({
       report: generated(),
@@ -697,29 +706,42 @@ describe('the Anthropic model', () => {
     })
   })
 
-  it('keeps the output ceiling low enough to cut a runaway string short', async () => {
-    const { client, stream } = fakeClient({
-      stop_reason: 'end_turn',
-      parsed_output: generated(),
-      model: REPORT_MODEL,
-    })
+  it('fails on a refusal instead of storing an empty report', async () => {
+    const { client } = fakeClient(
+      answer('', { stop_reason: 'refusal', stop_details: { category: 'cyber' } }),
+    )
 
-    await anthropicReportModel(client).generate(request)
-
-    expect(stream).toHaveBeenCalledWith(expect.objectContaining({ max_tokens: 4_096 }))
+    const failure = anthropicReportModel(client).generate(request)
+    await expect(failure).rejects.toThrow(/declined.*cyber/)
+    await expect(failure).rejects.not.toBeInstanceOf(MalformedReport)
   })
 
-  it('calls an output the SDK could not parse malformed', async () => {
-    const stream = vi.fn(() => ({
-      finalMessage: async () => {
-        throw new AnthropicError('Failed to parse structured output: Unterminated string')
-      },
-    }))
-    const client = { beta: { messages: { stream } } } as unknown as Anthropic
+  it('calls an answer cut off at max_tokens malformed and keeps its tail', async () => {
+    const runaway = `{"summary":"${'again '.repeat(200)}`
+    const { client } = fakeClient(answer(runaway, { stop_reason: 'max_tokens' }))
 
-    await expect(anthropicReportModel(client).generate(request)).rejects.toBeInstanceOf(
-      MalformedReport,
-    )
+    const failure = anthropicReportModel(client).generate(request)
+    await expect(failure).rejects.toThrow(/max_tokens after 1212 characters/)
+    await expect(failure).rejects.toMatchObject({ excerpt: runaway.slice(-600) })
+  })
+
+  it('calls an unterminated string malformed', async () => {
+    const { client } = fakeClient(answer('{"summary":"never closed'))
+
+    const failure = anthropicReportModel(client).generate(request)
+    await expect(failure).rejects.toBeInstanceOf(MalformedReport)
+    await expect(failure).rejects.toThrow(/not JSON/)
+  })
+
+  /** What the grammar is now told to prevent, still checked after the answer. */
+  it('calls a verdict outside the contract malformed', async () => {
+    const report = generated({ facts: [{ statement: 'x', verdict: 'confirmed' }] })
+    const text = JSON.stringify(report).replace('"confirmed"', '"likely"')
+    const { client } = fakeClient(answer(text))
+
+    const failure = anthropicReportModel(client).generate(request)
+    await expect(failure).rejects.toBeInstanceOf(MalformedReport)
+    await expect(failure).rejects.toThrow(/breaks the contract/)
   })
 
   it('leaves an error on the wire as it is', async () => {
@@ -734,30 +756,156 @@ describe('the Anthropic model', () => {
     await expect(failure).rejects.toBeInstanceOf(APIConnectionError)
     await expect(failure).rejects.not.toBeInstanceOf(MalformedReport)
   })
+})
 
-  it('fails on a refusal instead of storing an empty report', async () => {
-    const { client } = fakeClient({
-      stop_reason: 'refusal',
-      stop_details: { category: 'cyber' },
-      parsed_output: null,
+describe('the first of several copies', () => {
+  const ok = (model: string): Generated => ({ report: generated(), model })
+
+  type Outcome = (signal: AbortSignal) => Promise<Generated>
+
+  /** A model whose copies answer as scripted, in the order they are asked. */
+  function scripted(...outcomes: Outcome[]) {
+    const signals: AbortSignal[] = []
+    const model = {
+      generate: vi.fn(async (_request: unknown, signal?: AbortSignal) => {
+        if (!signal) throw new Error('no signal')
+        signals.push(signal)
+        // biome-ignore lint/style/noNonNullAssertion: one outcome per copy.
+        return outcomes[signals.length - 1]!(signal)
+      }),
+    }
+    return { model, signals }
+  }
+
+  /** Settles after `ms` unless cancelled first, the way a stream is. */
+  const after =
+    (ms: number, settle: () => Generated): Outcome =>
+    (signal) =>
+      new Promise<Generated>((resolve, reject) => {
+        const timer = setTimeout(() => {
+          try {
+            resolve(settle())
+          } catch (error: unknown) {
+            reject(error)
+          }
+        }, ms)
+        signal.addEventListener('abort', () => {
+          clearTimeout(timer)
+          reject(new Error('aborted'))
+        })
+      })
+
+  const malformed = (ms: number): Outcome =>
+    after(ms, () => {
+      throw new MalformedReport('Unterminated string', 'tail')
     })
 
-    await expect(anthropicReportModel(client).generate(request)).rejects.toThrow(/declined.*cyber/)
-  })
-
-  it('fails on a report cut off at max_tokens', async () => {
-    const { client } = fakeClient({ stop_reason: 'max_tokens', parsed_output: null })
-
-    const failure = anthropicReportModel(client).generate(request)
-    await expect(failure).rejects.toThrow(/max_tokens/)
-    await expect(failure).rejects.toBeInstanceOf(MalformedReport)
-  })
-
-  it('fails when nothing could be parsed', async () => {
-    const { client } = fakeClient({ stop_reason: 'end_turn', parsed_output: null })
-
-    await expect(anthropicReportModel(client).generate(request)).rejects.toBeInstanceOf(
-      MalformedReport,
+  it('takes the first report and cancels the rest', async () => {
+    const { model, signals } = scripted(
+      after(30, () => ok('slow')),
+      after(5, () => ok('fast')),
     )
+
+    await expect(firstReport(model, request, 2)).resolves.toEqual(ok('fast'))
+    expect(signals).toHaveLength(2)
+    expect(signals.every((signal) => signal.aborted)).toBe(true)
+  })
+
+  it('takes the other copy when one comes back malformed, and reports the failure', async () => {
+    const onFailure = vi.fn()
+    const { model } = scripted(
+      malformed(1),
+      after(5, () => ok('second')),
+    )
+
+    await expect(firstReport(model, request, 2, onFailure)).resolves.toEqual(ok('second'))
+    expect(onFailure).toHaveBeenCalledTimes(1)
+    expect(onFailure).toHaveBeenCalledWith(expect.any(MalformedReport), 0)
+  })
+
+  /** The loser is cancelled by us; that is not a failure worth a log line. */
+  it('does not report a copy cancelled after the winner', async () => {
+    const onFailure = vi.fn()
+    const { model } = scripted(
+      after(5, () => ok('first')),
+      after(50, () => ok('second')),
+    )
+
+    await firstReport(model, request, 2, onFailure)
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    expect(onFailure).not.toHaveBeenCalled()
+  })
+
+  it('is malformed when every copy was', async () => {
+    const { model } = scripted(malformed(1), malformed(2))
+
+    await expect(firstReport(model, request, 2)).rejects.toBeInstanceOf(MalformedReport)
+  })
+
+  it('surfaces another error over a malformed answer', async () => {
+    // The refusal settles first and the malformed answer last, so the error
+    // chosen is not simply whichever came in the end.
+    const { model } = scripted(
+      after(1, () => {
+        throw new Error('The model declined to write the report (cyber)')
+      }),
+      malformed(5),
+    )
+
+    await expect(firstReport(model, request, 2)).rejects.toThrow(/declined/)
+  })
+})
+
+describe('reporter with two copies', () => {
+  it('runs two copies unless told otherwise', async () => {
+    const generate = vi.fn(async () => ({ report: generated(), model: 'claude-opus-5' }))
+    const reporter = createReporter({
+      collect: async () => evidence(),
+      evidence: { save: async () => {} },
+      reports: { has: async () => false, save: async () => {} },
+      model: { generate },
+      programs,
+      log: silentLog(),
+      now: () => 1_700_000_100_000,
+    })
+
+    reporter.consider([dispute()])
+    await reporter.idle()
+
+    expect(generate).toHaveBeenCalledTimes(2)
+  })
+
+  it('stores the report of the copy that answered well', async () => {
+    const generate = vi
+      .fn<() => Promise<Generated>>()
+      .mockRejectedValueOnce(new MalformedReport('Unterminated string', 'again again'))
+      .mockResolvedValueOnce({ report: generated(), model: 'claude-opus-5' })
+    const { reporter, saved, log } = harness({ generate, copies: 2 })
+
+    reporter.consider([dispute()])
+    await reporter.idle()
+
+    expect(generate).toHaveBeenCalledTimes(2)
+    expect(saved).toHaveLength(1)
+    expect(log.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ dispute: pda, copy: 0, excerpt: 'again again' }),
+      'report copy failed',
+    )
+    expect(log.warn).not.toHaveBeenCalledWith(expect.anything(), 'malformed report, asking again')
+  })
+
+  it('asks for a new pair when both copies came back malformed', async () => {
+    const generate = vi
+      .fn<() => Promise<Generated>>()
+      .mockRejectedValueOnce(new MalformedReport('x'))
+      .mockRejectedValueOnce(new MalformedReport('y'))
+      .mockResolvedValue({ report: generated(), model: 'claude-opus-5' })
+    const { reporter, saved } = harness({ generate, copies: 2 })
+
+    reporter.consider([dispute()])
+    await reporter.idle()
+
+    expect(generate).toHaveBeenCalledTimes(4)
+    expect(saved).toHaveLength(1)
   })
 })

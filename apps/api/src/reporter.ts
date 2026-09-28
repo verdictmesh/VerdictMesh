@@ -1,11 +1,10 @@
 import { createHash } from 'node:crypto'
 import type Anthropic from '@anthropic-ai/sdk'
-import { AnthropicError, APIError } from '@anthropic-ai/sdk'
-import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod'
 import type { reports } from '@verdictmesh/db'
 import { type FactFindingReport, factFindingReport } from '@verdictmesh/shared'
 import type { EvidenceStore } from './cache.js'
 import type { EvidenceSet, EvidenceTarget, Json, KnownProgram } from './evidence.js'
+import { parseReport, reportJsonSchema } from './report-schema.js'
 import type { DisputeRow, WatcherLog } from './watcher.js'
 
 /**
@@ -191,25 +190,35 @@ export interface Generated {
 }
 
 export interface ReportModel {
-  /** Throws `MalformedReport` when the answer came but is not a report. */
-  generate(request: ReportRequest): Promise<Generated>
+  /**
+   * Throws `MalformedReport` when the answer came but is not a report.
+   * `signal` cancels a request whose answer is no longer needed.
+   */
+  generate(request: ReportRequest, signal?: AbortSignal): Promise<Generated>
 }
+
+/** How much of a malformed answer goes to the log: its tail, where it broke. */
+const EXCERPT = 600
 
 /**
  * The model answered, but not with a report: a string never closed, the answer
  * cut off at `max_tokens`, or a value the contract does not allow. Unlike an
  * API error — which the SDK has already retried — or a refusal — which the
  * fallback has already re-run — this one is worth asking again at once.
+ *
+ * `excerpt` is the end of the answer. Without it a runaway string is a
+ * position in a text nobody kept, and its cause cannot be seen.
  */
 export class MalformedReport extends Error {
   override name = 'MalformedReport'
-}
 
-/**
- * The output schema is the contract schema from `packages/shared` — the same
- * one Hono validates and the panel renders (`PLAN.md` → "API contracts").
- */
-const outputFormat = betaZodOutputFormat(factFindingReport)
+  constructor(
+    message: string,
+    readonly excerpt = '',
+  ) {
+    super(message)
+  }
+}
 
 export interface AnthropicModelOptions {
   /**
@@ -230,6 +239,10 @@ export interface AnthropicModelOptions {
  * refusal be re-run on the model Anthropic routes that category to, instead of
  * leaving a dispute without a report; `message.model` then names the model
  * that served it, and that is what the report row records.
+ *
+ * The output schema is `reportJsonSchema`, not the SDK's zod helper, so the
+ * enums of the contract reach the grammar (`report-schema.ts`). The answer is
+ * parsed here, against the whole contract.
  */
 export function anthropicReportModel(
   client: Anthropic,
@@ -238,34 +251,33 @@ export function anthropicReportModel(
   const effort = options.effort ?? 'low'
 
   return {
-    async generate(request) {
-      const stream = client.beta.messages.stream({
-        model: REPORT_MODEL,
-        // A report takes 2 000–2 300 output tokens at `low`, thinking included.
-        // The ceiling is there for a runaway string (`maxLength` does not reach
-        // the grammar — see `docs/TASKS.md` → T029): at ≈ 80 tokens a second,
-        // 4 096 cuts one off in under a minute, while 16 000 would burn three
-        // before the retry could even start.
-        max_tokens: 4_096,
-        betas: ['server-side-fallback-2026-07-01'],
-        fallbacks: 'default',
-        thinking: { type: 'adaptive' },
-        output_config: { effort, format: outputFormat },
-        // One breakpoint after the stable prefix; the evidence after it is
-        // unique to the dispute and never cached (`PLAN.md` → "Anthropic API").
-        system: [{ type: 'text', text: request.system, cache_control: { type: 'ephemeral' } }],
-        messages: [{ role: 'user', content: request.input }],
-      })
+    async generate(request, signal) {
+      const stream = client.beta.messages.stream(
+        {
+          model: REPORT_MODEL,
+          // A report takes 2 000–2 300 output tokens at `low`, thinking
+          // included. The ceiling is there for a runaway string (`maxLength`
+          // is not something a grammar can hold — see `docs/TASKS.md` → T029):
+          // at ≈ 80 tokens a second, 4 096 cuts one off in under a minute,
+          // while 16 000 would burn three.
+          max_tokens: 4_096,
+          betas: ['server-side-fallback-2026-07-01'],
+          fallbacks: 'default',
+          thinking: { type: 'adaptive' },
+          output_config: { effort, format: { type: 'json_schema', schema: reportJsonSchema } },
+          // One breakpoint after the stable prefix; the evidence after it is
+          // unique to the dispute and never cached (`PLAN.md` → "Anthropic API").
+          system: [{ type: 'text', text: request.system, cache_control: { type: 'ephemeral' } }],
+          messages: [{ role: 'user', content: request.input }],
+        },
+        signal ? { signal } : undefined,
+      )
 
-      const message = await stream.finalMessage().catch((error: unknown) => {
-        // The SDK parses the output inside the stream and throws a bare
-        // `AnthropicError` when it cannot; everything that went wrong on the
-        // wire is an `APIError` and stays what it is.
-        if (error instanceof AnthropicError && !(error instanceof APIError)) {
-          throw new MalformedReport(error.message, { cause: error })
-        }
-        throw error
-      })
+      const message = await stream.finalMessage()
+      const text = message.content
+        .map((block) => (block.type === 'text' ? block.text : ''))
+        .join('')
+      const excerpt = text.slice(-EXCERPT)
 
       if (message.stop_reason === 'refusal') {
         throw new Error(
@@ -273,13 +285,57 @@ export function anthropicReportModel(
         )
       }
       if (message.stop_reason === 'max_tokens') {
-        throw new MalformedReport('The report was cut off at max_tokens')
+        throw new MalformedReport(
+          `The report was cut off at max_tokens after ${text.length} characters`,
+          excerpt,
+        )
       }
-      if (!message.parsed_output)
-        throw new MalformedReport('The model returned no parseable report')
 
-      return { report: message.parsed_output, model: message.model }
+      const parsed = parseReport(text)
+      if (!parsed.ok) throw new MalformedReport(`The answer ${parsed.reason}`, excerpt)
+      return { report: parsed.report, model: message.model }
     },
+  }
+}
+
+/**
+ * The first report of `copies` requests run side by side; the rest are
+ * cancelled as soon as one arrives.
+ *
+ * One answer in eight came back malformed on devnet, and the one that did
+ * cost a second full generation — about thirty seconds past `SC-003`. Two
+ * requests at once make that tail the case where **both** fail, and the price
+ * is the second generation's tokens up to the moment it is cancelled.
+ *
+ * All failed: a `MalformedReport` if every one of them was malformed (worth
+ * asking again), otherwise the first other error.
+ */
+export async function firstReport(
+  model: ReportModel,
+  request: ReportRequest,
+  copies: number,
+  /** Every copy that failed on its own — not one cancelled after a winner. */
+  onFailure: (error: unknown, copy: number) => void = () => {},
+): Promise<Generated> {
+  const controllers = Array.from({ length: copies }, () => new AbortController())
+
+  try {
+    return await Promise.any(
+      controllers.map((controller, copy) =>
+        model.generate(request, controller.signal).catch((error: unknown) => {
+          if (!controller.signal.aborted) onFailure(error, copy)
+          throw error
+        }),
+      ),
+    )
+  } catch (error: unknown) {
+    const errors = error instanceof AggregateError ? error.errors : [error]
+    const other = errors.find((inner) => !(inner instanceof MalformedReport))
+    if (other !== undefined) throw other
+    const [last] = errors.slice(-1)
+    throw last
+  } finally {
+    for (const controller of controllers) controller.abort()
   }
 }
 
@@ -447,6 +503,8 @@ export interface ReporterOptions {
   log: WatcherLog
   /** Disputes generated at once. Each waits on the model for most of its time. */
   concurrency?: number
+  /** Requests per report run side by side; the first report wins (`firstReport`). */
+  copies?: number
   /**
    * Failed generations per dispute before this process gives up on it. The
    * rewrite offers the dispute every five minutes, and a report that fails
@@ -482,6 +540,7 @@ export const needsReport = (row: DisputeRow, nowMs: number): boolean =>
 export function createReporter(options: ReporterOptions): Reporter {
   const { collect, evidence, reports, model, programs, log } = options
   const concurrency = options.concurrency ?? 4
+  const copies = options.copies ?? 2
   const maxAttempts = options.maxAttempts ?? 3
   const now = options.now ?? Date.now
 
@@ -502,12 +561,23 @@ export function createReporter(options: ReporterOptions): Reporter {
 
     const positions = recoverPositions(dispute, escrowOwner(set), programs)
     const request = buildRequest(dispute, set, positions)
-    // One immediate retry, for a malformed answer only. A report that arrives
-    // late is still read; one that never arrives is not (`SC-003`, `FR-018`).
-    const generated = await model.generate(request).catch((error: unknown) => {
+    const failed = (error: unknown, copy: number) =>
+      log.warn(
+        {
+          err: error,
+          dispute: dispute.pda,
+          copy,
+          excerpt: error instanceof MalformedReport ? error.excerpt : undefined,
+        },
+        'report copy failed',
+      )
+    // One immediate retry, when every copy came back malformed. A report that
+    // arrives late is still read; one that never arrives is not (`SC-003`,
+    // `FR-018`).
+    const generated = await firstReport(model, request, copies, failed).catch((error: unknown) => {
       if (!(error instanceof MalformedReport)) throw error
-      log.warn({ err: error, dispute: dispute.pda }, 'malformed report, asking again')
-      return model.generate(request)
+      log.warn({ dispute: dispute.pda }, 'malformed report, asking again')
+      return firstReport(model, request, copies, failed)
     })
     const { report, demoted, stripped } = checkReport(generated.report, set, dispute.pda, positions)
 
