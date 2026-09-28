@@ -1,7 +1,14 @@
 import { createDb, disputes, evidence } from '@verdictmesh/db'
 import { getTableColumns } from 'drizzle-orm'
 import { describe, expect, it, vi } from 'vitest'
-import { postgresCache, postgresEvidenceStore, saveDisputes, saveEvidence } from './cache.js'
+import {
+  hasReport,
+  postgresCache,
+  postgresEvidenceStore,
+  saveDisputes,
+  saveEvidence,
+  saveReport,
+} from './cache.js'
 import type { EvidenceRow } from './evidence.js'
 import type { DisputeRow } from './watcher.js'
 
@@ -138,5 +145,35 @@ describe('storing evidence', () => {
     await postgresEvidenceStore(db).save([])
     expect(insert).not.toHaveBeenCalled()
     insert.mockRestore()
+  })
+})
+
+describe('storing reports', () => {
+  const report = {
+    disputePda: 'a',
+    version: 1,
+    content: { summary: 's', timeline: [], facts: [], claims: [], gaps: [] },
+    contentHash: 'f'.repeat(64),
+    model: 'claude-opus-5',
+  }
+
+  /**
+   * The fingerprint on chain is final (`FR-017`). A second generation that won
+   * a race must not replace the body the fingerprint was taken from.
+   */
+  it('inserts and never overwrites', () => {
+    const { sql } = saveReport(db, report).toSQL()
+
+    expect(sql).toContain('insert into "reports"')
+    expect(sql).toContain('on conflict do nothing')
+    expect(sql).not.toContain('do update')
+  })
+
+  it('asks whether any version exists for exactly one dispute', () => {
+    const { sql, params } = hasReport(db, 'a').toSQL()
+
+    expect(sql).toContain('where "reports"."dispute_pda" = $1')
+    expect(sql).toContain('limit $2')
+    expect(params).toEqual(['a', 1])
   })
 })

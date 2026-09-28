@@ -424,6 +424,64 @@ describe('watcher', () => {
     expect(saved[0]?.syncedSlot).toBe(900)
   })
 
+  /**
+   * The reporter learns about disputes here, and its evidence references the
+   * mirror row — so the hand-over has to come after the write, on both paths.
+   */
+  it('hands every stored batch over after the write, from a rewrite and from an event', async () => {
+    const account = await encodeDispute()
+    const order: string[] = []
+    const delivered: ((logs: readonly string[]) => void)[] = []
+    const chain = chainOf({
+      allDisputes: vi.fn(async () => ({ slot: 500, accounts: [account] })),
+      readDispute: vi.fn(async (address: string) => ({
+        slot: 900,
+        account: { ...account, address },
+      })),
+      subscribeLogs: vi.fn(async (onLogs: (logs: readonly string[]) => void) => {
+        delivered.push(onLogs)
+        return async () => {}
+      }),
+    })
+
+    const watcher = createWatcher({
+      chain,
+      cache: { save: async (rows) => void order.push(`save:${rows[0]?.syncedSlot}`) },
+      log,
+      programId,
+      resyncIntervalMs: 0,
+      onSnapshot: (rows) => void order.push(`snapshot:${rows[0]?.syncedSlot}`),
+    })
+    await watcher.start()
+
+    const opened = encodeEvent('VoteCommitted', { dispute: key(9), juror: key(7) })
+    delivered[0]?.(invocation(programId, opened))
+    await vi.waitFor(() => expect(order).toHaveLength(4))
+
+    expect(order).toEqual(['save:500', 'snapshot:500', 'save:900', 'snapshot:900'])
+  })
+
+  it('hands nothing over when the write failed', async () => {
+    const onSnapshot = vi.fn()
+    const watcher = createWatcher({
+      chain: chainOf({
+        allDisputes: vi.fn(async () => ({ slot: 500, accounts: [await encodeDispute()] })),
+      }),
+      cache: {
+        save: async () => {
+          throw new Error('db down')
+        },
+      },
+      log,
+      programId,
+      resyncIntervalMs: 0,
+      onSnapshot,
+    })
+    await watcher.start()
+
+    expect(onSnapshot).not.toHaveBeenCalled()
+  })
+
   it('reads no accounts when the logs hold no disputes', async () => {
     const delivered: ((logs: readonly string[]) => void)[] = []
     const chain = chainOf({

@@ -77,7 +77,20 @@ export interface KnownProgram {
   name: string
   programId: PublicKey
   idl: Idl
+  /**
+   * How this program words the positions of the parties, for an escrow that
+   * derives them — `reference_escrow` does (`claims.ts`). Absent, the
+   * positions of its disputes are known by their fingerprints only.
+   */
+  positions?: PositionDecoder
 }
+
+/**
+ * The text of a position whose fingerprint (lowercase hex) is stored in the
+ * dispute, or `null` when no candidate this program could have written
+ * matches it.
+ */
+export type PositionDecoder = (escrowRef: string, fingerprint: string) => string | null
 
 export interface EvidenceTarget {
   /** The dispute the evidence belongs to. */

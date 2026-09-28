@@ -262,6 +262,12 @@ export interface WatcherOptions {
    * a hole that lasts until the next restart.
    */
   resyncIntervalMs?: number
+  /**
+   * Called with every batch of snapshots once it is stored — from an event and
+   * from a rewrite alike. This is where the reporter learns about a dispute:
+   * after the write, because evidence and reports reference the mirror row.
+   */
+  onSnapshot?: (rows: readonly DisputeRow[]) => void
 }
 
 export interface Watcher {
@@ -286,7 +292,7 @@ export interface Watcher {
 const DEFAULT_RESYNC_MS = 5 * 60 * 1000
 
 export function createWatcher(options: WatcherOptions): Watcher {
-  const { chain, cache, log, programId } = options
+  const { chain, cache, log, programId, onSnapshot } = options
   const resyncIntervalMs = options.resyncIntervalMs ?? DEFAULT_RESYNC_MS
   const coders = new Map([[programId.toBase58(), coder]])
 
@@ -298,6 +304,7 @@ export function createWatcher(options: WatcherOptions): Watcher {
     const rows = accounts.map((account) => disputeSnapshot(account, slot))
     await cache.save(rows)
     log.info({ disputes: rows.length, slot }, 'mirror rewritten from chain')
+    onSnapshot?.(rows)
     return rows.length
   }
 
@@ -327,7 +334,10 @@ export function createWatcher(options: WatcherOptions): Watcher {
     )
 
     const rows = snapshots.filter((row) => row !== null)
-    if (rows.length > 0) await cache.save(rows)
+    if (rows.length > 0) {
+      await cache.save(rows)
+      onSnapshot?.(rows)
+    }
     return rows.length
   }
 

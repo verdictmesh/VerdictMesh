@@ -5,6 +5,7 @@ const complete = {
   SOLANA_RPC_URL: 'https://api.devnet.solana.com',
   SOLANA_WS_URL: 'wss://api.devnet.solana.com',
   VERDICT_MESH_PROGRAM_ID: '8WyWpDD1ZbkTRGG6SRcYyWxApPsHaSgWn2SWJQ8xSgxq',
+  REFERENCE_ESCROW_PROGRAM_ID: '4iYF4WRdtuSmjTXH5fSa2ow5WrdeonEoeoY3epypfTHo',
   SETTLEMENT_MINT: '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU',
   REPORTER_KEYPAIR: 'base58-secret',
   ANTHROPIC_API_KEY: 'sk-ant-test',
@@ -31,13 +32,22 @@ describe('loadEnv', () => {
     expect(() => loadEnv()).toThrow(/Invalid environment/)
   })
 
+  it('fails fast when the reference escrow is not named', () => {
+    const { REFERENCE_ESCROW_PROGRAM_ID: _missing, ...withoutEscrow } = complete
+    process.env = { ...withoutEscrow } as NodeJS.ProcessEnv
+    expect(() => loadEnv()).toThrow(/Invalid environment/)
+  })
+
   it('rejects an RPC url that is not a url', () => {
     process.env = { ...complete, SOLANA_RPC_URL: 'devnet' } as NodeJS.ProcessEnv
     expect(() => loadEnv()).toThrow(/Invalid environment/)
   })
 
   it('rejects a websocket url that is not a websocket', () => {
-    process.env = { ...complete, SOLANA_WS_URL: 'https://api.devnet.solana.com' } as NodeJS.ProcessEnv
+    process.env = {
+      ...complete,
+      SOLANA_WS_URL: 'https://api.devnet.solana.com',
+    } as NodeJS.ProcessEnv
     expect(() => loadEnv()).toThrow(/Invalid environment/)
   })
 })

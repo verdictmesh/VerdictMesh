@@ -1,9 +1,10 @@
 import type { Db } from '@verdictmesh/db'
-import { disputes, evidence } from '@verdictmesh/db'
+import { disputes, evidence, reports } from '@verdictmesh/db'
 import type { SQL } from 'drizzle-orm'
-import { getTableColumns, sql } from 'drizzle-orm'
+import { eq, getTableColumns, sql } from 'drizzle-orm'
 import type { PgColumn, PgTable } from 'drizzle-orm/pg-core'
 import type { EvidenceRow } from './evidence.js'
+import type { ReportRow, ReportStore } from './reporter.js'
 import { type Cache, type DisputeRow, latestPerDispute } from './watcher.js'
 
 /**
@@ -125,6 +126,35 @@ export function postgresEvidenceStore(db: Db): EvidenceStore {
       // likely — collects nothing, and `values([])` is a syntax error.
       if (rows.length === 0) return
       await saveEvidence(db, rows)
+    },
+  }
+}
+
+/**
+ * A report is inserted, never updated. `FR-017` makes the fingerprint on chain
+ * final, and a second generation racing the first — the event and a rewrite
+ * offering the same dispute at once — must not replace the body the
+ * fingerprint was taken from. The loser of that race simply does nothing.
+ */
+export function saveReport(db: Db, row: ReportRow) {
+  return db.insert(reports).values(row).onConflictDoNothing()
+}
+
+export function hasReport(db: Db, disputePda: string) {
+  return db
+    .select({ version: reports.version })
+    .from(reports)
+    .where(eq(reports.disputePda, disputePda))
+    .limit(1)
+}
+
+export function postgresReportStore(db: Db): ReportStore {
+  return {
+    async has(disputePda) {
+      return (await hasReport(db, disputePda)).length > 0
+    },
+    async save(row) {
+      await saveReport(db, row)
     },
   }
 }
