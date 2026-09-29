@@ -127,7 +127,6 @@ impl Fixture {
         mollusk_at(now).process_instruction(&self.ix(&self.reporter, report_hash), &self.accounts)
     }
 
-
     fn deadline(&self) -> i64 {
         self.opened.commit_deadline
     }
