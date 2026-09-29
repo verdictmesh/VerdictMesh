@@ -83,6 +83,13 @@ pub mod verdict_mesh {
         Unstake::handle(ctx)
     }
 
+    /// Records the fingerprint of the fact-finding report on the dispute.
+    /// Signed by the reporter role only, once, before the commit window
+    /// closes — see `instructions::attest_report`.
+    pub fn attest_report(ctx: Context<AttestReport>, report_hash: [u8; 32]) -> Result<()> {
+        AttestReport::handle(ctx, report_hash)
+    }
+
     /// Фіксує прихований відбиток голосу присяжного у вікні подання. Самого
     /// голосу в стані немає до розкриття — див. `instructions::commit_vote`.
     pub fn commit_vote(ctx: Context<CommitVote>, commitment: [u8; 32]) -> Result<()> {

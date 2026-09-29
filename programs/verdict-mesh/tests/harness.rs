@@ -189,6 +189,17 @@ pub fn failed_with(result: &InstructionResult, expected: VerdictMeshError) -> bo
     matches!(&result.raw_result, Err(InstructionError::Custom(code)) if *code == u32::from(expected))
 }
 
+/// The same promise for errors raised by Anchor itself — account validation
+/// that runs before the handler: a missing signature, a foreign seed, a wrong
+/// owner. Such a refusal proves which constraint fired, not merely that
+/// something did.
+pub fn failed_with_anchor(
+    result: &InstructionResult,
+    expected: anchor_lang::error::ErrorCode,
+) -> bool {
+    matches!(&result.raw_result, Err(InstructionError::Custom(code)) if *code == u32::from(expected))
+}
+
 /// Порожній акаунт, що належить системній програмі — типовий підписант.
 pub fn wallet(lamports: u64) -> Account {
     Account::new(lamports, 0, &addr(&SYSTEM_PROGRAM))

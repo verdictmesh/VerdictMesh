@@ -56,4 +56,6 @@ pub enum VerdictMeshError {
     InvalidTreasury,
     #[msg("The arbitration deposit is paid by the party opening the dispute")]
     NotTheDepositor,
+    #[msg("Report fingerprint cannot be all zeros")]
+    EmptyReportHash,
 }

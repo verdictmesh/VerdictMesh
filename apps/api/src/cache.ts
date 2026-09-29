@@ -1,7 +1,7 @@
 import type { Db } from '@verdictmesh/db'
 import { disputes, evidence, reports } from '@verdictmesh/db'
 import type { SQL } from 'drizzle-orm'
-import { eq, getTableColumns, sql } from 'drizzle-orm'
+import { asc, eq, getTableColumns, sql } from 'drizzle-orm'
 import type { PgColumn, PgTable } from 'drizzle-orm/pg-core'
 import type { EvidenceRow } from './evidence.js'
 import type { ReportRow, ReportStore } from './reporter.js'
@@ -140,18 +140,25 @@ export function saveReport(db: Db, row: ReportRow) {
   return db.insert(reports).values(row).onConflictDoNothing()
 }
 
-export function hasReport(db: Db, disputePda: string) {
+/**
+ * The fingerprint of the first stored version — the one `attest_report` puts
+ * on chain. Read back after every save rather than taken from the row just
+ * written: when two generations race, the stored body is the winner's.
+ */
+export function storedReportHash(db: Db, disputePda: string) {
   return db
-    .select({ version: reports.version })
+    .select({ contentHash: reports.contentHash })
     .from(reports)
     .where(eq(reports.disputePda, disputePda))
+    .orderBy(asc(reports.version))
     .limit(1)
 }
 
 export function postgresReportStore(db: Db): ReportStore {
   return {
-    async has(disputePda) {
-      return (await hasReport(db, disputePda)).length > 0
+    async storedHash(disputePda) {
+      const [row] = await storedReportHash(db, disputePda)
+      return row?.contentHash ?? null
     },
     async save(row) {
       await saveReport(db, row)

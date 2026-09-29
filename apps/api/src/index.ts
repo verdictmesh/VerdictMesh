@@ -4,6 +4,7 @@ import { Connection, PublicKey } from '@solana/web3.js'
 import { createDb } from '@verdictmesh/db'
 import { Hono } from 'hono'
 import { pino } from 'pino'
+import { reporterKeypair, solanaAttester } from './attest.js'
 import { postgresCache, postgresEvidenceStore, postgresReportStore } from './cache.js'
 import { solanaChain, solanaEvidenceChain } from './chain.js'
 import { referenceEscrowPositions } from './claims.js'
@@ -48,6 +49,7 @@ const reporter = createReporter({
   collect: (target) => collectEvidence({ chain: evidenceChain, programs, target }),
   evidence: postgresEvidenceStore(db),
   reports: postgresReportStore(db),
+  attester: solanaAttester(connection, programId, reporterKeypair(env.REPORTER_KEYPAIR)),
   // One retry, not the default two, and a timeout well under the default ten
   // minutes: past `SC-003` a report is late either way, and a hung request
   // would hold a slot of the queue that the next dispute needs.

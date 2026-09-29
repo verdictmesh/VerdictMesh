@@ -1,3 +1,4 @@
+pub mod attest_report;
 pub mod commit_vote;
 pub mod initialize;
 pub mod open_dispute;
@@ -13,6 +14,7 @@ pub mod unstake;
 // він шукає в корені крейта. Тому хендлер кожної інструкції — асоційована
 // функція її контексту, а не вільна `fn`: вільні функції потрапили б у глоб і
 // зіткнулися б між собою або з іменами, які генерує сам `#[program]`.
+pub use attest_report::*;
 pub use commit_vote::*;
 pub use initialize::*;
 pub use open_dispute::*;

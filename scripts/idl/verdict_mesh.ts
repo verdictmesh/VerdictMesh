@@ -22,6 +22,103 @@ export type VerdictMesh = {
   ],
   "instructions": [
     {
+      "name": "attestReport",
+      "docs": [
+        "Records the fingerprint of the fact-finding report on the dispute.",
+        "Signed by the reporter role only, once, before the commit window",
+        "closes — see `instructions::attest_report`."
+      ],
+      "discriminator": [
+        244,
+        249,
+        183,
+        49,
+        34,
+        146,
+        190,
+        63
+      ],
+      "accounts": [
+        {
+          "name": "reporter",
+          "docs": [
+            "The reporter role named in the protocol config. Not writable: the",
+            "transaction fee is paid by whoever pays it, and the role needs no",
+            "account of its own."
+          ],
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "config",
+          "docs": [
+            "The protocol config, read for the reporter key it names."
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "dispute",
+          "docs": [
+            "The dispute whose report is attested. Only `report_hash` changes."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  105,
+                  115,
+                  112,
+                  117,
+                  116,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "dispute.integrator",
+                "account": "dispute"
+              },
+              {
+                "kind": "account",
+                "path": "dispute.dispute_id",
+                "account": "dispute"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "reportHash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ]
+    },
+    {
       "name": "commitVote",
       "docs": [
         "Фіксує прихований відбиток голосу присяжного у вікні подання. Самого",
@@ -1765,6 +1862,11 @@ export type VerdictMesh = {
       "code": 6026,
       "name": "notTheDepositor",
       "msg": "The arbitration deposit is paid by the party opening the dispute"
+    },
+    {
+      "code": 6027,
+      "name": "emptyReportHash",
+      "msg": "Report fingerprint cannot be all zeros"
     }
   ],
   "types": [

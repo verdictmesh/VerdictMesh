@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import type Anthropic from '@anthropic-ai/sdk'
 import type { reports } from '@verdictmesh/db'
 import { type FactFindingReport, factFindingReport } from '@verdictmesh/shared'
+import type { Attester } from './attest.js'
 import type { EvidenceStore } from './cache.js'
 import type { EvidenceSet, EvidenceTarget, Json, KnownProgram } from './evidence.js'
 import { parseReport, reportJsonSchema } from './report-schema.js'
@@ -488,9 +489,22 @@ export function checkReport(
 
 /** Reports as the reporter needs them. */
 export interface ReportStore {
-  /** Any version of a report for the dispute already exists. */
-  has(disputePda: string): Promise<boolean>
+  /** Fingerprint of the stored report for the dispute; `null` — there is none. */
+  storedHash(disputePda: string): Promise<string | null>
   save(row: ReportRow): Promise<void>
+}
+
+/**
+ * The report was stored, but its fingerprint did not reach the chain. Kept
+ * apart from a failed generation because the next attempt costs a fee rather
+ * than a model call, and it writes the stored fingerprint instead of asking
+ * for a new report.
+ */
+export class AttestationFailed extends Error {
+  constructor(cause: unknown) {
+    super('attest_report failed', { cause })
+    this.name = 'AttestationFailed'
+  }
 }
 
 export interface ReporterOptions {
@@ -498,6 +512,8 @@ export interface ReporterOptions {
   collect(target: EvidenceTarget): Promise<EvidenceSet>
   evidence: EvidenceStore
   reports: ReportStore
+  /** Puts the stored fingerprint on chain (`FR-017`). */
+  attester: Attester
   model: ReportModel
   programs: readonly KnownProgram[]
   log: WatcherLog
@@ -522,6 +538,12 @@ export interface Reporter {
   idle(): Promise<void>
   /** Generate and store one report. `null` — the dispute already has one. */
   generate(dispute: DisputeRow): Promise<ReportRow | null>
+  /**
+   * Make sure the dispute has a stored report, then attest its fingerprint.
+   * A report stored on an earlier attempt is attested as it is — a new one
+   * would not match the body jurors may already have read.
+   */
+  run(dispute: DisputeRow): Promise<void>
 }
 
 /**
@@ -532,13 +554,18 @@ export interface Reporter {
  * the state only moves on the next transaction, and devnet holds such
  * disputes. Without both conditions a rewrite after a long sleep would pay for
  * reports nobody reads. A dispute whose fingerprint is already on chain has
- * its report by definition.
+ * its report by definition. An escalated dispute is back in `Committing`, but
+ * the first round's votes are public by then, and the program refuses a
+ * fingerprint written with them in view.
  */
 export const needsReport = (row: DisputeRow, nowMs: number): boolean =>
-  row.state === 'Committing' && row.reportHash === null && row.commitDeadline * 1000 > nowMs
+  row.state === 'Committing' &&
+  !row.escalated &&
+  row.reportHash === null &&
+  row.commitDeadline * 1000 > nowMs
 
 export function createReporter(options: ReporterOptions): Reporter {
-  const { collect, evidence, reports, model, programs, log } = options
+  const { collect, evidence, reports, attester, model, programs, log } = options
   const concurrency = options.concurrency ?? 4
   const copies = options.copies ?? 2
   const maxAttempts = options.maxAttempts ?? 3
@@ -551,7 +578,7 @@ export function createReporter(options: ReporterOptions): Reporter {
   let waiters: (() => void)[] = []
 
   const generate = async (dispute: DisputeRow): Promise<ReportRow | null> => {
-    if (await reports.has(dispute.pda)) return null
+    if ((await reports.storedHash(dispute.pda)) !== null) return null
 
     const started = now()
     const set = await collect({ pda: dispute.pda, escrowRef: dispute.escrowRef })
@@ -611,6 +638,27 @@ export function createReporter(options: ReporterOptions): Reporter {
     return row
   }
 
+  const run = async (dispute: DisputeRow): Promise<void> => {
+    if ((await reports.storedHash(dispute.pda)) === null) await generate(dispute)
+    // Read back rather than taken from the row just generated: `save` keeps
+    // the first body when two generations race, and the chain must carry the
+    // fingerprint of the body that is kept.
+    const hash = await reports.storedHash(dispute.pda)
+    if (hash === null) throw new Error(`No report stored for ${dispute.pda} after saving one`)
+
+    // The program refuses a fingerprint once the commit window has closed, and
+    // a refused transaction still costs the round trip.
+    if (now() >= dispute.commitDeadline * 1000) {
+      log.warn({ dispute: dispute.pda, hash }, 'report too late to attest')
+      return
+    }
+
+    const signature = await attester.attest(dispute.pda, hash).catch((error: unknown) => {
+      throw new AttestationFailed(error)
+    })
+    log.info({ dispute: dispute.pda, hash, signature }, 'report attested')
+  }
+
   const settle = () => {
     if (running > 0 || queue.length > 0) return
     const done = waiters
@@ -624,13 +672,15 @@ export function createReporter(options: ReporterOptions): Reporter {
       const dispute = queue.shift()!
       running += 1
 
-      generate(dispute)
+      run(dispute)
         .catch((error: unknown) => {
           const attempt = (attempts.get(dispute.pda) ?? 0) + 1
           attempts.set(dispute.pda, attempt)
           log.error(
             { err: error, dispute: dispute.pda, attempt, maxAttempts },
-            'report generation failed',
+            error instanceof AttestationFailed
+              ? 'report attestation failed'
+              : 'report generation failed',
           )
         })
         .finally(() => {
@@ -644,6 +694,7 @@ export function createReporter(options: ReporterOptions): Reporter {
 
   return {
     generate,
+    run,
 
     consider(rows) {
       for (const row of rows) {

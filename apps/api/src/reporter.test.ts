@@ -437,20 +437,31 @@ describe('which disputes need a report', () => {
   it('is not a dispute whose commit window has already closed', () => {
     expect(needsReport(dispute(), 1_700_000_160_000)).toBe(false)
   })
+
+  /** The program refuses a fingerprint written with the first round in view. */
+  it('is not an escalated dispute, though it is back in Committing', () => {
+    expect(needsReport(dispute({ escalated: true }), open)).toBe(false)
+  })
 })
 
 const silentLog = () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn() })
 
 function harness(
   options: {
-    has?: boolean
+    /** A report stored on an earlier attempt, by its fingerprint. */
+    stored?: string
+    /** The fingerprint a concurrent generation stored first. */
+    raceWinner?: string
     generate?: () => Promise<Generated>
+    attest?: (disputePda: string, hash: string) => Promise<string>
     maxAttempts?: number
     copies?: number
   } = {},
 ) {
   const order: string[] = []
   const saved: ReportRow[] = []
+  const attested: string[] = []
+  let stored: string | null = options.stored ?? null
   const log = silentLog()
   const collect = vi.fn(async () => {
     order.push('collect')
@@ -462,11 +473,23 @@ function harness(
     }),
   }
   const reports = {
-    has: vi.fn(async () => options.has ?? false),
+    storedHash: vi.fn(async () => stored),
     save: vi.fn(async (row: ReportRow) => {
       order.push('report')
       saved.push(row)
+      // Insert-only, the way `saveReport` is: the first body stays.
+      stored ??= options.raceWinner ?? row.contentHash
     }),
+  }
+  const attester = {
+    attest: vi.fn(
+      options.attest ??
+        (async (_disputePda: string, hash: string) => {
+          order.push('attest')
+          attested.push(hash)
+          return 'signature'
+        }),
+    ),
   }
   const model = {
     generate: vi.fn(
@@ -482,6 +505,7 @@ function harness(
     collect,
     evidence: evidenceStore,
     reports,
+    attester,
     model,
     programs,
     log,
@@ -494,17 +518,17 @@ function harness(
     },
   })
 
-  return { reporter, order, saved, log, collect, model, reports }
+  return { reporter, order, saved, attested, log, collect, model, reports, attester }
 }
 
 describe('reporter', () => {
-  it('collects, stores evidence, asks the model, then stores the report', async () => {
+  it('collects, stores evidence, asks the model, stores the report, then attests it', async () => {
     const { reporter, order, saved } = harness()
 
     reporter.consider([dispute()])
     await reporter.idle()
 
-    expect(order).toEqual(['collect', 'evidence', 'model', 'report'])
+    expect(order).toEqual(['collect', 'evidence', 'model', 'report', 'attest'])
     expect(saved).toHaveLength(1)
     expect(saved[0]?.version).toBe(1)
     expect(saved[0]?.model).toBe('claude-opus-5')
@@ -558,13 +582,91 @@ describe('reporter', () => {
   })
 
   it('does not pay twice for a report that already exists', async () => {
-    const { reporter, collect, model } = harness({ has: true })
+    const { reporter, collect, model } = harness({ stored: 'c'.repeat(64) })
 
     reporter.consider([dispute()])
     await reporter.idle()
 
     expect(collect).not.toHaveBeenCalled()
     expect(model.generate).not.toHaveBeenCalled()
+  })
+
+  it('puts on chain the fingerprint of exactly the body it stored', async () => {
+    const { reporter, saved, attested, attester } = harness()
+
+    reporter.consider([dispute()])
+    await reporter.idle()
+
+    expect(attested).toEqual([saved[0]?.contentHash])
+    expect(attester.attest).toHaveBeenCalledWith(pda, saved[0]?.contentHash)
+  })
+
+  /**
+   * The fingerprint did not make it on an earlier attempt, so the chain still
+   * shows none. A fresh report would not match the body already stored —
+   * and possibly already read.
+   */
+  it('attests a report stored earlier instead of writing a new one', async () => {
+    const { reporter, attested, model } = harness({ stored: 'c'.repeat(64) })
+
+    reporter.consider([dispute()])
+    await reporter.idle()
+
+    expect(model.generate).not.toHaveBeenCalled()
+    expect(attested).toEqual(['c'.repeat(64)])
+  })
+
+  /** Two generations racing: the store keeps the first body, and so must the chain. */
+  it('attests the body the store kept, not the one it just generated', async () => {
+    const { reporter, saved, attested } = harness({ raceWinner: 'd'.repeat(64) })
+
+    reporter.consider([dispute()])
+    await reporter.idle()
+
+    expect(saved[0]?.contentHash).not.toBe('d'.repeat(64))
+    expect(attested).toEqual(['d'.repeat(64)])
+  })
+
+  /** Opened at 1_700_000_100; the clock reads 4 s later at every step. */
+  it('keeps a report that finished after the commit window, without attesting it', async () => {
+    const { reporter, saved, attester, log } = harness()
+
+    reporter.consider([dispute({ commitDeadline: 1_700_000_110 })])
+    await reporter.idle()
+
+    expect(saved).toHaveLength(1)
+    expect(attester.attest).not.toHaveBeenCalled()
+    expect(log.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ dispute: pda }),
+      'report too late to attest',
+    )
+  })
+
+  it('tells a failed attestation from a failed generation, and attests again next time', async () => {
+    const attest = vi
+      .fn<(disputePda: string, hash: string) => Promise<string>>()
+      .mockRejectedValueOnce(new Error('429 Too Many Requests'))
+      .mockResolvedValue('signature')
+    const { reporter, saved, log, model } = harness({ attest })
+
+    reporter.consider([dispute()])
+    await reporter.idle()
+    expect(log.error).toHaveBeenCalledWith(
+      expect.objectContaining({ dispute: pda, attempt: 1 }),
+      'report attestation failed',
+    )
+
+    reporter.consider([dispute()])
+    await reporter.idle()
+
+    expect(model.generate).toHaveBeenCalledTimes(1)
+    expect(saved).toHaveLength(1)
+    expect(attest).toHaveBeenCalledTimes(2)
+    expect(attest.mock.calls[1]?.[1]).toBe(saved[0]?.contentHash)
+    expect(log.info).toHaveBeenCalledWith(
+      expect.objectContaining({ dispute: pda, signature: 'signature' }),
+      'report attested',
+    )
   })
 
   /** The event and a rewrite meet on a fresh dispute every time. */
@@ -862,7 +964,8 @@ describe('reporter with two copies', () => {
     const reporter = createReporter({
       collect: async () => evidence(),
       evidence: { save: async () => {} },
-      reports: { has: async () => false, save: async () => {} },
+      reports: { storedHash: async () => null, save: async () => {} },
+      attester: { attest: async () => 'signature' },
       model: { generate },
       programs,
       log: silentLog(),

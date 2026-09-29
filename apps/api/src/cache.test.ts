@@ -2,12 +2,12 @@ import { createDb, disputes, evidence } from '@verdictmesh/db'
 import { getTableColumns } from 'drizzle-orm'
 import { describe, expect, it, vi } from 'vitest'
 import {
-  hasReport,
   postgresCache,
   postgresEvidenceStore,
   saveDisputes,
   saveEvidence,
   saveReport,
+  storedReportHash,
 } from './cache.js'
 import type { EvidenceRow } from './evidence.js'
 import type { DisputeRow } from './watcher.js'
@@ -169,10 +169,12 @@ describe('storing reports', () => {
     expect(sql).not.toContain('do update')
   })
 
-  it('asks whether any version exists for exactly one dispute', () => {
-    const { sql, params } = hasReport(db, 'a').toSQL()
+  it('reads the fingerprint of the first version for exactly one dispute', () => {
+    const { sql, params } = storedReportHash(db, 'a').toSQL()
 
+    expect(sql).toContain('select "content_hash" from "reports"')
     expect(sql).toContain('where "reports"."dispute_pda" = $1')
+    expect(sql).toContain('order by "reports"."version" asc')
     expect(sql).toContain('limit $2')
     expect(params).toEqual(['a', 1])
   })

@@ -83,7 +83,12 @@ fn accounts_marked(name: &str, mark: &str) -> Vec<String> {
 
 /// Уся програма, як її бачить той, хто підключається. Перелік навмисно
 /// хардкоджений: він і є твердженням.
-const SURFACE: [&str; 10] = [
+///
+/// `attest_report` joined the list with T030, and the question below was asked
+/// of it: it hands the reporter one field, the report fingerprint, and nothing
+/// else — `attest_report.rs` checks that field by field and door by door.
+const SURFACE: [&str; 11] = [
+    "attest_report",
     "commit_vote",
     "initialize",
     "open_dispute",
@@ -96,11 +101,11 @@ const SURFACE: [&str; 10] = [
     "unstake",
 ];
 
-/// Одинадцятої інструкції не існує. Якщо цей тест червоний — хтось додав до
-/// програми інструкцію, і питання «чи не дає вона комусь влади над вердиктом»
-/// має бути поставлене вголос, а не закрите правкою переліку.
+/// There is no twelfth instruction. If this test is red, someone added one to
+/// the program, and the question "does it give anyone power over a verdict"
+/// has to be asked out loud, not closed by editing the list.
 #[test]
-fn offers_exactly_these_ten_instructions_and_nothing_else() {
+fn offers_exactly_these_eleven_instructions_and_nothing_else() {
     let mut names: Vec<String> = instructions()
         .iter()
         .map(|entry| entry["name"].as_str().unwrap_or_default().to_owned())
@@ -115,7 +120,11 @@ fn offers_exactly_these_ten_instructions_and_nothing_else() {
 /// `authority`), той, хто платить оренду (`payer`, `crank`), і чужа програма,
 /// що відкриває спір над **своїм** ескроу (`escrow`). Адміністратора немає
 /// жодного — не тому, що йому нічого не дозволено, а тому, що його ніде немає.
-const SIGNATURES: [(&str, &[&str]); 10] = [
+///
+/// The fourth role is the reporter (`FR-017a`), and it signs exactly one
+/// instruction — the one that records the report fingerprint.
+const SIGNATURES: [(&str, &[&str]); 11] = [
+    ("attest_report", &["reporter"]),
     ("commit_vote", &["juror"]),
     ("initialize", &["payer"]),
     ("open_dispute", &["payer", "depositor", "escrow"]),
@@ -170,6 +179,31 @@ fn leaves_the_caller_nothing_to_say_about_a_dispute_that_is_already_decided() {
 
         assert!(args.is_empty(), "{name} takes {} arguments", args.len());
     }
+}
+
+/// What the reporter's signature buys, read from the IDL: one writable
+/// account — the dispute — and one argument — the fingerprint. No vault, no
+/// token account, no juror record and no vote is even named, so there is
+/// nothing for the role to move or overwrite whatever the handler does.
+#[test]
+fn gives_the_reporter_one_dispute_to_write_and_one_fingerprint_to_write_into_it() {
+    assert_eq!(accounts_marked("attest_report", "writable"), ["dispute"]);
+
+    let accounts: Vec<String> = instruction("attest_report")["accounts"]
+        .as_array()
+        .expect("accounts must be a list")
+        .iter()
+        .map(|account| account["name"].as_str().unwrap_or_default().to_owned())
+        .collect();
+    assert_eq!(accounts, ["reporter", "config", "dispute"]);
+
+    let args: Vec<String> = instruction("attest_report")["args"]
+        .as_array()
+        .expect("args must be a list")
+        .iter()
+        .map(|arg| arg["name"].as_str().unwrap_or_default().to_owned())
+        .collect();
+    assert_eq!(args, ["report_hash"]);
 }
 
 /// `Config` — єдине місце, де записані привілейовані ключі протоколу
@@ -434,6 +468,17 @@ fn keeps_the_verdict_it_announced_whatever_is_thrown_at_it() {
             },
         ),
         decided.commit_attempt(),
+        // The reporter's own instruction, on the dispute it is trying to turn.
+        anchor_ix(
+            verdict_mesh::accounts::AttestReport {
+                reporter: decided.reporter,
+                config: config_pda().0,
+                dispute: decided.dispute,
+            },
+            verdict_mesh::instruction::AttestReport {
+                report_hash: [9u8; 32],
+            },
+        ),
     ];
 
     for ix in attempts {
