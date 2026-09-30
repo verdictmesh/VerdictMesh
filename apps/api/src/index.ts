@@ -2,10 +2,16 @@ import Anthropic from '@anthropic-ai/sdk'
 import { serve } from '@hono/node-server'
 import { Connection, PublicKey } from '@solana/web3.js'
 import { createDb } from '@verdictmesh/db'
+import type { ApiError } from '@verdictmesh/shared'
 import { Hono } from 'hono'
 import { pino } from 'pino'
 import { reporterKeypair, solanaAttester } from './attest.js'
-import { postgresCache, postgresEvidenceStore, postgresReportStore } from './cache.js'
+import {
+  postgresCache,
+  postgresEvidenceStore,
+  postgresPublishedReports,
+  postgresReportStore,
+} from './cache.js'
 import { solanaChain, solanaEvidenceChain } from './chain.js'
 import { referenceEscrowPositions } from './claims.js'
 import { loadEnv } from './env.js'
@@ -13,6 +19,7 @@ import { collectEvidence, type KnownProgram } from './evidence.js'
 import { referenceEscrowIdl } from './idl/reference-escrow.js'
 import { verdictMeshIdl } from './idl/verdict-mesh.js'
 import { anthropicReportModel, createReporter } from './reporter.js'
+import { reportRoutes } from './routes/reports.js'
 import { createWatcher } from './watcher.js'
 
 const env = loadEnv()
@@ -43,6 +50,7 @@ const programs: KnownProgram[] = [
   },
 ]
 
+const chain = solanaChain(connection, programId)
 const evidenceChain = solanaEvidenceChain(connection)
 
 const reporter = createReporter({
@@ -61,7 +69,7 @@ const reporter = createReporter({
 })
 
 const watcher = createWatcher({
-  chain: solanaChain(connection, programId),
+  chain,
   cache: postgresCache(db),
   log,
   programId,
@@ -71,6 +79,14 @@ const watcher = createWatcher({
 const app = new Hono()
 
 app.get('/health', (c) => c.json({ ok: true }))
+app.route('/', reportRoutes({ reports: postgresPublishedReports(db), chain, log }))
+
+// Hono answers an unhandled throw with a plain-text 500; the contract promises
+// the error envelope on every failure.
+app.onError((err, c) => {
+  log.error({ err, path: c.req.path }, 'request failed')
+  return c.json<ApiError>({ error: { code: 'INTERNAL', message: 'Internal error' } }, 500)
+})
 
 serve({ fetch: app.fetch, port: env.PORT })
 

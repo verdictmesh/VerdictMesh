@@ -5,6 +5,7 @@ import { asc, eq, getTableColumns, sql } from 'drizzle-orm'
 import type { PgColumn, PgTable } from 'drizzle-orm/pg-core'
 import type { EvidenceRow } from './evidence.js'
 import type { ReportRow, ReportStore } from './reporter.js'
+import type { PublishedReports } from './routes/reports.js'
 import { type Cache, type DisputeRow, latestPerDispute } from './watcher.js'
 
 /**
@@ -162,6 +163,29 @@ export function postgresReportStore(db: Db): ReportStore {
     },
     async save(row) {
       await saveReport(db, row)
+    },
+  }
+}
+
+/**
+ * The body of the first stored version — the same row `storedReportHash`
+ * reads, so what is served is what was attested. Only the body: its stored
+ * hash is exactly what `GET /disputes/:pda/report` must not trust.
+ */
+export function firstStoredReport(db: Db, disputePda: string) {
+  return db
+    .select({ content: reports.content })
+    .from(reports)
+    .where(eq(reports.disputePda, disputePda))
+    .orderBy(asc(reports.version))
+    .limit(1)
+}
+
+export function postgresPublishedReports(db: Db): PublishedReports {
+  return {
+    async first(disputePda) {
+      const [row] = await firstStoredReport(db, disputePda)
+      return row?.content ?? null
     },
   }
 }

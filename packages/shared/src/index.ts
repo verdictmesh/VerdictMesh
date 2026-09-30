@@ -70,6 +70,19 @@ export const disputeView = z.object({
   settled: z.boolean(),
 })
 
+/**
+ * `GET /disputes/:pda/report` (`FR-017b`). `hash` is computed from the very
+ * body carried in `report`, not taken from the database: a client that hashes
+ * the canonical JSON of `report` gets exactly this value. `matchesOnchain`
+ * compares it with the `report_hash` read from the dispute account at request
+ * time.
+ */
+export const reportResponse = z.object({
+  report: factFindingReport,
+  hash: z.string().regex(/^[0-9a-f]{64}$/),
+  matchesOnchain: z.boolean(),
+})
+
 export const apiErrorCode = z.enum([
   'INVALID_INPUT',
   'UNAUTHORIZED',
@@ -91,3 +104,4 @@ export type DisputeView = z.infer<typeof disputeView>
 export type Verdict = z.infer<typeof verdict>
 export type DisputeState = z.infer<typeof disputeState>
 export type ApiError = z.infer<typeof apiError>
+export type ReportResponse = z.infer<typeof reportResponse>
