@@ -71,17 +71,50 @@ export const disputeView = z.object({
 })
 
 /**
- * `GET /disputes/:pda/report` (`FR-017b`). `hash` is computed from the very
- * body carried in `report`, not taken from the database: a client that hashes
- * the canonical JSON of `report` gets exactly this value. `matchesOnchain`
- * compares it with the `report_hash` read from the dispute account at request
- * time.
+ * Why a dispute has no report to show (`FR-018`). The first two are what the
+ * reporter knows right now and may still change; the rest follow from the
+ * dispute's state on chain and never will:
+ *
+ * - `model_unavailable` — the model is down; the reporter keeps trying.
+ * - `generation_failed` — the answers were not reports, and the attempts ran out.
+ * - `window_closed` — the commit window closed with no fingerprint on chain.
+ * - `escalated` — the second round opened with no fingerprint on chain.
+ * - `body_missing` — a fingerprint is on chain, but its body is not stored.
  */
-export const reportResponse = z.object({
-  report: factFindingReport,
-  hash: z.string().regex(/^[0-9a-f]{64}$/),
-  matchesOnchain: z.boolean(),
-})
+export const reportUnavailableReason = z.enum([
+  'model_unavailable',
+  'generation_failed',
+  'window_closed',
+  'escalated',
+  'body_missing',
+])
+
+/**
+ * `GET /disputes/:pda/report`, by `status`.
+ *
+ * `ready` (`FR-017b`): `hash` is computed from the very body carried in
+ * `report`, not taken from the database — a client that hashes the canonical
+ * JSON of `report` gets exactly this value. `matchesOnchain` compares it with
+ * the `report_hash` read from the dispute account at request time.
+ *
+ * `pending`: the report is due and nothing is known against it yet.
+ * `unavailable` (`FR-018`): the dispute goes on without it; `final` — it will
+ * not come at all.
+ */
+export const reportResponse = z.discriminatedUnion('status', [
+  z.object({
+    status: z.literal('ready'),
+    report: factFindingReport,
+    hash: z.string().regex(/^[0-9a-f]{64}$/),
+    matchesOnchain: z.boolean(),
+  }),
+  z.object({ status: z.literal('pending') }),
+  z.object({
+    status: z.literal('unavailable'),
+    reason: reportUnavailableReason,
+    final: z.boolean(),
+  }),
+])
 
 export const apiErrorCode = z.enum([
   'INVALID_INPUT',
@@ -105,3 +138,4 @@ export type Verdict = z.infer<typeof verdict>
 export type DisputeState = z.infer<typeof disputeState>
 export type ApiError = z.infer<typeof apiError>
 export type ReportResponse = z.infer<typeof reportResponse>
+export type ReportUnavailableReason = z.infer<typeof reportUnavailableReason>

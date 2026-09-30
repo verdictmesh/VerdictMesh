@@ -5,7 +5,7 @@ import { asc, eq, getTableColumns, sql } from 'drizzle-orm'
 import type { PgColumn, PgTable } from 'drizzle-orm/pg-core'
 import type { EvidenceRow } from './evidence.js'
 import type { ReportRow, ReportStore } from './reporter.js'
-import type { PublishedReports } from './routes/reports.js'
+import type { MirroredDisputes, PublishedReports } from './routes/reports.js'
 import { type Cache, type DisputeRow, latestPerDispute } from './watcher.js'
 
 /**
@@ -186,6 +186,28 @@ export function postgresPublishedReports(db: Db): PublishedReports {
     async first(disputePda) {
       const [row] = await firstStoredReport(db, disputePda)
       return row?.content ?? null
+    },
+  }
+}
+
+/** What the report route needs of a mirror row when there is no report. */
+export function mirroredDispute(db: Db, pda: string) {
+  return db
+    .select({
+      state: disputes.state,
+      escalated: disputes.escalated,
+      reportHash: disputes.reportHash,
+      commitDeadline: disputes.commitDeadline,
+    })
+    .from(disputes)
+    .where(eq(disputes.pda, pda))
+}
+
+export function postgresMirroredDisputes(db: Db): MirroredDisputes {
+  return {
+    async find(pda) {
+      const [row] = await mirroredDispute(db, pda)
+      return row ?? null
     },
   }
 }

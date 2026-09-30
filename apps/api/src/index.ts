@@ -9,6 +9,7 @@ import { reporterKeypair, solanaAttester } from './attest.js'
 import {
   postgresCache,
   postgresEvidenceStore,
+  postgresMirroredDisputes,
   postgresPublishedReports,
   postgresReportStore,
 } from './cache.js'
@@ -79,7 +80,16 @@ const watcher = createWatcher({
 const app = new Hono()
 
 app.get('/health', (c) => c.json({ ok: true }))
-app.route('/', reportRoutes({ reports: postgresPublishedReports(db), chain, log }))
+app.route(
+  '/',
+  reportRoutes({
+    reports: postgresPublishedReports(db),
+    disputes: postgresMirroredDisputes(db),
+    chain,
+    reporter,
+    log,
+  }),
+)
 
 // Hono answers an unhandled throw with a plain-text 500; the contract promises
 // the error envelope on every failure.
@@ -97,6 +107,7 @@ await watcher.start()
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => {
+    reporter.stop()
     void watcher.stop().finally(() => process.exit(0))
   })
 }

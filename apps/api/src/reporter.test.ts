@@ -1,10 +1,10 @@
 import { createHash } from 'node:crypto'
 import type Anthropic from '@anthropic-ai/sdk'
-import { APIConnectionError } from '@anthropic-ai/sdk'
+import { APIConnectionError, APIError } from '@anthropic-ai/sdk'
 import { PublicKey } from '@solana/web3.js'
 import type { FactFindingReport } from '@verdictmesh/shared'
 import { factFindingReport } from '@verdictmesh/shared'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { claimOf, referenceEscrowPositions } from './claims.js'
 import type { EvidenceRow, EvidenceSet, KnownProgram } from './evidence.js'
 import { referenceEscrowIdl } from './idl/reference-escrow.js'
@@ -18,6 +18,7 @@ import {
   firstReport,
   type Generated,
   MalformedReport,
+  ModelUnavailable,
   needsReport,
   type Positions,
   REPORT_MODEL,
@@ -456,12 +457,18 @@ function harness(
     attest?: (disputePda: string, hash: string) => Promise<string>
     maxAttempts?: number
     copies?: number
+    /** The real (fake-timer) clock instead of the one that ticks per call. */
+    now?: () => number
+    retryBaseMs?: number
+    retryCapMs?: number
   } = {},
 ) {
   const order: string[] = []
   const saved: ReportRow[] = []
   const attested: string[] = []
-  let stored: string | null = options.stored ?? null
+  // Per dispute, the way the table is keyed: a report of one dispute is not
+  // a report of another.
+  const stored = new Map<string, string>(options.stored ? [[pda, options.stored]] : [])
   const log = silentLog()
   const collect = vi.fn(async () => {
     order.push('collect')
@@ -473,12 +480,14 @@ function harness(
     }),
   }
   const reports = {
-    storedHash: vi.fn(async () => stored),
+    storedHash: vi.fn(async (disputePda: string) => stored.get(disputePda) ?? null),
     save: vi.fn(async (row: ReportRow) => {
       order.push('report')
       saved.push(row)
       // Insert-only, the way `saveReport` is: the first body stays.
-      stored ??= options.raceWinner ?? row.contentHash
+      if (!stored.has(row.disputePda)) {
+        stored.set(row.disputePda, options.raceWinner ?? row.contentHash)
+      }
     }),
   }
   const attester = {
@@ -512,10 +521,14 @@ function harness(
     maxAttempts: options.maxAttempts ?? 3,
     // One copy unless a test is about copies: call counts then read as attempts.
     copies: options.copies ?? 1,
-    now: () => {
-      clock += 4_000
-      return clock
-    },
+    now:
+      options.now ??
+      (() => {
+        clock += 4_000
+        return clock
+      }),
+    ...(options.retryBaseMs === undefined ? {} : { retryBaseMs: options.retryBaseMs }),
+    ...(options.retryCapMs === undefined ? {} : { retryCapMs: options.retryCapMs }),
   })
 
   return { reporter, order, saved, attested, log, collect, model, reports, attester }
@@ -846,17 +859,37 @@ describe('the Anthropic model', () => {
     await expect(failure).rejects.toThrow(/breaks the contract/)
   })
 
-  it('leaves an error on the wire as it is', async () => {
+  const failingClient = (error: unknown) => {
     const stream = vi.fn(() => ({
       finalMessage: async () => {
-        throw new APIConnectionError({ message: 'socket hang up' })
+        throw error
       },
     }))
-    const client = { beta: { messages: { stream } } } as unknown as Anthropic
+    return { beta: { messages: { stream } } } as unknown as Anthropic
+  }
 
-    const failure = anthropicReportModel(client).generate(request)
-    await expect(failure).rejects.toBeInstanceOf(APIConnectionError)
-    await expect(failure).rejects.not.toBeInstanceOf(MalformedReport)
+  /** `FR-018`: an outage is told apart from everything that is about the dispute. */
+  it('calls a lost connection, a timeout, 429 and 5xx the model being unavailable', async () => {
+    const outages = [
+      new APIConnectionError({ message: 'socket hang up' }),
+      new APIError(429, { type: 'error' }, 'rate limited', new Headers()),
+      new APIError(500, { type: 'error' }, 'internal', new Headers()),
+      new APIError(529, { type: 'error' }, 'overloaded', new Headers()),
+    ]
+
+    for (const outage of outages) {
+      const failure = anthropicReportModel(failingClient(outage)).generate(request)
+      await expect(failure).rejects.toBeInstanceOf(ModelUnavailable)
+      await expect(failure).rejects.toMatchObject({ cause: outage })
+    }
+  })
+
+  /** A request the API refused is about the request, and trying it later changes nothing. */
+  it('leaves any other error on the wire as it is', async () => {
+    const invalid = new APIError(400, { type: 'error' }, 'invalid request', new Headers())
+
+    const failure = anthropicReportModel(failingClient(invalid)).generate(request)
+    await expect(failure).rejects.toBe(invalid)
   })
 })
 
@@ -1010,5 +1043,137 @@ describe('reporter with two copies', () => {
 
     expect(generate).toHaveBeenCalledTimes(4)
     expect(saved).toHaveLength(1)
+  })
+})
+
+/**
+ * `FR-018`. The clock is the fake timers' own, so a probe scheduled on a
+ * backoff fires exactly when the test moves time.
+ */
+describe('reporter while the model is down', () => {
+  const opened = 1_700_000_100_000
+  const other = key(44)
+  const down = () => new ModelUnavailable(new APIConnectionError({ message: 'ECONNREFUSED' }))
+  const ok = (): Generated => ({ report: generated(), model: 'claude-opus-5' })
+
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(opened)
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  const downFor = (outages: number) => {
+    const generate = vi.fn<() => Promise<Generated>>()
+    for (let i = 0; i < outages; i += 1) generate.mockRejectedValueOnce(down())
+    generate.mockResolvedValue(ok())
+    return generate
+  }
+
+  const tick = async (ms: number, reporter: { idle(): Promise<void> }) => {
+    await vi.advanceTimersByTimeAsync(ms)
+    await reporter.idle()
+  }
+
+  it('does not hold an outage against the attempts and reports once the model is back', async () => {
+    const generate = downFor(4)
+    const { reporter, saved } = harness({
+      generate,
+      maxAttempts: 2,
+      now: Date.now,
+      retryBaseMs: 1_000,
+    })
+
+    reporter.consider([dispute()])
+    await reporter.idle()
+    expect(reporter.unavailable(pda)).toBe('model_unavailable')
+
+    // 1 + 2 + 4 + 8 seconds of backoff, well inside the sixty-second window.
+    await tick(15_000, reporter)
+
+    expect(generate).toHaveBeenCalledTimes(5)
+    expect(saved).toHaveLength(1)
+    expect(reporter.unavailable(pda)).toBeNull()
+  })
+
+  it('probes on a backoff that doubles up to its ceiling', async () => {
+    const calls: number[] = []
+    const generate = vi.fn(async (): Promise<Generated> => {
+      calls.push(Date.now() - opened)
+      throw down()
+    })
+    const { reporter } = harness({
+      generate,
+      now: Date.now,
+      retryBaseMs: 1_000,
+      retryCapMs: 4_000,
+    })
+
+    reporter.consider([dispute()])
+    await reporter.idle()
+    await tick(20_000, reporter)
+
+    expect(calls).toEqual([0, 1_000, 3_000, 7_000, 11_000, 15_000, 19_000])
+    reporter.stop()
+  })
+
+  it('parks the other disputes instead of asking a model that is down', async () => {
+    const generate = downFor(1)
+    const { reporter, saved } = harness({ generate, now: Date.now, retryBaseMs: 1_000 })
+
+    reporter.consider([dispute()])
+    await reporter.idle()
+    reporter.consider([dispute({ pda: other }), dispute()])
+    await reporter.idle()
+
+    expect(generate).toHaveBeenCalledTimes(1)
+    expect(reporter.unavailable(other)).toBe('model_unavailable')
+
+    // One probe brings the first report, and with it every parked dispute.
+    await tick(1_000, reporter)
+
+    expect(generate).toHaveBeenCalledTimes(3)
+    expect(saved.map((row) => row.disputePda).sort()).toEqual([other, pda].sort())
+    expect(reporter.unavailable(other)).toBeNull()
+  })
+
+  it('stops probing for a dispute whose commit window has closed', async () => {
+    const generate = downFor(100)
+    const { reporter } = harness({ generate, now: Date.now, retryBaseMs: 40_000 })
+
+    reporter.consider([dispute()])
+    await reporter.idle()
+    // The second probe would fire at 120 s; the window closed at 60.
+    await tick(200_000, reporter)
+
+    expect(generate).toHaveBeenCalledTimes(2)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('names a dispute given up after its last attempt', async () => {
+    const generate = vi.fn<() => Promise<Generated>>().mockRejectedValue(new Error('refused'))
+    const { reporter } = harness({ generate, maxAttempts: 2 })
+
+    reporter.consider([dispute()])
+    await reporter.idle()
+    expect(reporter.unavailable(pda)).toBeNull()
+
+    reporter.consider([dispute()])
+    await reporter.idle()
+    expect(reporter.unavailable(pda)).toBe('generation_failed')
+  })
+
+  it('cancels the pending probe on stop', async () => {
+    const generate = downFor(1)
+    const { reporter } = harness({ generate, now: Date.now, retryBaseMs: 1_000 })
+
+    reporter.consider([dispute()])
+    await reporter.idle()
+    reporter.stop()
+    await tick(10_000, reporter)
+
+    expect(generate).toHaveBeenCalledTimes(1)
+    expect(vi.getTimerCount()).toBe(0)
   })
 })

@@ -5,9 +5,15 @@ import type { FactFindingReport } from '@verdictmesh/shared'
 import { apiError, reportResponse } from '@verdictmesh/shared'
 import { describe, expect, it, vi } from 'vitest'
 import { verdictMeshIdl } from '../idl/verdict-mesh.js'
+import type { TransientUnavailability } from '../reporter.js'
 import { canonicalJson, reportHash } from '../reporter.js'
 import type { Chain } from '../watcher.js'
-import { type PublishedReports, reportRoutes } from './reports.js'
+import {
+  type MirroredDispute,
+  missingReportStatus,
+  type PublishedReports,
+  reportRoutes,
+} from './reports.js'
 
 /**
  * The account comes out of the coder built from the IDL, for the same reason
@@ -76,25 +82,43 @@ const disputeAccount = async (reportHashHex: string | null) => ({
   }),
 })
 
+/** Ten seconds after opening, fifty before the commit window closes. */
+const NOW_MS = 1_700_000_010_000
+
+/** The mirror row of a dispute still waiting for commits, with no fingerprint. */
+const committing = (overrides: Partial<MirroredDispute> = {}): MirroredDispute => ({
+  state: 'Committing',
+  escalated: false,
+  reportHash: null,
+  commitDeadline: 1_700_000_060,
+  ...overrides,
+})
+
 const setup = ({
   stored = report as unknown,
   onchain = reportHash(report) as string | null,
   readDispute,
+  mirrored = committing() as MirroredDispute | null,
+  transient = null as TransientUnavailability | null,
 }: {
   stored?: unknown
   onchain?: string | null
   readDispute?: Chain['readDispute']
+  mirrored?: MirroredDispute | null
+  transient?: TransientUnavailability | null
 } = {}) => {
   const reports: PublishedReports = { first: vi.fn(async () => stored) }
+  const disputes = { find: vi.fn(async () => mirrored) }
   const chain = {
     readDispute: vi.fn(
       readDispute ?? (async () => ({ slot: 500, account: await disputeAccount(onchain) })),
     ),
   }
+  const reporter = { unavailable: vi.fn(() => transient) }
   const log = { error: vi.fn() }
-  const app = reportRoutes({ reports, chain, log })
+  const app = reportRoutes({ reports, disputes, chain, reporter, log, now: () => NOW_MS })
 
-  return { app, reports, chain, log }
+  return { app, reports, disputes, chain, log }
 }
 
 const get = async (app: ReturnType<typeof setup>['app'], address = pda) => {
@@ -110,6 +134,7 @@ describe('GET /disputes/:pda/report', () => {
 
     expect(status).toBe(200)
     expect(reportResponse.parse(body)).toEqual({
+      status: 'ready',
       report,
       hash: reportHash(report),
       matchesOnchain: true,
@@ -124,6 +149,7 @@ describe('GET /disputes/:pda/report', () => {
 
     const { body } = await get(app)
     const served = reportResponse.parse(body)
+    if (served.status !== 'ready') throw new Error(`expected a report, got ${served.status}`)
 
     expect(createHash('sha256').update(canonicalJson(served.report), 'utf8').digest('hex')).toBe(
       served.hash,
@@ -139,6 +165,7 @@ describe('GET /disputes/:pda/report', () => {
 
     expect(status).toBe(200)
     expect(reportResponse.parse(body)).toEqual({
+      status: 'ready',
       report: tampered,
       hash: reportHash(tampered),
       matchesOnchain: false,
@@ -196,14 +223,36 @@ describe('GET /disputes/:pda/report', () => {
     expect(log.error).toHaveBeenCalledOnce()
   })
 
-  it('answers 404 without an RPC call when there is no report', async () => {
-    const { app, chain } = setup({ stored: null })
+  it('answers 404 for a dispute the mirror does not know', async () => {
+    const { app, chain } = setup({ stored: null, mirrored: null })
 
     const { status, body } = await get(app)
 
     expect(status).toBe(404)
     expect(apiError.parse(body).error.code).toBe('NOT_FOUND')
     expect(chain.readDispute).not.toHaveBeenCalled()
+  })
+
+  /** `FR-018`: no report is a state of the dispute, not a failure of the request. */
+  it('answers a missing report with its status, without an RPC call', async () => {
+    const { app, chain, disputes } = setup({ stored: null, transient: 'model_unavailable' })
+
+    const { status, body } = await get(app)
+
+    expect(status).toBe(200)
+    expect(reportResponse.parse(body)).toEqual({
+      status: 'unavailable',
+      reason: 'model_unavailable',
+      final: false,
+    })
+    expect(disputes.find).toHaveBeenCalledWith(pda)
+    expect(chain.readDispute).not.toHaveBeenCalled()
+  })
+
+  it('says pending while nothing is known against the report', async () => {
+    const { app } = setup({ stored: null })
+
+    expect(reportResponse.parse((await get(app)).body)).toEqual({ status: 'pending' })
   })
 
   it('refuses a stored body that breaks the contract instead of serving it', async () => {
@@ -229,5 +278,61 @@ describe('GET /disputes/:pda/report', () => {
       expect(apiError.parse(body).error.code).toBe('INVALID_INPUT')
       expect(reports.first).not.toHaveBeenCalled()
     }
+  })
+})
+
+describe('the status of a missing report', () => {
+  it('is pending while the report is due and nothing is known against it', () => {
+    expect(missingReportStatus(committing(), null, NOW_MS)).toEqual({ status: 'pending' })
+  })
+
+  it('passes on what the reporter knows, as not final', () => {
+    for (const reason of ['model_unavailable', 'generation_failed'] as const) {
+      expect(missingReportStatus(committing(), reason, NOW_MS)).toEqual({
+        status: 'unavailable',
+        reason,
+        final: false,
+      })
+    }
+  })
+
+  /** The chain has settled it: `attest_report` would be refused from here on. */
+  it('is final once the commit window has closed, whatever the reporter saw', () => {
+    const closed = 1_700_000_060_000
+
+    for (const transient of [null, 'model_unavailable'] as const) {
+      expect(missingReportStatus(committing(), transient, closed)).toEqual({
+        status: 'unavailable',
+        reason: 'window_closed',
+        final: true,
+      })
+    }
+    expect(missingReportStatus(committing({ state: 'Tallied' }), null, NOW_MS)).toMatchObject({
+      reason: 'window_closed',
+      final: true,
+    })
+  })
+
+  it('is final for an escalated dispute, back in Committing or not', () => {
+    expect(missingReportStatus(committing({ escalated: true }), null, NOW_MS)).toEqual({
+      status: 'unavailable',
+      reason: 'escalated',
+      final: true,
+    })
+  })
+
+  /** Lost data, not a late report: the fingerprint is final, the body is gone. */
+  it('names a fingerprint on chain whose body is not stored', () => {
+    expect(missingReportStatus(committing({ reportHash: 'ab'.repeat(32) }), null, NOW_MS)).toEqual({
+      status: 'unavailable',
+      reason: 'body_missing',
+      final: true,
+    })
+  })
+
+  it('waits on the optimistic track, where no panel reads a report yet', () => {
+    expect(missingReportStatus(committing({ state: 'OptimisticPending' }), null, NOW_MS)).toEqual({
+      status: 'pending',
+    })
   })
 })

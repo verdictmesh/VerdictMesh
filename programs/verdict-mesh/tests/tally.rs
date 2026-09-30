@@ -103,6 +103,18 @@ impl Fixture {
     fn after(&self, result: &InstructionResult) -> Dispute {
         decode(resulting(result, &self.dispute))
     }
+
+    /// The same dispute — same keys, same votes — with a report fingerprint
+    /// on chain.
+    fn attested(&self) -> Self {
+        let mut dispute: Dispute = decode(&self.accounts[0].1);
+        dispute.report_hash = [9u8; 32];
+        Self {
+            dispute: self.dispute,
+            accounts: vec![(self.accounts[0].0, dispute_account(&dispute))],
+            policy: self.policy,
+        }
+    }
 }
 
 /// Успішний підрахунок і стан, що з нього вийшов.
@@ -300,6 +312,39 @@ fn a_successful_extended_round_gives_a_real_verdict() {
     let dispute = tallied(&Fixture::escalated(1, 3));
     assert_eq!(dispute.verdict, Some(Verdict::Respondent));
     assert_eq!(dispute.state, DisputeState::Tallied);
+}
+
+// ── without a report (`FR-018`) ─────────────────────────────────────────────
+
+/// The account after a tally, with the fingerprint cleared: everything the
+/// tally decided, and nothing the report put there.
+fn outcome(fixture: &Fixture) -> Vec<u8> {
+    let mut dispute = tallied(fixture);
+    dispute.report_hash = [0u8; 32];
+    let mut bytes = Vec::new();
+    anchor_lang::AccountSerialize::try_serialize(&dispute, &mut bytes).unwrap();
+    bytes
+}
+
+/// A model that is down must not change a dispute's course. Every commit,
+/// reveal and tally test here already runs with `report_hash` at zero; this
+/// one says it out loud — a verdict, an escalation and a second-round status
+/// quo come out byte for byte the same with a fingerprint and without one.
+#[test]
+fn decides_the_same_with_or_without_a_report() {
+    for (claimant, respondent, escalated) in [(2u8, 1u8, false), (1, 1, false), (1, 1, true)] {
+        let fixture = if escalated {
+            Fixture::escalated(claimant, respondent)
+        } else {
+            Fixture::new(claimant, respondent)
+        };
+
+        assert_eq!(
+            outcome(&fixture),
+            outcome(&fixture.attested()),
+            "{claimant}:{respondent}, escalated: {escalated}"
+        );
+    }
 }
 
 // ── вікно ───────────────────────────────────────────────────────────────────

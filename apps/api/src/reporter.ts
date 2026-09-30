@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import type Anthropic from '@anthropic-ai/sdk'
+import { APIConnectionError, APIError } from '@anthropic-ai/sdk'
 import type { reports } from '@verdictmesh/db'
 import { type FactFindingReport, factFindingReport } from '@verdictmesh/shared'
 import type { Attester } from './attest.js'
@@ -39,10 +40,18 @@ import type { DisputeRow, WatcherLog } from './watcher.js'
  * is exactly RFC 8785 (JCS), so anyone can recompute the fingerprint from the
  * published body without our code (`FR-017b`).
  *
- * What is not here: writing the fingerprint on chain (`attest_report`, T030)
- * and marking a report unavailable when the model is down (T032). An answer
- * that is not a report is asked for again at once; any other failure is
- * logged and retried by the next rewrite, up to a limit.
+ * **A model that is down does not stop a dispute (`FR-018`).** Nothing on
+ * chain waits for a report: jurors commit, reveal and get paid with
+ * `report_hash` at zero. What the reporter owes them is to say so and to keep
+ * trying while a report can still be read. An outage — no connection, a
+ * timeout, 429 or 5xx — is not counted against a dispute's attempts: the limit
+ * is for answers that were paid for and were not reports, and the commit
+ * window, not a counter, bounds how long a report is worth waiting for. While
+ * the model is down one dispute probes it on a backoff and the rest wait
+ * parked; the first report that comes back releases them all.
+ *
+ * An answer that is not a report is asked for again at once; any other
+ * failure is logged and retried by the next rewrite, up to a limit.
  */
 
 /** The full model id goes into `reports.model`; reports of different models are not comparable. */
@@ -221,6 +230,30 @@ export class MalformedReport extends Error {
   }
 }
 
+/**
+ * The model could not be reached or would not serve: no connection, a
+ * timeout, 429 or 5xx (529 — overloaded — included). The SDK has already
+ * retried it. Unlike every other failure, this one says nothing about the
+ * dispute, so it is not held against the dispute's attempts.
+ */
+export class ModelUnavailable extends Error {
+  override name = 'ModelUnavailable'
+
+  constructor(cause: unknown) {
+    super('The model is unavailable', { cause })
+  }
+}
+
+/**
+ * `APIConnectionError` covers the timeout too. A cancelled copy is an
+ * `APIUserAbortError` without a status and stays what it is.
+ */
+const isOutage = (error: unknown): boolean =>
+  error instanceof APIConnectionError ||
+  (error instanceof APIError &&
+    error.status !== undefined &&
+    (error.status === 429 || error.status >= 500))
+
 export interface AnthropicModelOptions {
   /**
    * `low`, measured against `SC-003`: on the same five devnet disputes
@@ -274,7 +307,9 @@ export function anthropicReportModel(
         signal ? { signal } : undefined,
       )
 
-      const message = await stream.finalMessage()
+      const message = await stream.finalMessage().catch((error: unknown) => {
+        throw isOutage(error) ? new ModelUnavailable(error) : error
+      })
       const text = message.content
         .map((block) => (block.type === 'text' ? block.text : ''))
         .join('')
@@ -524,9 +559,18 @@ export interface ReporterOptions {
   /**
    * Failed generations per dispute before this process gives up on it. The
    * rewrite offers the dispute every five minutes, and a report that fails
-   * the same way each time would otherwise be paid for forever.
+   * the same way each time would otherwise be paid for forever. An outage of
+   * the model is not a failed generation and is not counted.
    */
   maxAttempts?: number
+  /**
+   * Milliseconds before the first probe of a model that is down; each failed
+   * probe doubles it, up to `retryCapMs`. Thirty seconds is the whole of
+   * `SC-003`: a model back within it costs a report at most one budget.
+   */
+  retryBaseMs?: number
+  /** The longest wait between probes — the rewrite interval, five minutes. */
+  retryCapMs?: number
   /** Milliseconds. Injected so tests can watch the clock. */
   now?: () => number
 }
@@ -544,7 +588,19 @@ export interface Reporter {
    * would not match the body jurors may already have read.
    */
   run(dispute: DisputeRow): Promise<void>
+  /**
+   * Why this process holds no report for the dispute right now, while it still
+   * could produce one: the model is down, or the attempts ran out. `null` —
+   * nothing is known against it. Lives in memory: after a restart the next
+   * attempt finds out again within seconds.
+   */
+  unavailable(disputePda: string): TransientUnavailability | null
+  /** Cancels the pending probe. Runs in flight are left to finish. */
+  stop(): void
 }
+
+/** The reasons only the reporter knows; the chain gives the final ones. */
+export type TransientUnavailability = 'model_unavailable' | 'generation_failed'
 
 /**
  * A report is due while the panel has yet to commit: that is the window in
@@ -558,7 +614,10 @@ export interface Reporter {
  * the first round's votes are public by then, and the program refuses a
  * fingerprint written with them in view.
  */
-export const needsReport = (row: DisputeRow, nowMs: number): boolean =>
+export const needsReport = (
+  row: Pick<DisputeRow, 'state' | 'escalated' | 'reportHash' | 'commitDeadline'>,
+  nowMs: number,
+): boolean =>
   row.state === 'Committing' &&
   !row.escalated &&
   row.reportHash === null &&
@@ -569,11 +628,19 @@ export function createReporter(options: ReporterOptions): Reporter {
   const concurrency = options.concurrency ?? 4
   const copies = options.copies ?? 2
   const maxAttempts = options.maxAttempts ?? 3
+  const retryBaseMs = options.retryBaseMs ?? 30_000
+  const retryCapMs = options.retryCapMs ?? 5 * 60_000
   const now = options.now ?? Date.now
 
   const queue: DisputeRow[] = []
   const pending = new Set<string>()
   const attempts = new Map<string, number>()
+  const unavailable = new Map<string, TransientUnavailability>()
+  /** Disputes waiting for the model to come back, in the order they arrived. */
+  const parked = new Map<string, DisputeRow>()
+  /** Outages in a row. Above zero the model is taken to be down. */
+  let outages = 0
+  let probe: ReturnType<typeof setTimeout> | null = null
   let running = 0
   let waiters: (() => void)[] = []
 
@@ -659,6 +726,50 @@ export function createReporter(options: ReporterOptions): Reporter {
     log.info({ dispute: dispute.pda, hash, signature }, 'report attested')
   }
 
+  const enqueue = (row: DisputeRow) => {
+    pending.add(row.pda)
+    queue.push(row)
+  }
+
+  /**
+   * Up to `limit` parked disputes back into the queue. One whose commit window
+   * has closed in the meantime is dropped: its report could no longer be
+   * attested, and the chain already says it will not come.
+   */
+  const release = (limit: number) => {
+    let released = 0
+    for (const [pda, row] of parked) {
+      if (released >= limit) break
+      parked.delete(pda)
+      if (!needsReport(row, now())) {
+        unavailable.delete(pda)
+        continue
+      }
+      enqueue(row)
+      released += 1
+    }
+    pump()
+    settle()
+  }
+
+  /** One probe at a time, on a backoff that doubles with every outage in a row. */
+  const scheduleProbe = () => {
+    if (probe !== null || parked.size === 0) return
+    const delay = Math.min(retryBaseMs * 2 ** Math.max(outages - 1, 0), retryCapMs)
+    probe = setTimeout(() => {
+      probe = null
+      release(1)
+      // Every parked dispute may have expired on the way.
+      scheduleProbe()
+    }, delay)
+  }
+
+  const park = (row: DisputeRow) => {
+    parked.set(row.pda, row)
+    unavailable.set(row.pda, 'model_unavailable')
+    scheduleProbe()
+  }
+
   const settle = () => {
     if (running > 0 || queue.length > 0) return
     const done = waiters
@@ -667,15 +778,32 @@ export function createReporter(options: ReporterOptions): Reporter {
   }
 
   const pump = () => {
-    while (running < concurrency && queue.length > 0) {
+    // While the model is down only the probe runs; the rest would fail the
+    // same way and add to the load it is failing under.
+    while (running < (outages > 0 ? 1 : concurrency) && queue.length > 0) {
       // biome-ignore lint/style/noNonNullAssertion: the queue is not empty.
       const dispute = queue.shift()!
       running += 1
 
       run(dispute)
+        .then(() => {
+          unavailable.delete(dispute.pda)
+          if (outages > 0) {
+            outages = 0
+            log.info({ parked: parked.size }, 'model is back')
+            release(Number.POSITIVE_INFINITY)
+          }
+        })
         .catch((error: unknown) => {
+          if (error instanceof ModelUnavailable) {
+            outages += 1
+            log.warn({ err: error.cause, dispute: dispute.pda, outages }, 'model unavailable')
+            park(dispute)
+            return
+          }
           const attempt = (attempts.get(dispute.pda) ?? 0) + 1
           attempts.set(dispute.pda, attempt)
+          if (attempt >= maxAttempts) unavailable.set(dispute.pda, 'generation_failed')
           log.error(
             { err: error, dispute: dispute.pda, attempt, maxAttempts },
             error instanceof AttestationFailed
@@ -698,12 +826,24 @@ export function createReporter(options: ReporterOptions): Reporter {
 
     consider(rows) {
       for (const row of rows) {
-        if (!needsReport(row, now()) || pending.has(row.pda)) continue
+        if (!needsReport(row, now()) || pending.has(row.pda) || parked.has(row.pda)) continue
         if ((attempts.get(row.pda) ?? 0) >= maxAttempts) continue
-        pending.add(row.pda)
-        queue.push(row)
+        // A model known to be down is not asked on every rewrite: the dispute
+        // waits for the probe with the others.
+        if (outages > 0) park(row)
+        else enqueue(row)
       }
       pump()
+    },
+
+    unavailable(disputePda) {
+      return unavailable.get(disputePda) ?? null
+    },
+
+    stop() {
+      if (probe !== null) clearTimeout(probe)
+      probe = null
+      parked.clear()
     },
 
     idle() {
