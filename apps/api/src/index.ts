@@ -4,23 +4,28 @@ import { Connection, PublicKey } from '@solana/web3.js'
 import { createDb } from '@verdictmesh/db'
 import type { ApiError } from '@verdictmesh/shared'
 import { Hono } from 'hono'
+import { cors } from 'hono/cors'
 import { pino } from 'pino'
 import { reporterKeypair, solanaAttester } from './attest.js'
 import {
   postgresCache,
+  postgresDisputeMirror,
   postgresEvidenceStore,
   postgresMirroredDisputes,
   postgresPublishedReports,
   postgresReportStore,
+  postgresSettlementStore,
 } from './cache.js'
-import { solanaChain, solanaEvidenceChain } from './chain.js'
+import { solanaChain, solanaEvidenceChain, solanaSettlementChain } from './chain.js'
 import { referenceEscrowPositions } from './claims.js'
 import { loadEnv } from './env.js'
 import { collectEvidence, type KnownProgram } from './evidence.js'
 import { referenceEscrowIdl } from './idl/reference-escrow.js'
 import { verdictMeshIdl } from './idl/verdict-mesh.js'
 import { anthropicReportModel, createReporter } from './reporter.js'
+import { disputeRoutes } from './routes/disputes.js'
 import { reportRoutes } from './routes/reports.js'
+import { createSettlements, type SettlingEscrow } from './settlement.js'
 import { createWatcher } from './watcher.js'
 
 const env = loadEnv()
@@ -41,14 +46,17 @@ const programId = new PublicKey(env.VERDICT_MESH_PROGRAM_ID)
 const db = createDb(env.DATABASE_URL)
 
 /** Addresses in this network, not the ones the vendored IDLs carry. */
+const referenceEscrow: SettlingEscrow = {
+  name: 'reference_escrow',
+  programId: new PublicKey(env.REFERENCE_ESCROW_PROGRAM_ID),
+  idl: referenceEscrowIdl,
+  positions: referenceEscrowPositions,
+  settledEvent: 'MilestoneSettled',
+}
+
 const programs: KnownProgram[] = [
   { name: 'verdict_mesh', programId, idl: verdictMeshIdl },
-  {
-    name: 'reference_escrow',
-    programId: new PublicKey(env.REFERENCE_ESCROW_PROGRAM_ID),
-    idl: referenceEscrowIdl,
-    positions: referenceEscrowPositions,
-  },
+  referenceEscrow,
 ]
 
 const chain = solanaChain(connection, programId)
@@ -69,17 +77,32 @@ const reporter = createReporter({
   log,
 })
 
+const settlements = createSettlements({
+  chain: solanaSettlementChain(connection),
+  store: postgresSettlementStore(db),
+  escrows: [referenceEscrow],
+  log,
+})
+
 const watcher = createWatcher({
   chain,
   cache: postgresCache(db),
   log,
   programId,
-  onSnapshot: (rows) => reporter.consider(rows),
+  onSnapshot: (rows) => {
+    reporter.consider(rows)
+    settlements.consider(rows)
+  },
 })
 
 const app = new Hono()
 
+// Every route is a public read (`FR-028a`), and nothing rides on cookies: any
+// origin may read, and no origin may do anything else — there is nothing else.
+app.use('*', cors({ origin: '*', allowMethods: ['GET'] }))
+
 app.get('/health', (c) => c.json({ ok: true }))
+app.route('/', disputeRoutes({ mirror: postgresDisputeMirror(db), settlements }))
 app.route(
   '/',
   reportRoutes({
@@ -89,6 +112,12 @@ app.route(
     reporter,
     log,
   }),
+)
+
+// Hono answers an unknown path with a plain-text 404; the contract promises
+// the error envelope there too.
+app.notFound((c) =>
+  c.json<ApiError>({ error: { code: 'NOT_FOUND', message: 'No such route' } }, 404),
 )
 
 // Hono answers an unhandled throw with a plain-text 500; the contract promises
@@ -104,10 +133,11 @@ serve({ fetch: app.fetch, port: env.PORT })
 // seconds, and `/health` has to answer throughout — otherwise the host decides
 // the service never came up and restarts it in the middle of that rewrite.
 await watcher.start()
+await settlements.start()
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => {
     reporter.stop()
-    void watcher.stop().finally(() => process.exit(0))
+    void Promise.allSettled([watcher.stop(), settlements.stop()]).finally(() => process.exit(0))
   })
 }

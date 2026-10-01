@@ -239,3 +239,34 @@ export const evidence = pgTable(
     denyAll('evidence'),
   ],
 ).enableRLS()
+
+/**
+ * The escrow's settlement transaction of a dispute (`FR-020`), found in the
+ * escrow's own events.
+ *
+ * A table of its own rather than a column of `disputes`: the mirror upserts
+ * every column from each fresh snapshot of the `Dispute` account, and that
+ * account knows nothing of the escrow — a column there would be wiped back to
+ * `null` by the next rewrite.
+ *
+ * Inserted once and never updated. A milestone is settled at most once, so a
+ * second row for the same dispute is either the same transaction seen twice —
+ * by the subscription and by the lookup — or not a settlement at all.
+ */
+export const settlements = pgTable(
+  'settlements',
+  {
+    disputePda: base58('dispute_pda')
+      .primaryKey()
+      .references(() => disputes.pda),
+    /** The escrow program that emitted the event, in this network. */
+    escrowProgram: base58('escrow_program').notNull(),
+    signature: base58('signature').notNull(),
+    slot: chainTime('slot').notNull(),
+    foundAt: timestamp('found_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    check('settlements_slot_non_negative', sql`${table.slot} >= 0`),
+    denyAll('settlements'),
+  ],
+).enableRLS()

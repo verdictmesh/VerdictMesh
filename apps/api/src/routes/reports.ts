@@ -1,17 +1,13 @@
-import { utils } from '@coral-xyz/anchor'
 import type {
-  ApiError,
   FactFindingReport,
   ReportResponse,
   ReportUnavailableReason,
 } from '@verdictmesh/shared'
 import { factFindingReport } from '@verdictmesh/shared'
-import type { Context } from 'hono'
 import { Hono } from 'hono'
-import type { ContentfulStatusCode } from 'hono/utils/http-status'
-import { z } from 'zod'
 import { needsReport, reportHash, type TransientUnavailability } from '../reporter.js'
 import { type Chain, type DisputeRow, disputeSnapshot } from '../watcher.js'
+import { address, fail } from './params.js'
 
 /**
  * `GET /disputes/:pda/report` — the one way to read a report (`FR-017b`).
@@ -113,19 +109,6 @@ export function missingReportStatus(
 }
 
 /**
- * A base58 address of exactly 32 bytes. The length is checked on the decoded
- * bytes: `new PublicKey` accepts shorter strings and pads them, and `"1"`
- * would become the system program.
- */
-const address = z.string().refine((value) => {
-  try {
-    return utils.bytes.bs58.decode(value).length === 32
-  } catch {
-    return false
-  }
-}, 'not a 32-byte base58 address')
-
-/**
  * The contract checked on the stored value itself, without taking zod's copy:
  * the parsed copy drops unknown keys, and a key added in the database would
  * vanish from the hash while the body kept it. What is served and what is
@@ -133,13 +116,6 @@ const address = z.string().refine((value) => {
  */
 const isReport = (value: unknown): value is FactFindingReport =>
   factFindingReport.safeParse(value).success
-
-const fail = (
-  c: Context,
-  status: ContentfulStatusCode,
-  code: ApiError['error']['code'],
-  message: string,
-) => c.json<ApiError>({ error: { code, message } }, status)
 
 export function reportRoutes(options: ReportRoutesOptions): Hono {
   const { reports, disputes, chain, reporter, log } = options

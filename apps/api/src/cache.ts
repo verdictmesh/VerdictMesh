@@ -1,11 +1,13 @@
 import type { Db } from '@verdictmesh/db'
-import { disputes, evidence, reports } from '@verdictmesh/db'
+import { disputes, evidence, reports, settlements } from '@verdictmesh/db'
 import type { SQL } from 'drizzle-orm'
-import { asc, eq, getTableColumns, sql } from 'drizzle-orm'
+import { and, arrayContains, asc, desc, eq, getTableColumns, inArray, sql } from 'drizzle-orm'
 import type { PgColumn, PgTable } from 'drizzle-orm/pg-core'
 import type { EvidenceRow } from './evidence.js'
 import type { ReportRow, ReportStore } from './reporter.js'
+import type { DisputeFilter, DisputeMirror } from './routes/disputes.js'
 import type { MirroredDisputes, PublishedReports } from './routes/reports.js'
+import type { SettlementRow, SettlementStore } from './settlement.js'
 import { type Cache, type DisputeRow, latestPerDispute } from './watcher.js'
 
 /**
@@ -208,6 +210,62 @@ export function postgresMirroredDisputes(db: Db): MirroredDisputes {
     async find(pda) {
       const [row] = await mirroredDispute(db, pda)
       return row ?? null
+    },
+  }
+}
+
+/** Inserted once: a second sighting of the same settlement changes nothing. */
+export function saveSettlement(db: Db, row: SettlementRow) {
+  return db.insert(settlements).values(row).onConflictDoNothing()
+}
+
+export function postgresSettlementStore(db: Db): SettlementStore {
+  return {
+    async save(row) {
+      await saveSettlement(db, row)
+    },
+    async settled(disputePdas) {
+      if (disputePdas.length === 0) return new Set()
+      const rows = await db
+        .select({ pda: settlements.disputePda })
+        .from(settlements)
+        .where(inArray(settlements.disputePda, [...disputePdas]))
+      return new Set(rows.map((row) => row.pda))
+    },
+  }
+}
+
+/**
+ * Mirror rows with their settlement, newest first. The mirror answers alone:
+ * `SC-010` gives the first screen two seconds, and an RPC call per row would
+ * spend them.
+ */
+export function listDisputes(db: Db, filter: DisputeFilter, limit: number) {
+  const conditions = [
+    filter.state === undefined ? undefined : eq(disputes.state, filter.state),
+    filter.integrator === undefined ? undefined : eq(disputes.integrator, filter.integrator),
+    // `@>` rather than `= any(...)`: it is what the GIN index on `panel` serves.
+    filter.juror === undefined ? undefined : arrayContains(disputes.panel, [filter.juror]),
+    filter.pda === undefined ? undefined : eq(disputes.pda, filter.pda),
+  ]
+
+  return db
+    .select({ dispute: disputes, settlement: settlements })
+    .from(disputes)
+    .leftJoin(settlements, eq(settlements.disputePda, disputes.pda))
+    .where(and(...conditions))
+    .orderBy(desc(disputes.openedAt))
+    .limit(limit)
+}
+
+export function postgresDisputeMirror(db: Db): DisputeMirror {
+  return {
+    async list(filter, limit) {
+      const rows = await listDisputes(db, filter, limit)
+      return rows.map(({ dispute, settlement }) => ({
+        dispute,
+        settlement: settlement && { signature: settlement.signature, slot: settlement.slot },
+      }))
     },
   }
 }

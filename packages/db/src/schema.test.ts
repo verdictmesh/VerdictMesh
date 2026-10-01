@@ -5,7 +5,14 @@ import {
 } from '@verdictmesh/shared'
 import { getTableConfig } from 'drizzle-orm/pg-core'
 import { describe, expect, it } from 'vitest'
-import { disputeStateEnum, disputes, evidence, reports, verdictEnum } from './schema.js'
+import {
+  disputeStateEnum,
+  disputes,
+  evidence,
+  reports,
+  settlements,
+  verdictEnum,
+} from './schema.js'
 
 const columns = (table: Parameters<typeof getTableConfig>[0]) =>
   new Map(getTableConfig(table).columns.map((column) => [column.name, column]))
@@ -31,7 +38,7 @@ describe('кеш спорів', () => {
    * не залишає. Тому поле контракту без колонки — це провалений бюджет, а не
    * дрібниця стилю.
    */
-  it('має колонку під кожне поле DisputeView, крім settled', () => {
+  it('має колонку під кожне поле DisputeView, крім settlement', () => {
     const covered = Object.keys(disputeView.shape).filter((field) =>
       disputeColumns.has(snake(field)),
     )
@@ -49,9 +56,12 @@ describe('кеш спорів', () => {
       'state',
       'panel',
       'reportHash',
+      'openedAt',
       'commitDeadline',
       'revealDeadline',
       'appealDeadline',
+      'votesClaimant',
+      'votesRespondent',
       'escalated',
       'verdict',
     ])
@@ -59,17 +69,14 @@ describe('кеш спорів', () => {
   })
 
   /**
-   * `settled` колонки не має, і це не пропуск. Поля `Dispute.settled` на вісі
-   * більше немає — T020 прибрав його як другий запис того, що вже сказано
-   * станом. «Виконано» в сенсі `FR-020` — це виплата **в ескроу**, подій якого
-   * watcher (T027) не слухає взагалі: програма там чужа. Тож заповнити цю
-   * колонку сьогодні нічим, і порожня вона брехала б переконливіше за
-   * відсутню. Питання вирішують T031 і T033 — або `DisputeView` втрачає поле,
-   * або зʼявляється джерело, з якого його беруть.
+   * `settlement` lives in its own table (T033). The mirror upserts every column
+   * from each snapshot of the `Dispute` account, which knows nothing of the
+   * escrow: a column here would be wiped by the next rewrite.
    */
-  it('не має колонки settled, поки немає джерела для неї', () => {
+  it('keeps settlement out of the mirror', () => {
     expect(disputeColumns.has('settled')).toBe(false)
-    expect(Object.keys(disputeView.shape)).toContain('settled')
+    expect(disputeColumns.has('settlement_signature')).toBe(false)
+    expect(Object.keys(disputeView.shape)).toContain('settlement')
   })
 
   it('тримає суму як цілий u64, а не як int8', () => {
@@ -113,12 +120,21 @@ describe('звіти і докази', () => {
     expect(primaryKey?.columns.map((column) => column.name)).toEqual(['dispute_pda', 'source'])
   })
 
-  it('привʼязують і звіт, і доказ до наявного спору', () => {
-    for (const table of [reports, evidence]) {
+  it('привʼязують звіт, доказ і виконання до наявного спору', () => {
+    for (const table of [reports, evidence, settlements]) {
       const [foreignKey] = getTableConfig(table).foreignKeys
       const reference = foreignKey?.reference()
       expect(reference?.foreignTable, getTableConfig(table).name).toBe(disputes)
       expect(reference?.foreignColumns.map((column) => column.name)).toEqual(['pda'])
     }
+  })
+})
+
+describe('settlements', () => {
+  it('holds at most one settlement per dispute', () => {
+    const settlementColumns = columns(settlements)
+    expect(settlementColumns.get('dispute_pda')?.primary).toBe(true)
+    expect(settlementColumns.get('signature')?.notNull).toBe(true)
+    expect(settlementColumns.get('slot')?.getSQLType()).toBe('bigint')
   })
 })

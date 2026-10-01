@@ -52,6 +52,26 @@ export const disputeState = z.enum([
 
 export const verdict = z.enum(['Claimant', 'Respondent', 'StatusQuo'])
 
+/**
+ * Whether the escrow has carried out the verdict (`FR-020`). The escrow pulls
+ * the verdict and moves the funds itself, so this is read off the escrow's own
+ * transaction, never asserted by us:
+ *
+ * - `settled` — the escrow's settlement transaction, to link to.
+ * - `awaiting` — an escrow we can read has not settled (yet).
+ * - `untracked` — the integrator's escrow is a program whose events we cannot
+ *   decode. Saying `awaiting` here would claim a silence we never listened to.
+ */
+export const settlement = z.discriminatedUnion('status', [
+  z.object({
+    status: z.literal('settled'),
+    signature: z.string().min(64).max(128),
+    slot: z.number().int().nonnegative(),
+  }),
+  z.object({ status: z.literal('awaiting') }),
+  z.object({ status: z.literal('untracked') }),
+])
+
 export const disputeView = z.object({
   pda: z.string().min(32).max(44),
   integrator: z.string().min(32).max(44),
@@ -62,12 +82,16 @@ export const disputeView = z.object({
   state: disputeState,
   panel: z.array(z.string().min(32).max(44)),
   reportHash: z.string().length(64).nullable(),
+  openedAt: z.number().int(),
   commitDeadline: z.number().int(),
   revealDeadline: z.number().int(),
   appealDeadline: z.number().int(),
+  /** Revealed votes, across both rounds: escalation does not reset them. */
+  votesClaimant: z.number().int().nonnegative(),
+  votesRespondent: z.number().int().nonnegative(),
   escalated: z.boolean(),
   verdict: verdict.nullable(),
-  settled: z.boolean(),
+  settlement,
 })
 
 /**
@@ -134,6 +158,7 @@ export const apiError = z.object({
 
 export type FactFindingReport = z.infer<typeof factFindingReport>
 export type DisputeView = z.infer<typeof disputeView>
+export type Settlement = z.infer<typeof settlement>
 export type Verdict = z.infer<typeof verdict>
 export type DisputeState = z.infer<typeof disputeState>
 export type ApiError = z.infer<typeof apiError>

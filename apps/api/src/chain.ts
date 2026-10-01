@@ -1,8 +1,9 @@
-import { utils } from '@coral-xyz/anchor'
+import { BorshCoder, utils } from '@coral-xyz/anchor'
 import type { Commitment, Connection, Finality } from '@solana/web3.js'
 import { PublicKey } from '@solana/web3.js'
 import type { EvidenceChain } from './evidence.js'
 import { verdictMeshIdl } from './idl/verdict-mesh.js'
+import type { SettlementChain } from './settlement.js'
 import type { Chain, ChainAccount } from './watcher.js'
 
 /**
@@ -142,6 +143,62 @@ export function solanaEvidenceChain(connection: Connection): EvidenceChain {
         signers,
         logs: transaction.meta?.logMessages ?? null,
       }
+    },
+  }
+}
+
+/**
+ * The chain as the settlement tracker needs it: the evidence reads plus a log
+ * subscription on any program and a batch read of `Integrator` accounts.
+ */
+export function solanaSettlementChain(connection: Connection): SettlementChain {
+  const coder = new BorshCoder(verdictMeshIdl)
+  const evidence = solanaEvidenceChain(connection)
+
+  return {
+    signaturesFor: evidence.signaturesFor,
+    readTransaction: evidence.readTransaction,
+
+    async subscribeProgramLogs(programId, onLogs) {
+      const subscription = connection.onLogs(
+        programId,
+        (logs, context) => {
+          if (logs.err !== null) return
+          onLogs(logs.signature, context.slot, logs.logs)
+        },
+        COMMITMENT,
+      )
+
+      return async () => {
+        await connection.removeOnLogsListener(subscription)
+      }
+    },
+
+    async integratorEscrows(addresses) {
+      const accounts = await connection.getMultipleAccountsInfo(
+        addresses.map((address) => new PublicKey(address)),
+        COMMITMENT,
+      )
+
+      return new Map(
+        addresses.map((address, index) => {
+          const account = accounts[index]
+          if (!account) return [address, null]
+          let decoded: unknown
+          try {
+            decoded = coder.accounts.decode('Integrator', account.data)
+          } catch {
+            // Not an `Integrator` — a foreign account at that address names no
+            // escrow of ours.
+            return [address, null]
+          }
+          const escrow =
+            typeof decoded === 'object' && decoded !== null && 'escrow_program' in decoded
+              ? decoded.escrow_program
+              : null
+          return [address, escrow instanceof PublicKey ? escrow.toBase58() : null]
+        }),
+      )
     },
   }
 }

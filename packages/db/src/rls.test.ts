@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest'
 import * as schema from './schema.js'
 
 /**
- * Перелік таблиць береться зі схеми, а не з константи: четверта таблиця,
+ * Перелік таблиць береться зі схеми, а не з константи: пʼята таблиця,
  * додана без RLS, має розсипати гейт, а не поїхати на Supabase відкритою.
  *
  * Перевіряється саме SQL міграцій, а не наміри в схемі: на базу їде він.
@@ -27,8 +27,8 @@ const tables = (Object.values(schema) as unknown[])
   .sort()
 
 describe('RLS «нікому»', () => {
-  it('бачить усі три таблиці схеми', () => {
-    expect(tables).toEqual(['disputes', 'evidence', 'reports'])
+  it('бачить усі чотири таблиці схеми', () => {
+    expect(tables).toEqual(['disputes', 'evidence', 'reports', 'settlements'])
   })
 
   it('вмикає RLS на кожній таблиці', () => {

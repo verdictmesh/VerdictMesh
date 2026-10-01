@@ -53,12 +53,15 @@ describe('disputeView', () => {
     state: 'Committing' as const,
     panel: ['h'.repeat(44)],
     reportHash: null,
+    openedAt: 1_700_000_000,
     commitDeadline: 1_700_000_060,
     revealDeadline: 1_700_000_120,
     appealDeadline: 1_700_000_210,
+    votesClaimant: 0,
+    votesRespondent: 0,
     escalated: false,
     verdict: null,
-    settled: false,
+    settlement: { status: 'awaiting' as const },
   }
 
   it('accepts a dispute with no report attested yet', () => {
@@ -72,5 +75,13 @@ describe('disputeView', () => {
 
   it('rejects a report hash that is not 32 bytes hex', () => {
     expect(disputeView.safeParse({ ...base, reportHash: 'deadbeef' }).success).toBe(false)
+  })
+
+  it('carries the settlement transaction only when settled', () => {
+    const settled = { status: 'settled', signature: '5'.repeat(88), slot: 42 }
+    expect(disputeView.parse({ ...base, settlement: settled }).settlement).toEqual(settled)
+    expect(
+      disputeView.safeParse({ ...base, settlement: { status: 'settled', slot: 42 } }).success,
+    ).toBe(false)
   })
 })
