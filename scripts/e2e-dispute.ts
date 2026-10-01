@@ -19,15 +19,16 @@
  * тим самим запуском: реєстр не росте, а вже застейкані присяжні впізнаються.
  */
 
+import { createHash, createPrivateKey, sign } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { parseArgs } from 'node:util'
 import { AnchorProvider, BN, Program, Wallet } from '@coral-xyz/anchor'
 import { keccak_256 } from '@noble/hashes/sha3'
 import {
   createAssociatedTokenAccountIdempotentInstruction,
+  createMintToInstruction,
   getAssociatedTokenAddressSync,
   getMint,
-  createMintToInstruction,
   TOKEN_PROGRAM_ID,
 } from '@solana/spl-token'
 import {
@@ -35,14 +36,14 @@ import {
   Keypair,
   LAMPORTS_PER_SOL,
   PublicKey,
-  SystemProgram,
   SYSVAR_SLOT_HASHES_PUBKEY,
-  Transaction,
+  SystemProgram,
   sendAndConfirmTransaction,
+  Transaction,
 } from '@solana/web3.js'
 import bs58 from 'bs58'
 import { z } from 'zod'
-import { cycleFloorSeconds, expectedOutcome, measure, type Ballot, type Run } from './e2e.js'
+import { type Ballot, cycleFloorSeconds, expectedOutcome, measure, type Run } from './e2e.js'
 import type { ReferenceEscrow } from './idl/reference_escrow.js'
 import type { VerdictMesh } from './idl/verdict_mesh.js'
 
@@ -59,6 +60,11 @@ const { values } = parseArgs({
     // кожен із них це десяток транзакцій і стільки ж підтверджень. Ширшу хвилю
     // має сенс просити лише у власного вузла.
     batch: { type: 'string', default: '3' },
+    // One panel seat whose vote comes from outside the script — the web panel
+    // driven by a person or a browser. The script waits for that vote instead
+    // of sending it, and opens it itself only if nobody does, so a missed
+    // reveal never slashes a juror the next run needs.
+    'web-seat': { type: 'string' },
     'sol-price': { type: 'string', default: '200' },
   },
 })
@@ -67,6 +73,10 @@ const env = envSchema.parse(process.env)
 const disputeCount = Number(values.disputes)
 const batchSize = Number(values.batch)
 const solPriceUsd = Number(values['sol-price'])
+const webSeat = values['web-seat'] === undefined ? null : Number(values['web-seat'])
+if (webSeat !== null && disputeCount !== 1) {
+  throw new Error('--web-seat hands one vote to a person; run it with --disputes 1')
+}
 
 const connection = new Connection(env.SOLANA_RPC_URL, 'confirmed')
 const treasury = Keypair.fromSecretKey(bs58.decode(env.TREASURY_KEYPAIR))
@@ -566,7 +576,16 @@ async function runCycle(
     }
   })
 
-  for (const member of seated) {
+  const outside = webSeat === null ? undefined : seated[webSeat]
+  const scripted = seated.filter((member) => member !== outside)
+  if (outside) {
+    // One line, machine-readable: whoever drives the browser waits for it.
+    console.log(
+      `HANDOFF ${JSON.stringify({ dispute: dispute.toBase58(), juror: outside.juror.keypair.publicKey.toBase58(), seat: webSeat, commitDeadline: opened.commitDeadline.toNumber(), revealDeadline: opened.revealDeadline.toNumber() })}`,
+    )
+  }
+
+  for (const member of scripted) {
     const signature = await mesh.methods
       .commitVote([
         ...commitmentOf(dispute, member.juror.keypair.publicKey, member.choice, member.salt),
@@ -582,9 +601,19 @@ async function runCycle(
     signatures.push(signature)
   }
 
+  if (outside) {
+    const sealed = await waitForOutsideVote(
+      dispute,
+      outside.juror.keypair.publicKey,
+      'sealed',
+      opened.commitDeadline.toNumber(),
+    )
+    if (!sealed) interventions.push(`web seat ${webSeat} did not seal a vote`)
+  }
+
   await waitForDeadline(opened.commitDeadline.toNumber())
 
-  for (const member of seated) {
+  for (const member of scripted) {
     const signature = await mesh.methods
       .revealVote(BALLOT_ARG[member.choice], [...member.salt])
       .accountsPartial({
@@ -595,6 +624,40 @@ async function runCycle(
       .signers([member.juror.keypair])
       .rpc()
     signatures.push(signature)
+  }
+
+  if (outside) {
+    const keypair = outside.juror.keypair
+    // Leave the script enough of the window to open the vote itself.
+    const openedOutside = await waitForOutsideVote(
+      dispute,
+      keypair.publicKey,
+      'opened',
+      opened.revealDeadline.toNumber() - 20,
+    )
+    const vote = await mesh.account.voteCommit.fetchNullable(votePda(dispute, keypair.publicKey))
+    if (!openedOutside && vote && vote.choice === null) {
+      const salt = webSalt(keypair, dispute)
+      const choice = (['claimant', 'respondent'] as const).find((candidate) =>
+        commitmentOf(dispute, keypair.publicKey, candidate, salt).equals(
+          Buffer.from(vote.commitment),
+        ),
+      )
+      if (choice === undefined)
+        throw new Error('The web seat sealed a vote the web salt does not open')
+      signatures.push(
+        await mesh.methods
+          .revealVote(BALLOT_ARG[choice], [...salt])
+          .accountsPartial({
+            juror: keypair.publicKey,
+            dispute,
+            vote: votePda(dispute, keypair.publicKey),
+          })
+          .signers([keypair])
+          .rpc(),
+      )
+      interventions.push(`web seat ${webSeat} was opened by the script`)
+    }
   }
 
   await waitForDeadline(opened.revealDeadline.toNumber())
@@ -667,14 +730,56 @@ async function runCycle(
   }
 }
 
+/**
+ * The salt the web panel derives (`apps/web/src/lib/vote.ts` → `saltMessage`):
+ * sha256 of the wallet's ed25519 signature of a fixed message. ed25519 is
+ * deterministic, so the script holding the juror's key gets the very same
+ * salt the browser used.
+ */
+function webSalt(keypair: Keypair, dispute: PublicKey): Buffer {
+  const message = Buffer.from(
+    `VerdictMesh vote secret\n\nSigning this does not move funds. It derives the secret that seals your vote in hearing ${dispute.toBase58()}.\n\nverdict_mesh/vote-salt/v1:${dispute.toBase58()}`,
+  )
+  const key = createPrivateKey({
+    key: Buffer.concat([
+      Buffer.from('302e020100300506032b657004220420', 'hex'),
+      Buffer.from(keypair.secretKey.slice(0, 32)),
+    ]),
+    format: 'der',
+    type: 'pkcs8',
+  })
+  return createHash('sha256')
+    .update(sign(null, message, key))
+    .digest()
+}
+
+/** Polls the outside seat's vote until it reaches `step` or `deadline` (unix seconds) passes. */
+async function waitForOutsideVote(
+  dispute: PublicKey,
+  juror: PublicKey,
+  step: 'sealed' | 'opened',
+  deadline: number,
+): Promise<boolean> {
+  for (;;) {
+    const vote = await mesh.account.voteCommit.fetchNullable(votePda(dispute, juror))
+    if (vote && (step === 'sealed' || vote.choice !== null)) return true
+    if (Date.now() / 1000 >= deadline) return false
+    await new Promise((resolve) => setTimeout(resolve, 2_000))
+  }
+}
+
 // ── прогін ──────────────────────────────────────────────────────────────────
 
 const mint = await getMint(connection, settlementMint)
 if (mint.decimals !== DECIMALS) {
-  throw new Error(`Settlement mint has ${mint.decimals} decimals, the demo policy assumes ${DECIMALS}`)
+  throw new Error(
+    `Settlement mint has ${mint.decimals} decimals, the demo policy assumes ${DECIMALS}`,
+  )
 }
 
-console.log(`arbitration ${mesh.programId.toBase58()} · escrow ${escrowProgram.programId.toBase58()}`)
+console.log(
+  `arbitration ${mesh.programId.toBase58()} · escrow ${escrowProgram.programId.toBase58()}`,
+)
 console.log(
   `${disputeCount} disputes in waves of ${batchSize} · floor ${cycleFloorSeconds({ ...POLICY, commitWindow: 60, revealWindow: 60, appealWindow: 90 })}s per cycle`,
 )
@@ -735,10 +840,7 @@ for (let start = 0; start < disputeCount; start += batchSize) {
       feeLamports: 0n,
       outcome: 'statusQuo',
       expected: 'statusQuo',
-      interventions: [
-        `deal ${wave[offset]}: ${result.reason}`,
-        ...(offset === 0 ? strayHere : []),
-      ],
+      interventions: [`deal ${wave[offset]}: ${result.reason}`, ...(offset === 0 ? strayHere : [])],
     })
   })
 }
@@ -746,9 +848,15 @@ for (let start = 0; start < disputeCount; start += batchSize) {
 const report = measure(runs, { cycleSeconds: 300, cycleUsd: 0.1, solPriceUsd })
 
 console.log('')
-console.log(`SC-001 full cycle      ${report.sc001.passed ? 'PASS' : 'FAIL'} · slowest ${(report.sc001.slowestMs / 1000).toFixed(1)}s of ${report.sc001.budgetMs / 1000}s`)
-console.log(`SC-002 fees per cycle  ${report.sc002.passed ? 'PASS' : 'FAIL'} · worst $${report.sc002.worstUsd.toFixed(4)} of $${report.sc002.budgetUsd} at $${solPriceUsd}/SOL`)
-console.log(`SC-005 no hands needed ${report.sc005.passed ? 'PASS' : 'FAIL'} · ${report.sc005.automatic} of ${report.sc005.total} automatic`)
+console.log(
+  `SC-001 full cycle      ${report.sc001.passed ? 'PASS' : 'FAIL'} · slowest ${(report.sc001.slowestMs / 1000).toFixed(1)}s of ${report.sc001.budgetMs / 1000}s`,
+)
+console.log(
+  `SC-002 fees per cycle  ${report.sc002.passed ? 'PASS' : 'FAIL'} · worst $${report.sc002.worstUsd.toFixed(4)} of $${report.sc002.budgetUsd} at $${solPriceUsd}/SOL`,
+)
+console.log(
+  `SC-005 no hands needed ${report.sc005.passed ? 'PASS' : 'FAIL'} · ${report.sc005.automatic} of ${report.sc005.total} automatic`,
+)
 for (const line of report.sc005.needed) console.log(`  ${line}`)
 
 process.exit(report.sc001.passed && report.sc002.passed && report.sc005.passed ? 0 : 1)

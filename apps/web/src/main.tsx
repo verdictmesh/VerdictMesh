@@ -5,6 +5,7 @@ import { BrowserRouter } from 'react-router-dom'
 
 import App from './App'
 import { ApiFailure } from './lib/api'
+import { WalletProvider } from './lib/wallet'
 
 const rootElement = document.getElementById('root')
 if (!rootElement) throw new Error('Failed to find the root element')
@@ -26,8 +27,10 @@ const queryClient = new QueryClient({
 // and the router has to know it, or every link would point at the domain root.
 createRoot(rootElement).render(
   <QueryClientProvider client={queryClient}>
-    <BrowserRouter basename={import.meta.env.BASE_URL}>
-      <App />
-    </BrowserRouter>
+    <WalletProvider>
+      <BrowserRouter basename={import.meta.env.BASE_URL}>
+        <App />
+      </BrowserRouter>
+    </WalletProvider>
   </QueryClientProvider>,
 )

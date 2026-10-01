@@ -5,6 +5,7 @@ import EvidenceReport from '@/components/EvidenceReport'
 import HashRef from '@/components/HashRef'
 import { Failure, Loading } from '@/components/LoadState'
 import Shell from '@/components/Shell'
+import VotePanel from '@/components/VotePanel'
 import { explorerAddress, formatAmount } from '@/lib/dispute'
 import { useDispute, useNow, useReport } from '@/lib/queries'
 
@@ -93,6 +94,14 @@ const Body = ({ dispute, now }: { dispute: DisputeView; now: number }) => {
             </p>
           </div>
         </div>
+      </section>
+
+      <section>
+        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="text-[15px] font-semibold tracking-tight text-foreground">Your vote</h2>
+          <span className="label-xs text-muted-foreground">panel members only · two steps</span>
+        </div>
+        <VotePanel dispute={dispute} now={now} />
       </section>
     </>
   )

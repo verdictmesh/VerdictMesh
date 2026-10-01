@@ -2,6 +2,7 @@ import type { DisputeView } from '@verdictmesh/shared'
 import { ArrowRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import Countdown from '@/components/Countdown'
+import JurorStanding from '@/components/JurorStanding'
 import { Failure, Loading } from '@/components/LoadState'
 import Shell from '@/components/Shell'
 import StageChip from '@/components/StageChip'
@@ -77,6 +78,7 @@ const Hearings = () => {
 
   return (
     <Shell>
+      <JurorStanding now={now} />
       <section>
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
           <h1 className="text-[15px] font-semibold tracking-tight text-foreground">Hearings</h1>

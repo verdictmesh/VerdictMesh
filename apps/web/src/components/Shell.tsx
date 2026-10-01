@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import WalletButton from '@/components/WalletButton'
 
 interface ShellProps {
   children: ReactNode
@@ -23,7 +24,7 @@ const Shell = ({ children }: ShellProps) => {
               dispute resolution layer
             </span>
           </div>
-          <nav className="flex items-center gap-1">
+          <nav className="flex items-center gap-2">
             <Link
               to="/"
               className={`label-xs rounded-sm px-2 py-1.5 focus-ring ${
@@ -34,6 +35,7 @@ const Shell = ({ children }: ShellProps) => {
             >
               Hearings
             </Link>
+            <WalletButton />
           </nav>
         </div>
       </header>
