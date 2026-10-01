@@ -1,10 +1,35 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { API_URL, ApiFailure } from '@/lib/api'
 
-/** A loading line that does not shift the layout when the data lands. */
-export const Loading = ({ what }: { what: string }) => (
-  <p className="label-xs animate-pulse text-unestablished">Reading {what}…</p>
-)
+/** How long a read may take before the wait is explained, in milliseconds. */
+const SLOW_MS = 5_000
+
+/**
+ * A loading line that does not shift the layout when the data lands. Past a
+ * few seconds it says why: the api runs on a free host that sleeps when idle,
+ * and its first answer after a sleep takes most of a minute (measured: 44 s).
+ * A silent spinner for that long reads as a broken page.
+ */
+export const Loading = ({ what }: { what: string }) => {
+  const [slow, setSlow] = useState(false)
+  useEffect(() => {
+    const timer = setTimeout(() => setSlow(true), SLOW_MS)
+    return () => clearTimeout(timer)
+  }, [])
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <p className="label-xs animate-pulse text-unestablished">Reading {what}…</p>
+      {slow ? (
+        <p className="max-w-[560px] text-[12.5px] leading-relaxed text-muted-foreground">
+          The dispute service runs on a free host that sleeps when nobody is using it. It is waking
+          up now, which takes up to a minute; after that, pages open in under a second.
+        </p>
+      ) : null}
+    </div>
+  )
+}
 
 /**
  * What went wrong, said plainly. A sleeping free host takes up to a minute to
