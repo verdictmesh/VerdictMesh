@@ -1,15 +1,15 @@
 import { Route, Routes } from 'react-router-dom'
-import HearingJuror from './pages/HearingJuror'
-import HearingParty from './pages/HearingParty'
-import JurorPanel from './pages/JurorPanel'
+import Hearing from './pages/Hearing'
+import Hearings from './pages/Hearings'
 import NotFound from './pages/NotFound'
+import PartyView from './pages/PartyView'
 import Settlement from './pages/Settlement'
 
 const App = () => (
   <Routes>
-    <Route path="/" element={<JurorPanel />} />
-    <Route path="/hearing/:id" element={<HearingJuror />} />
-    <Route path="/hearing/:id/party" element={<HearingParty />} />
+    <Route path="/" element={<Hearings />} />
+    <Route path="/hearing/:id" element={<Hearing />} />
+    <Route path="/hearing/:id/party" element={<PartyView />} />
     <Route path="/settlement/:id" element={<Settlement />} />
     <Route path="*" element={<NotFound />} />
   </Routes>

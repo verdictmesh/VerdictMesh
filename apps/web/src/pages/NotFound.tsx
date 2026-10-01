@@ -5,7 +5,7 @@ const NotFound = () => (
     <div className="text-center">
       <p className="mono text-[12px] tracking-[0.16em] text-unestablished">NO SUCH SCREEN</p>
       <Link to="/" className="mt-3 inline-block text-[13.5px] text-foreground underline">
-        Return to the juror panel
+        Return to the hearings
       </Link>
     </div>
   </div>

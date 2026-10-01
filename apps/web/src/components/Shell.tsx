@@ -9,7 +9,7 @@ const Shell = ({ children }: ShellProps) => {
   const { pathname } = useLocation()
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="flex min-h-screen flex-col bg-background">
       <header className="sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur-[2px]">
         <div className="mx-auto flex h-12 max-w-[1180px] items-center justify-between px-5">
           <div className="flex items-baseline gap-4">
@@ -32,26 +32,16 @@ const Shell = ({ children }: ShellProps) => {
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              Juror panel
-            </Link>
-            <Link
-              to="/settlement/VM-1039"
-              className={`label-xs rounded-sm px-2 py-1.5 focus-ring ${
-                pathname.startsWith('/settlement')
-                  ? 'bg-surface-2 text-foreground'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Settled
+              Hearings
             </Link>
           </nav>
         </div>
       </header>
-      <main className="mx-auto max-w-[1180px] px-5 pb-24 pt-6">{children}</main>
+      <main className="mx-auto w-full max-w-[1180px] flex-1 px-5 pb-24 pt-6">{children}</main>
       <footer className="border-t border-border">
         <div className="mx-auto max-w-[1180px] px-5 py-4">
           <p className="label-xs text-unestablished">
-            Demo interface · all deals, parties and signatures shown here are invented
+            Solana devnet · every hearing here is read from the chain · no wallet needed to watch
           </p>
         </div>
       </footer>

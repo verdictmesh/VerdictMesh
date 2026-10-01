@@ -1,4 +1,4 @@
-import { formatDuration } from '@/lib/verdictmesh'
+import { formatDuration } from '@/lib/dispute'
 
 interface CountdownProps {
   msLeft: number
