@@ -42,9 +42,12 @@ jobs:
           PAGES_BASE: /${{ github.event.repository.name }}/
           # Where apps/api answers: the service `verdictmesh-api` in render.yaml.
           VITE_API_URL: https://verdictmesh-api.onrender.com
-          # No VITE_SOLANA_RPC_URL yet: the page falls back to the public devnet
-          # RPC. A Helius key restricted to this site's domain goes here later —
-          # never the key the api runs on.
+          # The page's own RPC, for the juror's accounts and votes. Public by
+          # construction — it ships in the bundle — so it is a key of its own,
+          # in a Helius account that holds nothing else: never the key the api
+          # runs on. If its credits are burnt, removing this line falls back to
+          # the public devnet RPC.
+          VITE_SOLANA_RPC_URL: https://devnet.helius-rpc.com/?api-key=a0f40f06-735c-4921-bf9f-7bda54679baa
 
       # Pages has no SPA fallback: a direct hit on /hearing/<address> would be a 404.
       # Serving the app as the 404 page lets the router take over from there.
