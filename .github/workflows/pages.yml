@@ -1,8 +1,8 @@
-# The demo prototype on GitHub Pages: https://verdictmesh.github.io/VerdictMesh/
+# apps/web on GitHub Pages: https://verdictmesh.github.io/VerdictMesh/
 #
-# What gets published is apps/web on invented data — four screens, no network,
-# nothing on it is a statement about the chain. The on-chain programs are not
-# built here: Pages serves the prototype, devnet serves the programs.
+# A static site that reads hearings from apps/api on Render and sends a
+# juror's votes straight from the juror's wallet to devnet. The on-chain
+# programs are not built here.
 name: pages
 
 on:
@@ -40,8 +40,13 @@ jobs:
         env:
           # A project site lives under /<repo>/, not at the domain root.
           PAGES_BASE: /${{ github.event.repository.name }}/
+          # Where apps/api answers: the service `verdictmesh-api` in render.yaml.
+          VITE_API_URL: https://verdictmesh-api.onrender.com
+          # No VITE_SOLANA_RPC_URL yet: the page falls back to the public devnet
+          # RPC. A Helius key restricted to this site's domain goes here later —
+          # never the key the api runs on.
 
-      # Pages has no SPA fallback: a direct hit on /hearing/VM-1042 would be a 404.
+      # Pages has no SPA fallback: a direct hit on /hearing/<address> would be a 404.
       # Serving the app as the 404 page lets the router take over from there.
       - run: cp apps/web/dist/index.html apps/web/dist/404.html
 

@@ -1,0 +1,69 @@
+# Render Blueprint: apps/api with the watcher, the reporter and the settlement
+# tracker inside it, as one free web service.
+#
+# One process, not three: on the free plan Render offers only web services, and
+# the three jobs share one database pool (PLAN.md → "Free tier capacity"). The
+# price: they share 512 MB and 0.1 CPU, and a crash stops all three. On devnet
+# that is acceptable.
+#
+# The free service sleeps after 15 minutes without traffic and takes up to a
+# minute to wake. The watcher rewrites the mirror on start, and the settlement
+# tracker looks up what it missed, so nothing is lost while it sleeps — only
+# the first screen after a sleep is slow (SC-010, measured in T048).
+services:
+  - type: web
+    name: verdictmesh-api
+    runtime: node
+    plan: free
+    # Next to the database: the Supabase project is in eu-central-1.
+    region: frankfurt
+
+    # Not `corepack enable`: on the Node 26 image it fails with EROFS on
+    # /usr/bin/pnpm. The version is the one in package.json → packageManager.
+    buildCommand: npx -y pnpm@9.15.0 install --frozen-lockfile
+
+    # `tsx`, not a compiled `dist`: the workspace packages export their
+    # TypeScript sources, so compiled output would import files that do not
+    # exist on disk.
+    startCommand: ./apps/api/node_modules/.bin/tsx apps/api/src/index.ts
+
+    # `/health` answers before the first rewrite of the mirror finishes, so a
+    # slow start is not mistaken for a dead one.
+    healthCheckPath: /health
+
+    envVars:
+      # The same major as locally: Node 22 cannot see `BN` as a named export of
+      # @coral-xyz/anchor and fails at runtime, not at build.
+      - key: NODE_VERSION
+        value: '26.3.0'
+
+      - key: LOG_LEVEL
+        value: info
+
+      # Addresses in this network. Public by nature.
+      - key: VERDICT_MESH_PROGRAM_ID
+        value: 8WyWpDD1ZbkTRGG6SRcYyWxApPsHaSgWn2SWJQ8xSgxq
+      - key: REFERENCE_ESCROW_PROGRAM_ID
+        value: 4iYF4WRdtuSmjTXH5fSa2ow5WrdeonEoeoY3epypfTHo
+      - key: SETTLEMENT_MINT
+        value: CPqxQT7pEHd16YKCXmHSzbtmxxbcLGxF1knMkyoccVjX
+
+      # The RPC key sits in the URL, so both are secrets, set in the dashboard.
+      - key: SOLANA_RPC_URL
+        sync: false
+      - key: SOLANA_WS_URL
+        sync: false
+
+      # Supabase through the transaction pooler (:6543): one pool for HTTP and
+      # the workers in the same process.
+      - key: DATABASE_URL
+        sync: false
+
+      - key: ANTHROPIC_API_KEY
+        sync: false
+
+      # The one privileged key: it can only record a report fingerprint
+      # (`attest_report`), never a verdict (FR-014). On this devnet deployment
+      # it is the treasury key — `Config.reporter` is fixed at initialize.
+      - key: REPORTER_KEYPAIR
+        sync: false
