@@ -42,18 +42,20 @@ slashing 10 % for voting with the losing side and 20 % for not revealing.
 
 ## How it works
 
-Steps marked **live** exist on devnet. Steps marked **planned** are specified in
-full but not yet built; the sections below say which milestone brings them.
+Every step below is live on devnet. What is still planned is listed after them.
 
 1. **A dispute opens** over locked funds — *live*. The integrator's policy is
    snapshotted into the dispute, so changing it later cannot affect a hearing
    already under way. A panel is drawn from the staked juror registry in the same
    transaction, and the opening party pays a review deposit.
-2. **Evidence is gathered** — *planned, next milestone*. A watcher compiles the
-   on-chain history of the deal into a fact-finding report that separates
-   confirmed facts from party claims and says plainly where facts are missing
-   instead of guessing. Until then jurors vote on the raw claims and transaction
-   signatures — which is visible in the demo, and deliberately so.
+2. **Evidence is gathered** — *live*. A watcher in `apps/api` compiles the
+   on-chain history of the deal into a fact-finding report written by a model
+   (`claude-opus-5`, structured output). The report separates facts the chain
+   confirms from party claims and says plainly where facts are missing instead
+   of guessing. Its fingerprint is written to the dispute account, so a juror can
+   check that the text they read is the one that was recorded. If the model is
+   unavailable, voting is not blocked: jurors see the raw claims and signatures,
+   and the hearing proceeds.
 3. **A panel of staked jurors votes** — *live*. Commit-reveal: a juror seals a
    fingerprint of the vote, then opens it in the reveal window, so nobody can copy
    an earlier vote. Jurors who vote against the outcome lose 10 % of their stake;
@@ -79,9 +81,8 @@ difference; the payout under the verdict itself is never reduced.
 
 ### Planned
 
-- **Fact-finding report** (`apps/api`): watcher, evidence collection, an
-  AI-written report attested on-chain by fingerprint. Model unavailability must
-  not block voting.
+- **Report accuracy measured**: 20 modelled disputes with known answers, and no
+  "confirmed on-chain" statement the chain contradicts.
 - **Integrator SDK and a second escrow** structurally unlike the first (payout
   split between the sides, no bond), to prove the boundary is protocol-agnostic.
   Target: a developer new to the project integrates in ≤ 30 minutes and ≤ 40 lines.
@@ -89,27 +90,37 @@ difference; the payout under the verdict itself is never reduced.
 - **Optimistic track**: below a policy threshold an unchallenged assertion becomes
   the verdict, so a $20 dispute never pays for a jury.
 
-## Demo prototype (`apps/web`)
+## Live on GitHub Pages
 
-Four screens — juror panel, hearing as the juror sees it, the same hearing as a
-party sees it without signing in, and a settlement receipt showing where the money
-went. **Every deal, party, amount and signature in it is invented.** Nothing in
-the prototype touches the network; it shows what the product looks like, not that
-it works. Countdowns run in real time and the demo loops, so the hearing meant for
-the visitor keeps its commit window open until they cast a vote.
+<https://verdictmesh.github.io/VerdictMesh/> is the project page: what the
+product does, the docket of one real hearing on devnet with every transaction
+linked, the measurements, and what the product does not do.
+
+<https://verdictmesh.github.io/VerdictMesh/app/> is the juror panel
+(`apps/web`). It reads real hearings from `apps/api`, shows a hearing as the
+juror and as a party see it, shows the fact-finding report next to the
+fingerprint recorded on-chain, and links the escrow payout once it happens. A
+juror on the panel votes from their own wallet (Wallet Standard): commit and
+reveal are signed in the browser and sent straight to devnet.
+
+| Measured | Budget | Result |
+|---|---|---|
+| Fact-finding report ready for the juror, p95 over 20 disputes | ≤ 30 s | **24.9 s**, 20 of 20 delivered — on a locally run `api` |
+| Juror panel first screen, Pages + Render | ≤ 2 s | **0.55–1.13 s** with a 5-minute health ping; 43.8 s on the first visit after the free host sleeps |
+| One vote from a browser wallet, commit and reveal | — | **1.36 s** each |
+| Dispute paid out with the model unavailable | ≤ 5 min | **216.1 s** |
+
+`apps/api` runs on Render's free plan (`render.yaml`); the free host sleeps
+when idle, and the panel says so if the first read is slow. Both Pages folders
+are published by `.github/workflows/pages.yml` on every push to `main`: the
+static page from `apps/landing`, and `apps/web` built with the base
+`/VerdictMesh/app/`. Pages itself is switched on once, by the repository
+owner: *Settings → Pages → Build and deployment → Source: GitHub Actions*.
 
 ```bash
 pnpm install
-pnpm --filter @verdictmesh/web dev        # http://localhost:5173
+pnpm --filter @verdictmesh/web dev        # http://localhost:5173, needs VITE_API_URL
 ```
-
-The same prototype is published on GitHub Pages at
-<https://verdictmesh.github.io/VerdictMesh/> by `.github/workflows/pages.yml` on
-every push to `main`. The workflow builds `apps/web` with the base path
-`/VerdictMesh/` and ships `index.html` as the 404 page so that deep links such as
-`/hearing/VM-1042` survive a refresh. Pages itself is switched on once, by the
-repository owner: *Settings → Pages → Build and deployment → Source: GitHub
-Actions*.
 
 ## Repository layout
 
@@ -118,10 +129,12 @@ programs/
   verdict-mesh/        # registry, panel selection, commit-reveal, tally, stakes
   reference-escrow/    # milestone escrow: bonds, dispute flag, verdict-driven payout
 apps/
-  web/                 # demo prototype, React 18 + Vite 5, invented data
-  api/                 # Hono service — skeleton until the fact-finding milestone
+  landing/             # static project page, no build
+  web/                 # juror panel, React 18 + Vite 5, reads apps/api
+  api/                 # Hono service: watcher, fact-finding report, hearings API
 packages/
   shared/              # Zod schemas shared across API boundaries
+  db/                  # Drizzle schema and migrations for the hearings cache
 scripts/               # devnet tooling: mint, treasury, juror funding, e2e cycle
 ```
 
@@ -158,8 +171,13 @@ parallel cycles.
 ## Status
 
 Early development on **devnet**. Not audited, not for mainnet, not holding real
-money. The on-chain core is complete and measured; the fact-finding layer, SDK,
-appeals and optimistic track are specified and scheduled.
+money. The on-chain core and the fact-finding layer are live and measured; the
+SDK, appeals and optimistic track are specified and scheduled.
+
+What the demo does not prove: the jurors in the registry are keys we control;
+money and votes are real, but what the disputes are about is modelled from
+prepared fixtures; and the report is written by a role we operate — it cannot
+vote or move funds, but it could be biased.
 
 ## License
 
