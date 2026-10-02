@@ -1,0 +1,588 @@
+/* VerdictMesh landing — a case file with a highlighter.
+   The marker colour means one thing on this page: on-chain, verifiable. */
+
+:root {
+  --paper: #f5f2ea;
+  --paper-deep: #ece7db;
+  --ink: #1a1a17;
+  --ink-muted: #5f5c54;
+  --rule: #d6d0c2;
+  --marker: #c0f060;
+  --serif: "Source Serif 4", Charter, "Sitka Text", Georgia, serif;
+  --mono: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
+  --measure: 640px;
+  --margin-col: 220px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 19px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--ink);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+a:hover {
+  color: var(--ink-muted);
+}
+
+a:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+}
+
+.wrap {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.mono {
+  font-family: var(--mono);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.muted,
+.note {
+  color: var(--ink-muted);
+}
+
+.note {
+  font-size: 15px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.mk {
+  background: linear-gradient(var(--marker), var(--marker)) no-repeat;
+  background-size: 100% 100%;
+  padding: 1px 4px;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+/* With JS, the docket's marks are drawn once as the docket scrolls in. */
+.js .docket .mk {
+  background-size: 0% 100%;
+  transition: background-size 500ms ease-out;
+  transition-delay: calc(var(--i, 0) * 140ms);
+}
+
+.js .docket.in .mk {
+  background-size: 100% 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .js .docket .mk {
+    background-size: 100% 100%;
+    transition: none;
+  }
+}
+
+/* status line and header */
+
+.status {
+  border-bottom: 1px solid var(--rule);
+}
+
+.status p {
+  margin: 0;
+  padding: 10px 0;
+  font-size: 15px;
+  color: var(--ink-muted);
+}
+
+.masthead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 20px;
+  padding-bottom: 20px;
+  border-bottom: 2px solid var(--ink);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.brand img {
+  display: block;
+}
+
+.masthead nav {
+  display: flex;
+  gap: 24px;
+  font-size: 17px;
+}
+
+/* paragraph grid: text column + margin notes */
+
+.with-margin {
+  display: grid;
+  grid-template-columns: minmax(0, var(--measure)) var(--margin-col);
+  column-gap: 40px;
+  row-gap: 28px;
+}
+
+.with-margin > p {
+  margin: 0;
+}
+
+/* hero */
+
+.hero {
+  padding-top: 72px;
+  padding-bottom: 32px;
+}
+
+.hero h1 {
+  margin: 0;
+  font-size: 60px;
+  line-height: 1.08;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  font-variation-settings: "opsz" 60;
+}
+
+.lede {
+  font-size: 21px;
+}
+
+.hero .note {
+  align-self: end;
+}
+
+/* docket */
+
+.docket {
+  background: var(--paper-deep);
+  padding: 36px 40px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.docket-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px 16px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--ink);
+  padding-bottom: 14px;
+}
+
+.docket-head h2 {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.3;
+  font-weight: 600;
+}
+
+.docket-head h2 .mono {
+  font-size: 20px;
+}
+
+.docket ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.docket li {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr) 220px;
+  column-gap: 24px;
+  row-gap: 6px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--rule);
+  align-items: baseline;
+  font-size: 18px;
+  line-height: 1.5;
+}
+
+.docket li:last-child {
+  border-bottom: 0;
+}
+
+.docket .t {
+  color: var(--ink-muted);
+}
+
+.docket .entry {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.docket .sigs {
+  display: flex;
+  gap: 4px 10px;
+  flex-wrap: wrap;
+}
+
+.actions {
+  display: flex;
+  gap: 16px 28px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding-top: 28px;
+  font-size: 18px;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 0 24px;
+  background: var(--ink);
+  color: var(--paper);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.button:hover {
+  color: var(--paper);
+  background: #3a3a35;
+}
+
+/* sections */
+
+.section {
+  padding-top: 112px;
+}
+
+.section > h2,
+.section h2.h2 {
+  margin: 0 0 32px;
+  font-size: 32px;
+  line-height: 1.2;
+  font-weight: 600;
+  font-variation-settings: "opsz" 48;
+}
+
+.pn {
+  font-size: 15px;
+  color: var(--ink-muted);
+  font-variant-numeric: lining-nums;
+}
+
+strong {
+  font-weight: 600;
+}
+
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-width: var(--measure);
+  border-top: 1px solid var(--rule);
+}
+
+.steps li {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  padding: 16px 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+/* measured table */
+
+.measured {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 17px;
+  line-height: 1.45;
+}
+
+.measured th {
+  text-align: left;
+  font-weight: 600;
+  padding: 10px 16px;
+  border-bottom: 2px solid var(--ink);
+}
+
+.measured td {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: baseline;
+}
+
+.measured th:first-child,
+.measured td:first-child {
+  padding-left: 0;
+  text-align: right;
+  width: 150px;
+}
+
+.measured th:last-child,
+.measured td:last-child {
+  padding-right: 0;
+  width: 220px;
+}
+
+.measured td:first-child.mono {
+  font-size: 17px;
+  white-space: nowrap;
+}
+
+.measured td:last-child {
+  font-size: 15px;
+  color: var(--ink-muted);
+}
+
+.measured .pending {
+  font-style: italic;
+  color: var(--ink-muted);
+}
+
+.footnotes {
+  max-width: var(--measure);
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* not in this build */
+
+.limits {
+  margin-top: 112px;
+  background: var(--paper-deep);
+}
+
+.limits .wrap {
+  padding-top: 72px;
+  padding-bottom: 72px;
+}
+
+.limits h2 {
+  margin: 0 0 28px;
+  font-size: 32px;
+  line-height: 1.2;
+  font-weight: 600;
+}
+
+.limits ul {
+  margin: 0;
+  padding: 0 0 0 22px;
+  max-width: 680px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 18px;
+  line-height: 1.55;
+}
+
+/* FAQ */
+
+.faq {
+  max-width: 680px;
+  border-top: 1px solid var(--rule);
+}
+
+.faq details {
+  border-bottom: 1px solid var(--rule);
+  padding: 16px 0;
+}
+
+.faq summary {
+  font-size: 20px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.faq details p {
+  margin: 10px 0 0;
+}
+
+/* footer */
+
+.footer {
+  margin-top: 112px;
+  padding-top: 28px;
+  padding-bottom: 48px;
+  border-top: 2px solid var(--ink);
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--ink-muted);
+}
+
+.footer > div {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.footer .name {
+  color: var(--ink);
+  font-size: 17px;
+  font-weight: 600;
+}
+
+/* narrow screens */
+
+@media (max-width: 760px) {
+  body {
+    font-size: 18px;
+  }
+
+  .with-margin {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 8px;
+  }
+
+  .with-margin > .note {
+    margin-bottom: 20px;
+  }
+
+  .with-margin > .note::before {
+    content: "Source: ";
+  }
+
+  .hero .with-margin > .note::before,
+  .hero .note::before {
+    content: none;
+  }
+
+  .hero {
+    padding-top: 40px;
+  }
+
+  .hero h1 {
+    font-size: 38px;
+    line-height: 1.12;
+  }
+
+  .lede {
+    font-size: 19px;
+  }
+
+  .masthead nav {
+    gap: 16px;
+    font-size: 16px;
+  }
+
+  .brand span {
+    font-size: 19px;
+  }
+
+  .docket {
+    margin: 0 -24px;
+    padding: 24px 20px;
+  }
+
+  .docket-head h2 {
+    font-size: 20px;
+  }
+
+  .docket-head h2 .mono {
+    font-size: 16px;
+  }
+
+  .docket li {
+    grid-template-columns: minmax(0, 1fr);
+    font-size: 17px;
+  }
+
+  .section {
+    padding-top: 72px;
+  }
+
+  .section > h2,
+  .limits h2 {
+    font-size: 27px;
+  }
+
+  .limits {
+    margin-top: 72px;
+  }
+
+  .limits .wrap {
+    padding-top: 48px;
+    padding-bottom: 48px;
+  }
+
+  .steps li {
+    grid-template-columns: 32px minmax(0, 1fr);
+  }
+
+  .measured thead {
+    display: none;
+  }
+
+  .measured,
+  .measured tbody,
+  .measured tr,
+  .measured td {
+    display: block;
+    width: auto;
+  }
+
+  .measured tr {
+    padding: 14px 0;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .measured td,
+  .measured td:first-child,
+  .measured td:last-child {
+    border: 0;
+    padding: 0;
+    text-align: left;
+    width: auto;
+  }
+
+  .measured td:first-child.mono {
+    font-size: 20px;
+  }
+
+  .footer {
+    margin-top: 72px;
+  }
+}
+
+.nowrap {
+  white-space: nowrap;
+}
+
+.masthead nav a {
+  white-space: nowrap;
+}
+
+@media (max-width: 420px) {
+  .masthead .nav-source {
+    display: none;
+  }
+}

@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VerdictMesh — dispute court for Solana escrows</title>
+  <meta name="description" content="When the parties to an escrow disagree, a staked panel decides and the escrow pays itself. A dispute court for Solana, live on devnet.">
+  <link rel="canonical" href="https://verdictmesh.github.io/VerdictMesh/">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="VerdictMesh">
+  <meta property="og:title" content="VerdictMesh — dispute court for Solana escrows">
+  <meta property="og:description" content="A staked panel decides, the escrow pays itself. Live on devnet; every step of a real hearing linked to its transaction.">
+  <meta property="og:url" content="https://verdictmesh.github.io/VerdictMesh/">
+  <meta property="og:image" content="https://verdictmesh.github.io/VerdictMesh/assets/og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="VerdictMesh mark — three joined person circles on lime — with the line: a dispute court for Solana escrows">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="VerdictMesh — dispute court for Solana escrows">
+  <meta name="twitter:description" content="A staked panel decides, the escrow pays itself. Live on devnet.">
+  <meta name="twitter:image" content="https://verdictmesh.github.io/VerdictMesh/assets/og.png">
+
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+  <meta name="theme-color" content="#f5f2ea">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&amp;display=swap">
+  <link rel="stylesheet" href="styles.css">
+  <script>document.documentElement.classList.add('js')</script>
+</head>
+<body>
+
+<div class="status">
+  <div class="wrap"><p>Devnet only · not audited · no real money · jurors are keys we control</p></div>
+</div>
+
+<header class="wrap masthead">
+  <a class="brand" href="./" aria-label="VerdictMesh home">
+    <img src="assets/logo.svg" width="40" height="40" alt="">
+    <span>VerdictMesh</span>
+  </a>
+  <nav aria-label="Primary">
+    <a href="app/">Open the panel</a>
+    <a class="nav-source" href="https://github.com/verdictmesh/VerdictMesh">Source</a>
+  </nav>
+</header>
+
+<main>
+
+<section class="wrap hero" aria-labelledby="headline">
+  <div class="with-margin">
+    <h1 id="headline">When the parties to an escrow disagree, a staked panel decides — and the escrow pays itself.</h1>
+    <div aria-hidden="true"></div>
+    <p class="lede">VerdictMesh is a dispute court for Solana, built once and shared. An escrow program integrates it by reading one account: a panel of staked jurors votes, a model-written fact-finding report tells them what the chain confirms, and the escrow executes the verdict on its own. Nobody, including us, holds a key over the money.</p>
+    <p class="note">Marked text on this page is on-chain. Every marked line links to the transaction that proves it.</p>
+  </div>
+</section>
+
+<section class="wrap" aria-labelledby="docket-title">
+  <div class="docket">
+    <div class="docket-head">
+      <h2 id="docket-title">Case <span class="mono" title="35DPG3EpagR9CoX1in9b4cKVY14YeZu7HA9k8jAenERa">35DPG3…enERa</span> · devnet · 20 USDC in dispute</h2>
+      <span class="note">captured 2 Oct 2026</span>
+    </div>
+
+    <ol>
+      <li>
+        <span class="mono t">T+0 s</span>
+        <span class="entry"><span><span class="mk" style="--i:0">Dispute opened; policy snapshotted; panel of three drawn</span></span></span>
+        <span class="mono sigs"><a href="https://explorer.solana.com/tx/4SFyK8cKhGUmE49TQ8m8fbGA2aDvsJJAvFejHxaVDrA66KQ9qskia4LhBZ2AhojcSRCyucPotAQ1sVhuas68Jjkj?cluster=devnet" aria-label="Opening transaction 4SFyK8 on Solana Explorer">4SFyK8…</a></span>
+      </li>
+      <li>
+        <span class="mono t">T+2–4 s</span>
+        <span class="entry"><span><span class="mk" style="--i:1">Three sealed votes committed — the third from a browser wallet</span></span><span class="note">The seats in this run are scripted and vote at once. A juror has the whole 60 s commit window to read the report.</span></span>
+        <span class="mono sigs"><a href="https://explorer.solana.com/tx/2HRS2YjPBZSpzCqRpoBPxTQiFLuMDfiQ5cVZP1o6kDj7BUtcfaabH7mTrtzuSyGGGXopG3fkPM2J8V1pQ81ji9f5?cluster=devnet" aria-label="First commit 2HRS2Y on Solana Explorer">2HRS2Y…</a><a href="https://explorer.solana.com/tx/2MeJ4MhEMyheCgys1ZK7E8LhyftkXgJ6k84SsJbAgk4LxRrHe83WaSL6hg2sCHzRnAT3Sk5BkftnvwmQRe1ag5h8?cluster=devnet" aria-label="Second commit 2MeJ4M on Solana Explorer">2MeJ4M…</a><a href="https://explorer.solana.com/tx/C5Rp9FnFP9JehFm4HJq4P3mrGuZ3rRyrVWkFxocKqsJG6Ng63xVYwKG6TyVtXPqRPs4krSzx3MDeS7F9Y5j32y4?cluster=devnet" aria-label="Third commit C5Rp9F, from a browser wallet, on Solana Explorer">C5Rp9F…</a></span>
+      </li>
+      <li>
+        <span class="mono t">T+30 s</span>
+        <span class="entry"><span><span class="mk" style="--i:2">Fact-finding report fingerprint written on-chain</span> <span class="mono muted nowrap" title="769bdc4dd50ec787d8477a0fea83750acb237c6fc6426ee8a6bc2f2f171a8e40">769bdc…8e40</span></span></span>
+        <span class="mono sigs"><a href="https://explorer.solana.com/tx/2o9Dc8Yar6oQAzKHdQsyJVYNSuT5yXofF6duMZFwq3pCEZYPVLZyT3MWDGpTv1huEKVNQcsqmNhMmyhfhGoNP9xs?cluster=devnet" aria-label="Report fingerprint transaction 2o9Dc8 on Solana Explorer">2o9Dc8…</a></span>
+      </li>
+      <li>
+        <span class="mono t">T+63–65 s</span>
+        <span class="entry"><span><span class="mk" style="--i:3">Three votes revealed: claimant 3, respondent 0</span></span></span>
+        <span class="mono sigs"><a href="https://explorer.solana.com/tx/7vcV7ZqPNsfvwtLZFvfdSgn8God1f3Tsu3x1wrFZN1r6g7UBpDyjz4QqH2qnVbEiMBLGXkdC3xs1Y9wFzDt2icx?cluster=devnet" aria-label="First reveal 7vcV7Z on Solana Explorer">7vcV7Z…</a><a href="https://explorer.solana.com/tx/5RGQdsmwZ3cZgKErZdCy5JHWrijEx93EVaVuuaw12wosT9WaZPiKLVP8sygz9gGAgEtPdM7BCYZYtYTUwwEzSxQ1?cluster=devnet" aria-label="Second reveal 5RGQds on Solana Explorer">5RGQds…</a><a href="https://explorer.solana.com/tx/3bdG5aFzMRnugrj2Ro2QsUE3waecv8BLMe9yU81cWQNPkBymBWiJuwqaPLf2xKKCLUEQQyRHPGNiPv4MkN2rLnda?cluster=devnet" aria-label="Third reveal 3bdG5a on Solana Explorer">3bdG5a…</a></span>
+      </li>
+      <li>
+        <span class="mono t">T+122 s</span>
+        <span class="entry"><span><span class="mk" style="--i:4">Tallied: verdict for the claimant</span></span></span>
+        <span class="mono sigs"><a href="https://explorer.solana.com/tx/2TF1aKU39cG8iYgJsUx8AkyiMzuq9WzMPsH6FC8f91X3VFUzrafojzQVsou7jxkPMGJfmM4PtJDRJXt873AQ5Gtk?cluster=devnet" aria-label="Tally transaction 2TF1aK on Solana Explorer">2TF1aK…</a></span>
+      </li>
+      <li>
+        <span class="mono t">T+214 s</span>
+        <span class="entry"><span><span class="mk" style="--i:5">Appeal window closed; the escrow read the verdict and paid out</span></span></span>
+        <span class="mono sigs"><a href="https://explorer.solana.com/tx/3LvaRkviejzdLS21U5zuqidm5sDnfDJWwcpMFUscyMVwfaurh9t5aKCiV3dQySgCGAbPjyp9avixNN6a6ihDXckk?cluster=devnet" aria-label="Escrow payout transaction 3LvaRk on Solana Explorer">3LvaRk…</a></span>
+      </li>
+      <li>
+        <span class="mono t">T+216 s</span>
+        <span class="entry"><span><span class="mk" style="--i:6">Juror stakes settled</span></span></span>
+        <span class="mono sigs"><a href="https://explorer.solana.com/tx/25oLnoPPsyLCegrFrTgTnsrnLv4TCwjimCAbbF9xUh4n3bcrm9ew5DvseAxQYhheXM9p1vXn9R2LnrxMerB53WZe?cluster=devnet" aria-label="Stake settlement transaction 25oLno on Solana Explorer">25oLno…</a></span>
+      </li>
+    </ol>
+
+    <p class="note">The windows in this demo policy are 60 s to commit, 60 s to reveal and 90 s to appeal, so no case closes faster than 210&nbsp;s.</p>
+  </div>
+
+  <div class="actions">
+    <a class="button" href="app/">Watch a hearing on devnet</a>
+    <a href="app/hearing/35DPG3EpagR9CoX1in9b4cKVY14YeZu7HA9k8jAenERa">Open this case in the panel</a>
+  </div>
+</section>
+
+<section class="wrap section" aria-labelledby="what">
+  <h2 id="what">One court, any escrow</h2>
+  <div class="with-margin">
+    <p><span class="pn">¶1 </span><strong>The escrow asks, the court answers.</strong> Your program flags a dispute and later reads one account. VerdictMesh never holds your funds and has no instruction that could move them.</p>
+    <p class="note">Tested, not promised: <a class="mono" href="https://github.com/verdictmesh/VerdictMesh/blob/main/programs/verdict-mesh/tests/authority.rs">tests/authority.rs</a> tries every instruction in the program's interface with every key.</p>
+    <p><span class="pn">¶2 </span><strong>Jurors see facts, not raw transactions.</strong> A watcher collects the deal's on-chain history and a model writes a report that marks what the chain confirms, what a party only claims, and what could not be established. Its fingerprint goes on-chain; the key that writes it can do nothing else.</p>
+    <p class="note">The report's author is a role we operate — see <a href="#limits">Not in this build</a>.</p>
+    <p><span class="pn">¶3 </span><strong>Losing costs, silence costs more.</strong> Jurors stake to sit. Voting with the losing side costs 10 % of the stake; not revealing costs 20 %. The losing party pays for the hearing, once.</p>
+    <p class="note">Demo policy: panel of 3, quorum 2, review deposit 5 USDC.</p>
+  </div>
+</section>
+
+<section class="wrap section" aria-labelledby="how">
+  <h2 id="how">Five steps, all on-chain</h2>
+  <ol class="steps">
+    <li><span class="pn">1</span><span><strong>Open.</strong> A party opens a dispute over locked funds. The integrator's policy is copied into the dispute, and a panel is drawn from the staked registry in the same transaction.</span></li>
+    <li><span class="pn">2</span><span><strong>Report.</strong> The fact-finding report is written and its fingerprint recorded. If the model is down, the hearing goes on without one.</span></li>
+    <li><span class="pn">3</span><span><strong>Commit.</strong> Each juror seals a fingerprint of their vote, from their own wallet. Nobody can copy a vote they cannot read.</span></li>
+    <li><span class="pn">4</span><span><strong>Reveal.</strong> Jurors open their votes; the tally fixes the verdict and the appeal window starts.</span></li>
+    <li><span class="pn">5</span><span><strong>Execute.</strong> The escrow reads the verdict from the dispute account and pays out under its own rules.</span></li>
+  </ol>
+</section>
+
+<section class="wrap section" aria-labelledby="measured">
+  <h2 id="measured">What we measured, and where</h2>
+  <table class="measured">
+    <thead>
+      <tr><th scope="col">Figure</th><th scope="col">What</th><th scope="col">Where</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="mono">218 s</td><td>Dispute opened → escrow paid, the slowest of 20 consecutive cycles (214–218 s). Budget 5 min.</td><td>devnet, release v0.1.0</td></tr>
+      <tr><td class="mono">$0.017</td><td>Network fees for a whole cycle, all participants together (85 000 lamports). Budget $0.10.</td><td>devnet</td></tr>
+      <tr><td class="mono">0 of 20</td><td>Cycles that needed a manual step.</td><td>devnet</td></tr>
+      <tr><td class="mono">6 of 6</td><td>Attempts to execute an already executed verdict rejected; no balance moved.</td><td>devnet</td></tr>
+      <tr><td class="mono">24.9 s</td><td>Report ready for the juror, p95 over 20 disputes, 20 of 20 delivered. Budget 30 s.<sup><a href="#fn1" aria-label="Footnote 1">1</a></sup></td><td>local service + devnet</td></tr>
+      <tr><td class="mono">0.55–1.13 s</td><td>Juror panel's first screen with real hearings. Budget 2 s.<sup><a href="#fn2" aria-label="Footnote 2">2</a></sup></td><td>GitHub Pages + Render</td></tr>
+      <tr><td class="mono">1.36 s</td><td>One vote from a browser wallet: commit, and reveal, each.</td><td>devnet, the case above</td></tr>
+      <tr><td class="pending">not yet</td><td>Report accuracy: no false “confirmed” fact across 20 modelled disputes with known answers.</td><td>next</td></tr>
+      <tr><td class="pending">not yet</td><td>A developer new to the project integrates in 30 minutes and 40 lines, timed by someone who did not write the SDK.</td><td>next milestone</td></tr>
+    </tbody>
+  </table>
+  <div class="footnotes">
+    <p class="note" id="fn1"><sup>1</sup> Measured with the service running locally, not on the hosted one. A dispute opened while the hosted service sleeps gets its report after it wakes.</p>
+    <p class="note" id="fn2"><sup>2</sup> The free host sleeps when idle; a health check every 5 minutes keeps it awake. Without it, the first visit after sleep took 43.8 s.</p>
+  </div>
+</section>
+
+<section class="limits" id="limits" aria-labelledby="limits-title">
+  <div class="wrap">
+    <h2 id="limits-title">Not in this build</h2>
+    <ul>
+      <li>Devnet only. Not audited. No real money: the stake economics are shown, not protecting anyone's capital.</li>
+      <li>The jurors in the registry are keys we control. The panel's independence is arithmetic, not social.</li>
+      <li>Money and votes are real; what the disputes are about is modelled from prepared fixtures.</li>
+      <li>The report is written by a role we operate. It cannot vote or move funds, but it could be biased, and jurors would read that report.</li>
+      <li>Evidence is on-chain facts plus the parties' written claims. No files, images or screenshots, so “was the work good” disputes are not fully covered.</li>
+      <li>A verdict is code executing rules both parties agreed to, not a judgment any court recognises.</li>
+      <li>The panel is drawn from a slot hash, which a slot leader could in theory influence. Fine for a devnet demo, not for mainnet money.</li>
+      <li>Not built yet: the integrator SDK, a second escrow, appeals and the optimistic track. Today every dispute goes to a full panel, which costs more than the design intends.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="wrap section" aria-labelledby="faq">
+  <h2 id="faq">Questions</h2>
+  <div class="faq">
+    <details open>
+      <summary>Can VerdictMesh move my users' funds?</summary>
+      <p>No. It has no instruction that touches an integrator's funds. Your escrow reads the verdict and pays out under its own rules.</p>
+    </details>
+    <details>
+      <summary>Who pays for a hearing?</summary>
+      <p>The losing side, once. The opener pays a deposit; if the opener wins, it is reimbursed from a bond the other side posted when the deal was signed.</p>
+    </details>
+    <details>
+      <summary>What if the model is down?</summary>
+      <p>Voting goes on. Jurors see the raw claims and signatures, and the panel says no report is available. A live dispute was paid out in 216.1 s with no model at all.</p>
+    </details>
+    <details>
+      <summary>Can I integrate today?</summary>
+      <p>Only by reading the reference escrow. The SDK and a second, differently built escrow come next.</p>
+    </details>
+  </div>
+</section>
+
+</main>
+
+<footer class="wrap footer">
+  <div>
+    <span class="name">VerdictMesh</span>
+    <span>Devnet only. Not audited. Apache-2.0.</span>
+    <a href="https://github.com/verdictmesh/VerdictMesh">Source on GitHub</a>
+  </div>
+  <div>
+    <span>verdict_mesh <a class="mono" href="https://explorer.solana.com/address/8WyWpDD1ZbkTRGG6SRcYyWxApPsHaSgWn2SWJQ8xSgxq?cluster=devnet" title="8WyWpDD1ZbkTRGG6SRcYyWxApPsHaSgWn2SWJQ8xSgxq">8WyWpD…xSgxq</a></span>
+    <span>reference_escrow <a class="mono" href="https://explorer.solana.com/address/4iYF4WRdtuSmjTXH5fSa2ow5WrdeonEoeoY3epypfTHo?cluster=devnet" title="4iYF4WRdtuSmjTXH5fSa2ow5WrdeonEoeoY3epypfTHo">4iYF4W…TfHo</a></span>
+  </div>
+</footer>
+
+<script>
+  // Draw the docket's marks once, when it scrolls into view. Without JS they are already drawn.
+  (() => {
+    const docket = document.querySelector('.docket')
+    if (!docket || !('IntersectionObserver' in window)) {
+      docket?.classList.add('in')
+      return
+    }
+    const seen = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) {
+        docket.classList.add('in')
+        seen.disconnect()
+      }
+    }, { threshold: 0.25 })
+    seen.observe(docket)
+  })()
+</script>
+</body>
+</html>

@@ -1,8 +1,9 @@
-# apps/web on GitHub Pages: https://verdictmesh.github.io/VerdictMesh/
-#
-# A static site that reads hearings from apps/api on Render and sends a
-# juror's votes straight from the juror's wallet to devnet. The on-chain
-# programs are not built here.
+# One Pages site, two folders:
+#   https://verdictmesh.github.io/VerdictMesh/       apps/landing — static, no build
+#   https://verdictmesh.github.io/VerdictMesh/app/   apps/web — reads hearings from
+#     apps/api on Render and sends a juror's votes straight from the juror's wallet
+#     to devnet.
+# The on-chain programs are not built here.
 name: pages
 
 on:
@@ -38,8 +39,8 @@ jobs:
 
       - run: pnpm --filter @verdictmesh/web exec vite build
         env:
-          # A project site lives under /<repo>/, not at the domain root.
-          PAGES_BASE: /${{ github.event.repository.name }}/
+          # A project site lives under /<repo>/, and the app one folder below the landing.
+          PAGES_BASE: /${{ github.event.repository.name }}/app/
           # Where apps/api answers: the service `verdictmesh-api` in render.yaml.
           VITE_API_URL: https://verdictmesh-api.onrender.com
           # The page's own RPC, for the juror's accounts and votes. Public by
@@ -49,9 +50,21 @@ jobs:
           # the public devnet RPC.
           VITE_SOLANA_RPC_URL: https://devnet.helius-rpc.com/?api-key=a0f40f06-735c-4921-bf9f-7bda54679baa
 
-      # Pages has no SPA fallback: a direct hit on /hearing/<address> would be a 404.
-      # Serving the app as the 404 page lets the router take over from there.
-      - run: cp apps/web/dist/index.html apps/web/dist/404.html
+      # The landing at the root, the app under app/.
+      # Pages has no SPA fallback, and it serves a custom 404 only from the site root:
+      # app/404.html would be ignored. So the root 404 is the app's own index.html,
+      # and a direct hit on /app/hearing/<address> boots the router there. A miss
+      # outside /app/ would boot the app under the wrong base and render nothing,
+      # so the 404 sends those back to the landing before the app loads.
+      - env:
+          SITE: /${{ github.event.repository.name }}/
+        run: |
+          mkdir -p site
+          cp -r apps/landing/. site/
+          cp -r apps/web/dist site/app
+          sed "s|<head>|<head><script>if(!location.pathname.startsWith('${SITE}app/'))location.replace('${SITE}')</script>|" \
+            apps/web/dist/index.html > site/404.html
+          grep -q "location.replace('${SITE}')" site/404.html
 
       # Pages is enabled once by the repository owner: Settings → Pages → Source:
       # "GitHub Actions". GITHUB_TOKEN cannot create the site itself, so this step
@@ -60,7 +73,7 @@ jobs:
 
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: apps/web/dist
+          path: site
 
   deploy:
     needs: build
