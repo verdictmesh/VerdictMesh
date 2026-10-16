@@ -1,0 +1,165 @@
+{
+  "model": "claude-opus-5",
+  "generationMs": 23273,
+  "demoted": 0,
+  "stripped": 0,
+  "failures": [],
+  "generated": {
+    "summary": "An escrow of 100000000 base units between buyer D7hLQ... and seller Ci89c... was opened with 3 milestones. Milestones 0 (10000000) and 1 (25000000) were released by the buyer. Milestone 2, worth 65000000, was marked Disputed on chain when the seller opened dispute 7nAEiwRknS2xku3d5fNhs3xPUe3dmnRUZykEwrjEDPjH and paid a 5000000 deposit; a three-member panel was selected. The seller says milestone 2 was delivered and should be released; the buyer says it was not delivered and should be refunded. The evidence shows the escrow state and amounts but nothing about whether the milestone work was actually delivered.",
+    "timeline": [
+      {
+        "sourceSignature": "3sHUyWTiKy4H3qMwujMLEYDbcYFD1BKSpgy3Aa2e4VCBvtYyTQaKJPn1j79vRewBS3uz7gMrqztXAsV11zoVwcai",
+        "at": 1790086400,
+        "what": "Escrow 8sTqo8AefpacDLkKFz7qS3Lt6Ys98HYHbWuqmQE39Bw6 was opened for 100000000 across 3 milestones with a 2000000 bond."
+      },
+      {
+        "sourceSignature": "Jrq6Md4koWrWj6AQX8CsSLDYN9p9CLEovkk5RgCt49BbrsLnA7gMhXQMT2cmFhjjqEQPwL2pDV2Yt5nZXtL2yLU",
+        "at": 1790518400,
+        "what": "Milestone 0 was released for 10000000, signed by the buyer."
+      },
+      {
+        "sourceSignature": "odK95xa7iYsYLouJmULqxdNDtWGQgAje1Ew4bbTF39CfhRZGwiEMQBx3VZf3kNtZnjwbvQeKvE7DJhKSpkNZPqm",
+        "at": 1791296000,
+        "what": "Milestone 1 was released for 25000000, signed by the buyer."
+      },
+      {
+        "sourceSignature": "rLA5bzfpeLuU3nDmHWzTWgdWB5HkeesZPN4c9MqHU9AnUqucyvdP6MUGkZzqJkmxzi6TqUamJK6VwUW8MgRkrFN",
+        "at": 1791641600,
+        "what": "The seller deposited 5000000 and opened the dispute over milestone 2 for 65000000; a three-juror panel was selected."
+      }
+    ],
+    "facts": [
+      {
+        "sourceSignature": "3sHUyWTiKy4H3qMwujMLEYDbcYFD1BKSpgy3Aa2e4VCBvtYyTQaKJPn1j79vRewBS3uz7gMrqztXAsV11zoVwcai",
+        "statement": "The escrow was opened with buyer D7hLQmMruNztwQQL2gFfxrL4pLJRkfPDU78o9bvfr4MA and seller Ci89ckfBgPC4Xcd8XwBwnhRU2n37F4C8dXyDuVgdKEQF for a total of 100000000.",
+        "verdict": "confirmed"
+      },
+      {
+        "sourceSignature": "Jrq6Md4koWrWj6AQX8CsSLDYN9p9CLEovkk5RgCt49BbrsLnA7gMhXQMT2cmFhjjqEQPwL2pDV2Yt5nZXtL2yLU",
+        "statement": "Milestone 0 was released for 10000000.",
+        "verdict": "confirmed"
+      },
+      {
+        "sourceSignature": "odK95xa7iYsYLouJmULqxdNDtWGQgAje1Ew4bbTF39CfhRZGwiEMQBx3VZf3kNtZnjwbvQeKvE7DJhKSpkNZPqm",
+        "statement": "Milestone 1 was released for 25000000 by the buyer.",
+        "verdict": "confirmed"
+      },
+      {
+        "sourceAccount": "8sTqo8AefpacDLkKFz7qS3Lt6Ys98HYHbWuqmQE39Bw6",
+        "statement": "Milestone 2, worth 65000000, is in Disputed state referencing this dispute, while milestones 0 and 1 are Released.",
+        "verdict": "confirmed"
+      },
+      {
+        "sourceSignature": "rLA5bzfpeLuU3nDmHWzTWgdWB5HkeesZPN4c9MqHU9AnUqucyvdP6MUGkZzqJkmxzi6TqUamJK6VwUW8MgRkrFN",
+        "statement": "The seller paid a 5000000 dispute deposit and the dispute was opened in non-optimistic mode with a panel of three jurors.",
+        "verdict": "confirmed"
+      },
+      {
+        "statement": "Milestone 2 work was delivered off chain by the seller.",
+        "verdict": "unconfirmed"
+      },
+      {
+        "sourceSignature": "rLA5bzfpeLuU3nDmHWzTWgdWB5HkeesZPN4c9MqHU9AnUqucyvdP6MUGkZzqJkmxzi6TqUamJK6VwUW8MgRkrFN",
+        "statement": "No release or refund of the 65000000 milestone has occurred on chain.",
+        "verdict": "confirmed"
+      }
+    ],
+    "claims": [
+      {
+        "party": "claimant",
+        "statement": "Milestone #2 was delivered, so its locked funds should be released to the seller.",
+        "assessment": "unsupported"
+      },
+      {
+        "party": "respondent",
+        "statement": "Milestone #2 was not delivered, so its locked funds should be refunded to the buyer.",
+        "assessment": "unsupported"
+      }
+    ],
+    "gaps": [
+      "No evidence shows whether the milestone 2 deliverable was actually produced or handed over off chain.",
+      "No acceptance criteria or contract terms for milestone 2 appear in the evidence.",
+      "No off-chain communications between buyer and seller are included.",
+      "The escrow lists a settlement_mint different from the deposit mint, and no evidence explains how payout conversion works."
+    ]
+  },
+  "report": {
+    "summary": "An escrow of 100000000 base units between buyer D7hLQ... and seller Ci89c... was opened with 3 milestones. Milestones 0 (10000000) and 1 (25000000) were released by the buyer. Milestone 2, worth 65000000, was marked Disputed on chain when the seller opened dispute 7nAEiwRknS2xku3d5fNhs3xPUe3dmnRUZykEwrjEDPjH and paid a 5000000 deposit; a three-member panel was selected. The seller says milestone 2 was delivered and should be released; the buyer says it was not delivered and should be refunded. The evidence shows the escrow state and amounts but nothing about whether the milestone work was actually delivered.",
+    "timeline": [
+      {
+        "sourceSignature": "3sHUyWTiKy4H3qMwujMLEYDbcYFD1BKSpgy3Aa2e4VCBvtYyTQaKJPn1j79vRewBS3uz7gMrqztXAsV11zoVwcai",
+        "at": 1790086400,
+        "what": "Escrow 8sTqo8AefpacDLkKFz7qS3Lt6Ys98HYHbWuqmQE39Bw6 was opened for 100000000 across 3 milestones with a 2000000 bond."
+      },
+      {
+        "sourceSignature": "Jrq6Md4koWrWj6AQX8CsSLDYN9p9CLEovkk5RgCt49BbrsLnA7gMhXQMT2cmFhjjqEQPwL2pDV2Yt5nZXtL2yLU",
+        "at": 1790518400,
+        "what": "Milestone 0 was released for 10000000, signed by the buyer."
+      },
+      {
+        "sourceSignature": "odK95xa7iYsYLouJmULqxdNDtWGQgAje1Ew4bbTF39CfhRZGwiEMQBx3VZf3kNtZnjwbvQeKvE7DJhKSpkNZPqm",
+        "at": 1791296000,
+        "what": "Milestone 1 was released for 25000000, signed by the buyer."
+      },
+      {
+        "sourceSignature": "rLA5bzfpeLuU3nDmHWzTWgdWB5HkeesZPN4c9MqHU9AnUqucyvdP6MUGkZzqJkmxzi6TqUamJK6VwUW8MgRkrFN",
+        "at": 1791641600,
+        "what": "The seller deposited 5000000 and opened the dispute over milestone 2 for 65000000; a three-juror panel was selected."
+      }
+    ],
+    "facts": [
+      {
+        "sourceSignature": "3sHUyWTiKy4H3qMwujMLEYDbcYFD1BKSpgy3Aa2e4VCBvtYyTQaKJPn1j79vRewBS3uz7gMrqztXAsV11zoVwcai",
+        "statement": "The escrow was opened with buyer D7hLQmMruNztwQQL2gFfxrL4pLJRkfPDU78o9bvfr4MA and seller Ci89ckfBgPC4Xcd8XwBwnhRU2n37F4C8dXyDuVgdKEQF for a total of 100000000.",
+        "verdict": "confirmed"
+      },
+      {
+        "sourceSignature": "Jrq6Md4koWrWj6AQX8CsSLDYN9p9CLEovkk5RgCt49BbrsLnA7gMhXQMT2cmFhjjqEQPwL2pDV2Yt5nZXtL2yLU",
+        "statement": "Milestone 0 was released for 10000000.",
+        "verdict": "confirmed"
+      },
+      {
+        "sourceSignature": "odK95xa7iYsYLouJmULqxdNDtWGQgAje1Ew4bbTF39CfhRZGwiEMQBx3VZf3kNtZnjwbvQeKvE7DJhKSpkNZPqm",
+        "statement": "Milestone 1 was released for 25000000 by the buyer.",
+        "verdict": "confirmed"
+      },
+      {
+        "sourceAccount": "8sTqo8AefpacDLkKFz7qS3Lt6Ys98HYHbWuqmQE39Bw6",
+        "statement": "Milestone 2, worth 65000000, is in Disputed state referencing this dispute, while milestones 0 and 1 are Released.",
+        "verdict": "confirmed"
+      },
+      {
+        "sourceSignature": "rLA5bzfpeLuU3nDmHWzTWgdWB5HkeesZPN4c9MqHU9AnUqucyvdP6MUGkZzqJkmxzi6TqUamJK6VwUW8MgRkrFN",
+        "statement": "The seller paid a 5000000 dispute deposit and the dispute was opened in non-optimistic mode with a panel of three jurors.",
+        "verdict": "confirmed"
+      },
+      {
+        "statement": "Milestone 2 work was delivered off chain by the seller.",
+        "verdict": "unconfirmed"
+      },
+      {
+        "sourceSignature": "rLA5bzfpeLuU3nDmHWzTWgdWB5HkeesZPN4c9MqHU9AnUqucyvdP6MUGkZzqJkmxzi6TqUamJK6VwUW8MgRkrFN",
+        "statement": "No release or refund of the 65000000 milestone has occurred on chain.",
+        "verdict": "confirmed"
+      }
+    ],
+    "claims": [
+      {
+        "party": "claimant",
+        "statement": "Milestone #2 was delivered, so its locked funds should be released to the seller.",
+        "assessment": "unsupported"
+      },
+      {
+        "party": "respondent",
+        "statement": "Milestone #2 was not delivered, so its locked funds should be refunded to the buyer.",
+        "assessment": "unsupported"
+      }
+    ],
+    "gaps": [
+      "No evidence shows whether the milestone 2 deliverable was actually produced or handed over off chain.",
+      "No acceptance criteria or contract terms for milestone 2 appear in the evidence.",
+      "No off-chain communications between buyer and seller are included.",
+      "The escrow lists a settlement_mint different from the deposit mint, and no evidence explains how payout conversion works."
+    ]
+  }
+}

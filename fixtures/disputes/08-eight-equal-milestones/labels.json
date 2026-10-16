@@ -1,0 +1,32 @@
+{
+  "a0859a5cc4ff1fb3": {
+    "statement": "The escrow was opened with buyer 6noYcHUQQdkVzGXwFYeP3rBFZrki42aezktkSbzeBjaW and seller 7AtJ4jdfDD2tj8xEdmn3HeC1neT63YcJyZX2pZMioCaq, total 100000000 over 8 milestones.",
+    "label": "consistent",
+    "note": ""
+  },
+  "b852053a8e2f280f": {
+    "statement": "Each milestone is worth 12500000 and the disputed amount matches one milestone.",
+    "label": "consistent",
+    "note": ""
+  },
+  "3490b8d62cc4b1dc": {
+    "statement": "At slot 508320003 milestones 0, 1, 2 and 5 are Released, milestone 4 is Disputed, and milestones 3, 6 and 7 are Pending.",
+    "label": "consistent",
+    "note": ""
+  },
+  "af697a69c1aece2f": {
+    "statement": "The buyer released milestone 5 while milestone 4 remained unreleased, so releases were not strictly sequential.",
+    "label": "consistent",
+    "note": ""
+  },
+  "f77c51b60d6a4579": {
+    "statement": "The dispute was opened by the seller (claimant), who paid a deposit of 5000000, and is not optimistic.",
+    "label": "consistent",
+    "note": ""
+  },
+  "ba9e5c967d37592b": {
+    "statement": "The dispute concerns 12500000 base units and was opened at 1791900800.",
+    "label": "consistent",
+    "note": ""
+  }
+}

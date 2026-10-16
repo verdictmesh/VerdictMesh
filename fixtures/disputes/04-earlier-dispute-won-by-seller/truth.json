@@ -1,0 +1,71 @@
+{
+  "title": "An earlier dispute over milestone 0, opened by the seller, was won by the seller; now the buyer disputes milestone 1.",
+  "traps": [
+    "The earlier verdict reported as a win for the buyer, or milestone 0 as refunded.",
+    "The earlier dispute confused with the current one.",
+    "The reimbursement given as the milestone amount."
+  ],
+  "buyer": "HXgZCn4mtxZhdEDFo4E3sVmfyFys4ZKp3AoL82A6B52B",
+  "seller": "AZindkyvbHxHVEtEGs7GkNMiXKqHBZHXiYqajHhMFqHy",
+  "claimant": "buyer",
+  "respondent": "seller",
+  "dispute": "C91TMHsLj6RqWmUUAkqXCTYbA6TqLfYMDHoueGTKe2N4",
+  "disputedMilestone": 1,
+  "disputedAmount": "50000000",
+  "bond": "5000000",
+  "deposit": "5000000",
+  "total": "70000000",
+  "milestones": [
+    {
+      "index": 0,
+      "amount": "20000000",
+      "state": "Released",
+      "passed": [
+        "Pending",
+        "Disputed",
+        "Released"
+      ]
+    },
+    {
+      "index": 1,
+      "amount": "50000000",
+      "state": "Disputed",
+      "passed": [
+        "Pending",
+        "Disputed"
+      ]
+    }
+  ],
+  "transactions": [
+    {
+      "signature": "4sJUjG9Vg5kvskWgak2XkyvmNVg1LHo41uxwEPbm91ttAmoBkpRNC7m3agJhdNQ1jZhtKvd69YdBmE3so7sWzQbW",
+      "slot": 505040000,
+      "blockTime": 1790259200,
+      "what": "Escrow created: buyer HXgZCn4mtxZhdEDFo4E3sVmfyFys4ZKp3AoL82A6B52B, seller AZindkyvbHxHVEtEGs7GkNMiXKqHBZHXiYqajHhMFqHy, total 70000000, 2 milestone(s), bond 5000000 per side per milestone."
+    },
+    {
+      "signature": "4Umk6LjHRheFNLqhm5R1Adpc8TizxVuJAZK9ujEXmbwUUww2YrVEsdMAY691ZasmNYyMbJiz9x4fncQSgust82Ej",
+      "slot": 507200000,
+      "blockTime": 1791123200,
+      "what": "The seller opened dispute FwoYMrFxibuX5mBCkXVq9gSHQ5w1icAhQqzCzAx14bfv over milestone 0 (20000000), paid a deposit of 5000000; a panel of three was selected."
+    },
+    {
+      "signature": "3BAcMBSQKp4QjGdJUhrUFGtcqtwDanynQ5zQSP8idBZc5dA7t12qmg3zk7mNSjj2va5dYw8i24Wj4kdGbzqCD7Fm",
+      "slot": 508064000,
+      "blockTime": 1791468800,
+      "what": "Earlier dispute FwoYMrFxibuX5mBCkXVq9gSHQ5w1icAhQqzCzAx14bfv settled with verdict Claimant: 20000000 paid to the seller, milestone Released; reimbursed 5000000."
+    },
+    {
+      "signature": "9y2wZ3P123UWULJLkNh4mhzyHqBffxuMGfkMmQuucrG7Pd6zCrapXgoqubzrf9rNh8gDQ3piQnFVi19wKmsr715",
+      "slot": 509360000,
+      "blockTime": 1791987200,
+      "what": "The buyer opened dispute C91TMHsLj6RqWmUUAkqXCTYbA6TqLfYMDHoueGTKe2N4 over milestone 1 (50000000), paid a deposit of 5000000; a panel of three was selected."
+    }
+  ],
+  "collected": {
+    "transactions": 4,
+    "truncated": false,
+    "logsCut": 0
+  },
+  "escrowProgramKnown": true
+}

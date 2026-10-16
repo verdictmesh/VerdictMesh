@@ -1,0 +1,27 @@
+{
+  "c0c27a96474e812c": {
+    "statement": "The dispute was opened at 1791900800 naming HibFNKXSeGiSw2hTpEgYCumRXKte3L4oM4CVSsFXB9Tw as claimant and Hn3E2UKHx2C6JhPB65iSKqmmLWWRqHvmLzJbyy3tjHpD as respondent for 55000000.",
+    "label": "consistent",
+    "note": ""
+  },
+  "28a656079e1a5eb7": {
+    "statement": "The claimant paid a dispute deposit of 5000000.",
+    "label": "consistent",
+    "note": ""
+  },
+  "046ffc9e3f4e7f20": {
+    "statement": "The dispute is not in optimistic mode and a panel of three jurors was selected.",
+    "label": "consistent",
+    "note": ""
+  },
+  "e118142b94394ed9": {
+    "statement": "The escrow account still exists at slot 507084003 and is owned by program 6AXixykKqHUR2TdBNpEqsSoYByRiDvnDiHM9w7ThxpWR with 239 bytes of data.",
+    "label": "consistent",
+    "note": ""
+  },
+  "8965625d149bd18d": {
+    "statement": "The respondent acted alone on the escrow program before the dispute was opened, but the nature of that action is not shown.",
+    "label": "consistent",
+    "note": ""
+  }
+}

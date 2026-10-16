@@ -1,0 +1,176 @@
+{
+  "model": "claude-opus-5",
+  "generationMs": 40100,
+  "demoted": 0,
+  "stripped": 0,
+  "failures": [],
+  "generated": {
+    "summary": "Escrow HSpFvAeC9fWQ7z2wHKvkNNHAuz6yRk337Wcy6HzeTNJ3 (deal 13) between buyer 4LkBJHEtWmPC7rbtceK3FzmC1M7RGz9DKJcEU3HKEPce and seller 7xgczuJEjMDMZW4YGbvVAyCZm9jeaxpuSzTADJfY7mSK has four milestones. An earlier dispute by the buyer over milestone 2 was settled in the buyer's favour for 10000000, and that milestone is now Refunded. On 1792764800 the seller opened dispute BK58PhzHkgJMjJQKdiGH2HFu1miRbwnVJk1ewXEEgdh3 over milestone 3 for 30000000, paying a 5000000 deposit; a three-juror panel was selected. The seller says the milestone was delivered and should be released; the buyer says it was not and should be refunded. The chain shows the milestone is Disputed and unresolved; delivery itself is off-chain.",
+    "timeline": [
+      {
+        "sourceSignature": "4dMwYT62PXfbvdoYL7eBovFjonvLi5QNuP4GtshqmXpd6JNyU8xdXT3xSY76Jg8mj4aNM8cyauc3LkA8WtEoBeXW",
+        "at": 1792073600,
+        "what": "Buyer 4LkBJHEtWmPC7rbtceK3FzmC1M7RGz9DKJcEU3HKEPce opened dispute 8UsXX6nQdpk2nAcHbPa6WdrGc3NyFd5WYaWgYysKVixT over milestone 2 for 10000000, paid a 5000000 deposit, and a panel was selected."
+      },
+      {
+        "sourceSignature": "2w45iqVxiKi88KrYtB6hcE2j1fbRmtjJ4RNvHn1CLgqUMcQZuVtHHKtu5PtpNjT8td6nsHSpEJ9AkDHSTEMVRuYv",
+        "at": 1792419200,
+        "what": "Milestone 2 was settled with winner 4LkBJHEtWmPC7rbtceK3FzmC1M7RGz9DKJcEU3HKEPce for 10000000, with 1000000 reimbursed."
+      },
+      {
+        "sourceSignature": "Dq6kpKfAn9z6H9RVHjVUbiNxrdohWCo6XdV8MZvGkCZoEPjMuNfYNbXSsyAKyCoJTxxbeuFsjretBQuvEougSV1",
+        "at": 1792764800,
+        "what": "Seller 7xgczuJEjMDMZW4YGbvVAyCZm9jeaxpuSzTADJfY7mSK opened dispute BK58PhzHkgJMjJQKdiGH2HFu1miRbwnVJk1ewXEEgdh3 over milestone 3 for 30000000, paid a 5000000 deposit, and the same three jurors were selected."
+      }
+    ],
+    "facts": [
+      {
+        "sourceSignature": "Dq6kpKfAn9z6H9RVHjVUbiNxrdohWCo6XdV8MZvGkCZoEPjMuNfYNbXSsyAKyCoJTxxbeuFsjretBQuvEougSV1",
+        "statement": "The dispute under review concerns milestone index 3 of escrow HSpFvAeC9fWQ7z2wHKvkNNHAuz6yRk337Wcy6HzeTNJ3 for an amount of 30000000 and is not optimistic.",
+        "verdict": "confirmed"
+      },
+      {
+        "sourceSignature": "Dq6kpKfAn9z6H9RVHjVUbiNxrdohWCo6XdV8MZvGkCZoEPjMuNfYNbXSsyAKyCoJTxxbeuFsjretBQuvEougSV1",
+        "statement": "The claimant paid a deposit of 5000000 when opening the dispute.",
+        "verdict": "confirmed"
+      },
+      {
+        "sourceAccount": "HSpFvAeC9fWQ7z2wHKvkNNHAuz6yRk337Wcy6HzeTNJ3",
+        "statement": "The claimant 7xgczuJEjMDMZW4YGbvVAyCZm9jeaxpuSzTADJfY7mSK is the seller and the respondent 4LkBJHEtWmPC7rbtceK3FzmC1M7RGz9DKJcEU3HKEPce is the buyer.",
+        "verdict": "confirmed"
+      },
+      {
+        "sourceAccount": "HSpFvAeC9fWQ7z2wHKvkNNHAuz6yRk337Wcy6HzeTNJ3",
+        "statement": "Milestone index 3 is in state Disputed referencing BK58PhzHkgJMjJQKdiGH2HFu1miRbwnVJk1ewXEEgdh3, so its funds have not been released or refunded.",
+        "verdict": "confirmed"
+      },
+      {
+        "sourceAccount": "HSpFvAeC9fWQ7z2wHKvkNNHAuz6yRk337Wcy6HzeTNJ3",
+        "statement": "Milestones 0 and 1 are Released and milestone 2 is Refunded.",
+        "verdict": "confirmed"
+      },
+      {
+        "sourceSignature": "2w45iqVxiKi88KrYtB6hcE2j1fbRmtjJ4RNvHn1CLgqUMcQZuVtHHKtu5PtpNjT8td6nsHSpEJ9AkDHSTEMVRuYv",
+        "statement": "A prior dispute over milestone 2 between the same parties was resolved in the buyer's favour.",
+        "verdict": "confirmed"
+      },
+      {
+        "sourceSignature": "Dq6kpKfAn9z6H9RVHjVUbiNxrdohWCo6XdV8MZvGkCZoEPjMuNfYNbXSsyAKyCoJTxxbeuFsjretBQuvEougSV1",
+        "statement": "The same three jurors selected for the earlier dispute were selected again for this dispute.",
+        "verdict": "confirmed"
+      },
+      {
+        "statement": "The work for milestone 3 was delivered off chain.",
+        "verdict": "unconfirmed"
+      },
+      {
+        "statement": "Any token transfer of the 30000000 milestone amount to either party has occurred.",
+        "verdict": "unconfirmed"
+      }
+    ],
+    "claims": [
+      {
+        "party": "claimant",
+        "statement": "Milestone #3 was delivered, so its locked funds should be released to the seller.",
+        "assessment": "unsupported"
+      },
+      {
+        "party": "respondent",
+        "statement": "Milestone #3 was not delivered, so its locked funds should be refunded to the buyer.",
+        "assessment": "unsupported"
+      }
+    ],
+    "gaps": [
+      "No evidence shows whether the milestone 3 deliverable was actually produced or accepted off chain.",
+      "The evidence set is marked truncated, so later or intermediate transactions may be missing.",
+      "No acceptance, rejection or communication record between buyer and seller is present on chain.",
+      "The reasoning behind the earlier milestone 2 ruling for the buyer is not shown and its relevance to milestone 3 is unknown.",
+      "Token account balances for the escrow are not included, so the actual custody of the 30000000 is unverified."
+    ]
+  },
+  "report": {
+    "summary": "Escrow HSpFvAeC9fWQ7z2wHKvkNNHAuz6yRk337Wcy6HzeTNJ3 (deal 13) between buyer 4LkBJHEtWmPC7rbtceK3FzmC1M7RGz9DKJcEU3HKEPce and seller 7xgczuJEjMDMZW4YGbvVAyCZm9jeaxpuSzTADJfY7mSK has four milestones. An earlier dispute by the buyer over milestone 2 was settled in the buyer's favour for 10000000, and that milestone is now Refunded. On 1792764800 the seller opened dispute BK58PhzHkgJMjJQKdiGH2HFu1miRbwnVJk1ewXEEgdh3 over milestone 3 for 30000000, paying a 5000000 deposit; a three-juror panel was selected. The seller says the milestone was delivered and should be released; the buyer says it was not and should be refunded. The chain shows the milestone is Disputed and unresolved; delivery itself is off-chain.",
+    "timeline": [
+      {
+        "sourceSignature": "4dMwYT62PXfbvdoYL7eBovFjonvLi5QNuP4GtshqmXpd6JNyU8xdXT3xSY76Jg8mj4aNM8cyauc3LkA8WtEoBeXW",
+        "at": 1792073600,
+        "what": "Buyer 4LkBJHEtWmPC7rbtceK3FzmC1M7RGz9DKJcEU3HKEPce opened dispute 8UsXX6nQdpk2nAcHbPa6WdrGc3NyFd5WYaWgYysKVixT over milestone 2 for 10000000, paid a 5000000 deposit, and a panel was selected."
+      },
+      {
+        "sourceSignature": "2w45iqVxiKi88KrYtB6hcE2j1fbRmtjJ4RNvHn1CLgqUMcQZuVtHHKtu5PtpNjT8td6nsHSpEJ9AkDHSTEMVRuYv",
+        "at": 1792419200,
+        "what": "Milestone 2 was settled with winner 4LkBJHEtWmPC7rbtceK3FzmC1M7RGz9DKJcEU3HKEPce for 10000000, with 1000000 reimbursed."
+      },
+      {
+        "sourceSignature": "Dq6kpKfAn9z6H9RVHjVUbiNxrdohWCo6XdV8MZvGkCZoEPjMuNfYNbXSsyAKyCoJTxxbeuFsjretBQuvEougSV1",
+        "at": 1792764800,
+        "what": "Seller 7xgczuJEjMDMZW4YGbvVAyCZm9jeaxpuSzTADJfY7mSK opened dispute BK58PhzHkgJMjJQKdiGH2HFu1miRbwnVJk1ewXEEgdh3 over milestone 3 for 30000000, paid a 5000000 deposit, and the same three jurors were selected."
+      }
+    ],
+    "facts": [
+      {
+        "sourceSignature": "Dq6kpKfAn9z6H9RVHjVUbiNxrdohWCo6XdV8MZvGkCZoEPjMuNfYNbXSsyAKyCoJTxxbeuFsjretBQuvEougSV1",
+        "statement": "The dispute under review concerns milestone index 3 of escrow HSpFvAeC9fWQ7z2wHKvkNNHAuz6yRk337Wcy6HzeTNJ3 for an amount of 30000000 and is not optimistic.",
+        "verdict": "confirmed"
+      },
+      {
+        "sourceSignature": "Dq6kpKfAn9z6H9RVHjVUbiNxrdohWCo6XdV8MZvGkCZoEPjMuNfYNbXSsyAKyCoJTxxbeuFsjretBQuvEougSV1",
+        "statement": "The claimant paid a deposit of 5000000 when opening the dispute.",
+        "verdict": "confirmed"
+      },
+      {
+        "sourceAccount": "HSpFvAeC9fWQ7z2wHKvkNNHAuz6yRk337Wcy6HzeTNJ3",
+        "statement": "The claimant 7xgczuJEjMDMZW4YGbvVAyCZm9jeaxpuSzTADJfY7mSK is the seller and the respondent 4LkBJHEtWmPC7rbtceK3FzmC1M7RGz9DKJcEU3HKEPce is the buyer.",
+        "verdict": "confirmed"
+      },
+      {
+        "sourceAccount": "HSpFvAeC9fWQ7z2wHKvkNNHAuz6yRk337Wcy6HzeTNJ3",
+        "statement": "Milestone index 3 is in state Disputed referencing BK58PhzHkgJMjJQKdiGH2HFu1miRbwnVJk1ewXEEgdh3, so its funds have not been released or refunded.",
+        "verdict": "confirmed"
+      },
+      {
+        "sourceAccount": "HSpFvAeC9fWQ7z2wHKvkNNHAuz6yRk337Wcy6HzeTNJ3",
+        "statement": "Milestones 0 and 1 are Released and milestone 2 is Refunded.",
+        "verdict": "confirmed"
+      },
+      {
+        "sourceSignature": "2w45iqVxiKi88KrYtB6hcE2j1fbRmtjJ4RNvHn1CLgqUMcQZuVtHHKtu5PtpNjT8td6nsHSpEJ9AkDHSTEMVRuYv",
+        "statement": "A prior dispute over milestone 2 between the same parties was resolved in the buyer's favour.",
+        "verdict": "confirmed"
+      },
+      {
+        "sourceSignature": "Dq6kpKfAn9z6H9RVHjVUbiNxrdohWCo6XdV8MZvGkCZoEPjMuNfYNbXSsyAKyCoJTxxbeuFsjretBQuvEougSV1",
+        "statement": "The same three jurors selected for the earlier dispute were selected again for this dispute.",
+        "verdict": "confirmed"
+      },
+      {
+        "statement": "The work for milestone 3 was delivered off chain.",
+        "verdict": "unconfirmed"
+      },
+      {
+        "statement": "Any token transfer of the 30000000 milestone amount to either party has occurred.",
+        "verdict": "unconfirmed"
+      }
+    ],
+    "claims": [
+      {
+        "party": "claimant",
+        "statement": "Milestone #3 was delivered, so its locked funds should be released to the seller.",
+        "assessment": "unsupported"
+      },
+      {
+        "party": "respondent",
+        "statement": "Milestone #3 was not delivered, so its locked funds should be refunded to the buyer.",
+        "assessment": "unsupported"
+      }
+    ],
+    "gaps": [
+      "The transaction history of the escrow was cut to its most recent transactions; older transactions were not read.",
+      "No evidence shows whether the milestone 3 deliverable was actually produced or accepted off chain.",
+      "The evidence set is marked truncated, so later or intermediate transactions may be missing.",
+      "No acceptance, rejection or communication record between buyer and seller is present on chain.",
+      "The reasoning behind the earlier milestone 2 ruling for the buyer is not shown and its relevance to milestone 3 is unknown.",
+      "Token account balances for the escrow are not included, so the actual custody of the 30000000 is unverified."
+    ]
+  }
+}

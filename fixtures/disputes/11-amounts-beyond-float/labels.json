@@ -1,0 +1,32 @@
+{
+  "c45da8999d280113": {
+    "statement": "The escrow was opened with buyer 4mCAJmNTM774e1VcPuT4o2dxHY2o94zcWWoCQunBXHHD and seller 69iBYuhBv3HV5f2nYtoMpy2WHED7GZQn64iZCeJZtXc7.",
+    "label": "consistent",
+    "note": ""
+  },
+  "2de3827f54243c8d": {
+    "statement": "The dispute was opened by the seller as claimant, non-optimistic, for amount 4503599627370497 at 1791209600.",
+    "label": "consistent",
+    "note": ""
+  },
+  "cd69e888ef3ea513": {
+    "statement": "A panel of three jurors was selected with entropy slot 505110001.",
+    "label": "consistent",
+    "note": ""
+  },
+  "06259aa43c18f78a": {
+    "statement": "The escrow account shows milestone index 1 (amount 4503599627370497) in Disputed state referencing this dispute, and the other milestone (9007199254740993) still Pending.",
+    "label": "consistent",
+    "note": "Flag overruled: 9007199254740993 is named as the amount of the other milestone (index 0), which is right."
+  },
+  "5d0ecdd0d06ab12e": {
+    "statement": "No release of the disputed milestone funds to the seller has occurred.",
+    "label": "consistent",
+    "note": ""
+  },
+  "8aca0463b020fc47": {
+    "statement": "No refund of the disputed milestone funds to the buyer has occurred.",
+    "label": "consistent",
+    "note": ""
+  }
+}

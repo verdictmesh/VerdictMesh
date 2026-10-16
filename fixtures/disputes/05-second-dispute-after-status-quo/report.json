@@ -1,0 +1,186 @@
+{
+  "model": "claude-opus-5",
+  "generationMs": 24825,
+  "demoted": 1,
+  "stripped": 0,
+  "failures": [],
+  "generated": {
+    "summary": "Escrow 12qe6u94... (total 100000000, three milestones, mint 4ZaPMcbK...) was opened between buyer Dp5XGpQJ and seller 42ogyyCe. Milestone 0 (15000000) was released by the buyer. Milestone 1 (35000000) was disputed by the seller on 1791123200; that first dispute (6o43Vhaq) was settled with winner null, amount 0 and no reimbursement. The seller opened the present dispute HxAKKT8d on 1791641600 over the same milestone 1 amount of 35000000, posting a 5000000 deposit; the same three-juror panel was selected. The escrow snapshot shows milestone 1 still Disputed. No on-chain evidence shows whether the milestone work was delivered.",
+    "timeline": [
+      {
+        "sourceSignature": "5Z6cn8oPeF8v7m6sZ2YW2V9YCwobVhEaMuuqxSw4bbDasFA17gYt14rcTHuhtVnxChDFHjhephbW6V4hpoWEKfdN",
+        "at": 1790345600,
+        "what": "Escrow opened with buyer Dp5XGpQJ, seller 42ogyyCe, total 100000000 across 3 milestones and bond 5000000."
+      },
+      {
+        "sourceSignature": "3a51BgxkPgjW3nVyryeS4LRYRCm2aTWBv7sVaoDnfG2vPo4W5rUJbspZEQ2giY52JpKcbw3XMRzL5khfkURHGaoP",
+        "at": 1790604800,
+        "what": "Buyer signed release of milestone 0 for 15000000."
+      },
+      {
+        "sourceSignature": "3xiS7oXFKnvH1x9FZ4gDizizZx8Hfp4kXvmGQ9mB4MLTUXfVFUfCq6SgqcBK8diF9voo98Mrd7H9u8aeUtEQA3g",
+        "at": 1791123200,
+        "what": "Seller opened earlier dispute 6o43Vhaq over milestone 1 for 35000000 with a 5000000 deposit and a panel was selected."
+      },
+      {
+        "sourceSignature": "4CJDUpxeGkHpMZsfa7NhHzrJWBaUawtWYH3RdX2WLiquBJm2krXgdW2PCrn4AXMhPzbGmt3KYYF9nC5h6mJZeQyq",
+        "at": 1791555200,
+        "what": "Milestone 1 was settled for dispute 6o43Vhaq with winner null, amount 0 and reimbursed 0."
+      },
+      {
+        "sourceSignature": "4dqfkP7F6KDLs5axGrTRQq6pEmBnG1grcEDAxuaawtunqg1eC9r5z8EYU52G6aipuwuedaVWcJg8G5B5mSgkP6Jk",
+        "at": 1791641600,
+        "what": "Seller opened the present dispute HxAKKT8d over milestone 1 for 35000000 with a 5000000 deposit; the same three jurors were selected."
+      }
+    ],
+    "facts": [
+      {
+        "sourceSignature": "5Z6cn8oPeF8v7m6sZ2YW2V9YCwobVhEaMuuqxSw4bbDasFA17gYt14rcTHuhtVnxChDFHjhephbW6V4hpoWEKfdN",
+        "statement": "The escrow lists Dp5XGpQJ as buyer and 42ogyyCe as seller, matching the dispute's respondent and claimant.",
+        "verdict": "confirmed"
+      },
+      {
+        "sourceSignature": "3a51BgxkPgjW3nVyryeS4LRYRCm2aTWBv7sVaoDnfG2vPo4W5rUJbspZEQ2giY52JpKcbw3XMRzL5khfkURHGaoP",
+        "statement": "Milestone 0 worth 15000000 was released to the seller.",
+        "verdict": "confirmed"
+      },
+      {
+        "sourceAccount": "12qe6u94Ya2PRoRPL3mo1ZCjYjiQPtz5Uqu63gkEthjb",
+        "statement": "Milestone 1 holds 35000000 and remains in Disputed state referencing dispute HxAKKT8dsbsZaC6Wd75N33LAbZC6QXE8umvgSrJspFXL.",
+        "verdict": "confirmed"
+      },
+      {
+        "sourceSignature": "4CJDUpxeGkHpMZsfa7NhHzrJWBaUawtWYH3RdX2WLiquBJm2krXgdW2PCrn4AXMhPzbGmt3KYYF9nC5h6mJZeQyq",
+        "statement": "An earlier dispute over the same milestone closed with no winner and no funds moved.",
+        "verdict": "confirmed"
+      },
+      {
+        "sourceSignature": "4dqfkP7F6KDLs5axGrTRQq6pEmBnG1grcEDAxuaawtunqg1eC9r5z8EYU52G6aipuwuedaVWcJg8G5B5mSgkP6Jk",
+        "statement": "The claimant posted a 5000000 deposit when opening the present dispute.",
+        "verdict": "confirmed"
+      },
+      {
+        "sourceSignature": "4dqfkP7F6KDLs5axGrTRQq6pEmBnG1grcEDAxuaawtunqg1eC9r5z8EYU52G6aipuwuedaVWcJg8G5B5mSgkP6Jk",
+        "statement": "The panel chosen for this dispute is identical to the panel of the prior dispute, though entropy slot differs.",
+        "verdict": "confirmed"
+      },
+      {
+        "statement": "Milestone 1 work was delivered by the seller.",
+        "verdict": "unconfirmed"
+      },
+      {
+        "statement": "Milestone 1 funds were refunded to the buyer.",
+        "verdict": "contradicted"
+      }
+    ],
+    "claims": [
+      {
+        "party": "claimant",
+        "statement": "Milestone #1 was delivered, so its locked funds should be released to the seller.",
+        "assessment": "unsupported"
+      },
+      {
+        "party": "respondent",
+        "statement": "Milestone #1 was not delivered, so its locked funds should be refunded to the buyer.",
+        "assessment": "unsupported"
+      }
+    ],
+    "gaps": [
+      "No evidence shows whether the off-chain deliverable for milestone 1 was produced or accepted.",
+      " No record explains why the earlier dispute 6o43Vhaq settled with winner null and zero amount.",
+      "No evidence shows any juror votes or reasoning in either dispute.",
+      "The escrow lists a settlement_mint different from the deposit mint, with no evidence of conversion terms.",
+      "No evidence shows communications or acceptance criteria agreed between buyer and seller."
+    ]
+  },
+  "report": {
+    "summary": "Escrow 12qe6u94... (total 100000000, three milestones, mint 4ZaPMcbK...) was opened between buyer Dp5XGpQJ and seller 42ogyyCe. Milestone 0 (15000000) was released by the buyer. Milestone 1 (35000000) was disputed by the seller on 1791123200; that first dispute (6o43Vhaq) was settled with winner null, amount 0 and no reimbursement. The seller opened the present dispute HxAKKT8d on 1791641600 over the same milestone 1 amount of 35000000, posting a 5000000 deposit; the same three-juror panel was selected. The escrow snapshot shows milestone 1 still Disputed. No on-chain evidence shows whether the milestone work was delivered.",
+    "timeline": [
+      {
+        "sourceSignature": "5Z6cn8oPeF8v7m6sZ2YW2V9YCwobVhEaMuuqxSw4bbDasFA17gYt14rcTHuhtVnxChDFHjhephbW6V4hpoWEKfdN",
+        "at": 1790345600,
+        "what": "Escrow opened with buyer Dp5XGpQJ, seller 42ogyyCe, total 100000000 across 3 milestones and bond 5000000."
+      },
+      {
+        "sourceSignature": "3a51BgxkPgjW3nVyryeS4LRYRCm2aTWBv7sVaoDnfG2vPo4W5rUJbspZEQ2giY52JpKcbw3XMRzL5khfkURHGaoP",
+        "at": 1790604800,
+        "what": "Buyer signed release of milestone 0 for 15000000."
+      },
+      {
+        "sourceSignature": "3xiS7oXFKnvH1x9FZ4gDizizZx8Hfp4kXvmGQ9mB4MLTUXfVFUfCq6SgqcBK8diF9voo98Mrd7H9u8aeUtEQA3g",
+        "at": 1791123200,
+        "what": "Seller opened earlier dispute 6o43Vhaq over milestone 1 for 35000000 with a 5000000 deposit and a panel was selected."
+      },
+      {
+        "sourceSignature": "4CJDUpxeGkHpMZsfa7NhHzrJWBaUawtWYH3RdX2WLiquBJm2krXgdW2PCrn4AXMhPzbGmt3KYYF9nC5h6mJZeQyq",
+        "at": 1791555200,
+        "what": "Milestone 1 was settled for dispute 6o43Vhaq with winner null, amount 0 and reimbursed 0."
+      },
+      {
+        "sourceSignature": "4dqfkP7F6KDLs5axGrTRQq6pEmBnG1grcEDAxuaawtunqg1eC9r5z8EYU52G6aipuwuedaVWcJg8G5B5mSgkP6Jk",
+        "at": 1791641600,
+        "what": "Seller opened the present dispute HxAKKT8d over milestone 1 for 35000000 with a 5000000 deposit; the same three jurors were selected."
+      }
+    ],
+    "facts": [
+      {
+        "sourceSignature": "5Z6cn8oPeF8v7m6sZ2YW2V9YCwobVhEaMuuqxSw4bbDasFA17gYt14rcTHuhtVnxChDFHjhephbW6V4hpoWEKfdN",
+        "statement": "The escrow lists Dp5XGpQJ as buyer and 42ogyyCe as seller, matching the dispute's respondent and claimant.",
+        "verdict": "confirmed"
+      },
+      {
+        "sourceSignature": "3a51BgxkPgjW3nVyryeS4LRYRCm2aTWBv7sVaoDnfG2vPo4W5rUJbspZEQ2giY52JpKcbw3XMRzL5khfkURHGaoP",
+        "statement": "Milestone 0 worth 15000000 was released to the seller.",
+        "verdict": "confirmed"
+      },
+      {
+        "sourceAccount": "12qe6u94Ya2PRoRPL3mo1ZCjYjiQPtz5Uqu63gkEthjb",
+        "statement": "Milestone 1 holds 35000000 and remains in Disputed state referencing dispute HxAKKT8dsbsZaC6Wd75N33LAbZC6QXE8umvgSrJspFXL.",
+        "verdict": "confirmed"
+      },
+      {
+        "sourceSignature": "4CJDUpxeGkHpMZsfa7NhHzrJWBaUawtWYH3RdX2WLiquBJm2krXgdW2PCrn4AXMhPzbGmt3KYYF9nC5h6mJZeQyq",
+        "statement": "An earlier dispute over the same milestone closed with no winner and no funds moved.",
+        "verdict": "confirmed"
+      },
+      {
+        "sourceSignature": "4dqfkP7F6KDLs5axGrTRQq6pEmBnG1grcEDAxuaawtunqg1eC9r5z8EYU52G6aipuwuedaVWcJg8G5B5mSgkP6Jk",
+        "statement": "The claimant posted a 5000000 deposit when opening the present dispute.",
+        "verdict": "confirmed"
+      },
+      {
+        "sourceSignature": "4dqfkP7F6KDLs5axGrTRQq6pEmBnG1grcEDAxuaawtunqg1eC9r5z8EYU52G6aipuwuedaVWcJg8G5B5mSgkP6Jk",
+        "statement": "The panel chosen for this dispute is identical to the panel of the prior dispute, though entropy slot differs.",
+        "verdict": "confirmed"
+      },
+      {
+        "statement": "Milestone 1 work was delivered by the seller.",
+        "verdict": "unconfirmed"
+      },
+      {
+        "statement": "Milestone 1 funds were refunded to the buyer.",
+        "verdict": "unconfirmed"
+      }
+    ],
+    "claims": [
+      {
+        "party": "claimant",
+        "statement": "Milestone #1 was delivered, so its locked funds should be released to the seller.",
+        "assessment": "unsupported"
+      },
+      {
+        "party": "respondent",
+        "statement": "Milestone #1 was not delivered, so its locked funds should be refunded to the buyer.",
+        "assessment": "unsupported"
+      }
+    ],
+    "gaps": [
+      "0 reference(s) pointed at evidence that was not collected and were removed; 1 statement(s) left without a source are shown as unconfirmed.",
+      "No evidence shows whether the off-chain deliverable for milestone 1 was produced or accepted.",
+      " No record explains why the earlier dispute 6o43Vhaq settled with winner null and zero amount.",
+      "No evidence shows any juror votes or reasoning in either dispute.",
+      "The escrow lists a settlement_mint different from the deposit mint, with no evidence of conversion terms.",
+      "No evidence shows communications or acceptance criteria agreed between buyer and seller."
+    ]
+  }
+}

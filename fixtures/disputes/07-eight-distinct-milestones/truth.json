@@ -1,0 +1,140 @@
+{
+  "title": "Eight milestones of different sizes; five released, the buyer disputes the last one.",
+  "traps": [
+    "The amount of a neighbouring index given for the disputed milestone.",
+    "The count of released milestones or their sum stated wrongly.",
+    "\"Milestone 8\" for index 7."
+  ],
+  "buyer": "D3wyMYHnCKDNT5Wsho7EWdgAW6p4f5JJJTbcH27t8RTn",
+  "seller": "HxHuAFwmbRLBkLtavLTiQ3nLXjEcYxFTNicYsegfpG6h",
+  "claimant": "buyer",
+  "respondent": "seller",
+  "dispute": "6ju6rTPuy7SUKryXxnJrD4mtG8E43ZwihPTGNd3fYzrw",
+  "disputedMilestone": 7,
+  "disputedAmount": "25000000",
+  "bond": "1000000",
+  "deposit": "5000000",
+  "total": "100000000",
+  "milestones": [
+    {
+      "index": 0,
+      "amount": "5000000",
+      "state": "Released",
+      "passed": [
+        "Pending",
+        "Released"
+      ]
+    },
+    {
+      "index": 1,
+      "amount": "7500000",
+      "state": "Released",
+      "passed": [
+        "Pending",
+        "Released"
+      ]
+    },
+    {
+      "index": 2,
+      "amount": "12000000",
+      "state": "Released",
+      "passed": [
+        "Pending",
+        "Released"
+      ]
+    },
+    {
+      "index": 3,
+      "amount": "9000000",
+      "state": "Released",
+      "passed": [
+        "Pending",
+        "Released"
+      ]
+    },
+    {
+      "index": 4,
+      "amount": "14000000",
+      "state": "Released",
+      "passed": [
+        "Pending",
+        "Released"
+      ]
+    },
+    {
+      "index": 5,
+      "amount": "11000000",
+      "state": "Pending",
+      "passed": [
+        "Pending"
+      ]
+    },
+    {
+      "index": 6,
+      "amount": "16500000",
+      "state": "Pending",
+      "passed": [
+        "Pending"
+      ]
+    },
+    {
+      "index": 7,
+      "amount": "25000000",
+      "state": "Disputed",
+      "passed": [
+        "Pending",
+        "Disputed"
+      ]
+    }
+  ],
+  "transactions": [
+    {
+      "signature": "2bphfnUZoJqVUPiqFxMFSWf5PDp6zvp2fU8yoqHT9gnRcsmpFHvfZK4MKkGbSPbxjdeAkubk7BkK2uH4hLY5iXoQ",
+      "slot": 505070000,
+      "blockTime": 1790518400,
+      "what": "Escrow created: buyer D3wyMYHnCKDNT5Wsho7EWdgAW6p4f5JJJTbcH27t8RTn, seller HxHuAFwmbRLBkLtavLTiQ3nLXjEcYxFTNicYsegfpG6h, total 100000000, 8 milestone(s), bond 1000000 per side per milestone."
+    },
+    {
+      "signature": "5wEXDrosmr5ys2QyKP3R3ZA5n8khFW4aTPtMh3CPAvKxF6EnEXG9DhJ2yPXDZZfL55zi8L3LEPEQC2sekt4CfUSz",
+      "slot": 505502000,
+      "blockTime": 1790691200,
+      "what": "The buyer released milestone 0 (5000000) to the seller without a dispute."
+    },
+    {
+      "signature": "29FmEhbkvDTxf1C5picAcRKS9Sai9hhKddFySG8fH57n5uqFfQFP6Leuk7ZTb3BYSsvfdMfoCPHEkGDRHa466ubL",
+      "slot": 505934000,
+      "blockTime": 1790864000,
+      "what": "The buyer released milestone 1 (7500000) to the seller without a dispute."
+    },
+    {
+      "signature": "2shMWRt3nmF9KWwBDbfh2qLR1EP1bsErdvR3XCBgDncWkSofUshv55mc8EhrttYbfaAXmobSnH7AGNKWtighGSNn",
+      "slot": 506366000,
+      "blockTime": 1791036800,
+      "what": "The buyer released milestone 2 (12000000) to the seller without a dispute."
+    },
+    {
+      "signature": "64yzZmNNzpiKM5vC4fcpcWLkQ1AxtnUU9eSkJeoQXRXQCPkLBeXvgRfP7gy4B57dQyM7DSUewWUdYBjrzCBgdLC2",
+      "slot": 506798000,
+      "blockTime": 1791209600,
+      "what": "The buyer released milestone 4 (14000000) to the seller without a dispute."
+    },
+    {
+      "signature": "4PLa6PmRAm8drVt6mgNB1drpgN7LNtgXAWuNNwbymtMv5ndXjPBk5P6eoFySLhoeDE3diJaiPgGLgskRKpaDBejZ",
+      "slot": 507230000,
+      "blockTime": 1791382400,
+      "what": "The buyer released milestone 3 (9000000) to the seller without a dispute."
+    },
+    {
+      "signature": "5YeMvyH9suCUvj9fyNZJSCT92qPDLYi1PjjZHSWLAaAVrCGmDXiYqCTaTZgYa9HTt6NJKoxZpGbTjxwRCDR6zQPS",
+      "slot": 507662000,
+      "blockTime": 1791555200,
+      "what": "The buyer opened dispute 6ju6rTPuy7SUKryXxnJrD4mtG8E43ZwihPTGNd3fYzrw over milestone 7 (25000000), paid a deposit of 5000000; a panel of three was selected."
+    }
+  ],
+  "collected": {
+    "transactions": 7,
+    "truncated": false,
+    "logsCut": 0
+  },
+  "escrowProgramKnown": true
+}

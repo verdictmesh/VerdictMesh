@@ -1,0 +1,27 @@
+{
+  "66b5365bf42dd083": {
+    "statement": "The escrow was opened with buyer 8KsQjWirA8GghUMcwWeKJUzcBiyuyLGeUT7nuzbn17Bn, seller 8aZ6UYEnrmuMMCqxxUm5DqKnEu43u7Kq6VCe7p2sjUuE and total 60000000 of mint CPqxQT7pEHd16YKCXmHSzbtmxxbcLGxF1knMkyoccVjX.",
+    "label": "consistent",
+    "note": ""
+  },
+  "e6df9bc8d2364562": {
+    "statement": "The claimant (the seller) opened the dispute over 20000000 and paid a 5000000 deposit, and the dispute is not optimistic.",
+    "label": "consistent",
+    "note": ""
+  },
+  "e03724f55ad62c4d": {
+    "statement": "A panel of three jurors was selected using entropy from slot 505200565.",
+    "label": "consistent",
+    "note": ""
+  },
+  "dfcf15b6fa9137e1": {
+    "statement": "In the escrow snapshot the 20000000 milestone is in Disputed state referencing this dispute, while the 10000000 and 30000000 milestones remain Pending.",
+    "label": "consistent",
+    "note": ""
+  },
+  "8934db5129dda083": {
+    "statement": "No milestone has been released or refunded; no settlement transfer appears in the evidence.",
+    "label": "consistent",
+    "note": ""
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "46f6d2fa10278dfe": {
+    "statement": "The escrow was opened with buyer EGt9y5MY1P71eWk3WxUHJoKhn7moR6enmrEjZ1GTdfQW, seller 6MMRHwnYT9Lf31L8khPBu4Zgt7wTdCTrFYe8Qrsg3Z9s and total 100000000.",
+    "label": "consistent",
+    "note": ""
+  },
+  "56cb1c428e853343": {
+    "statement": "The dispute concerns milestone #0 and an amount of 40000000, and is not optimistic.",
+    "label": "consistent",
+    "note": ""
+  },
+  "6ff73f30789824ff": {
+    "statement": "The claimant paid a deposit of 5000000 when opening the dispute.",
+    "label": "consistent",
+    "note": ""
+  },
+  "c48d4f70be82588a": {
+    "statement": "Milestone #0 (40000000) is in Disputed state referencing this dispute, and milestone #1 (60000000) remains Pending.",
+    "label": "consistent",
+    "note": ""
+  },
+  "defa7bea69c65f3b": {
+    "statement": "No release of milestone #0 funds to the seller has occurred.",
+    "label": "consistent",
+    "note": ""
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "title": "No relayer: the claimant signs and pays alone, while the creation is co-signed by three keys. The buyer disputes milestone 0.",
+  "traps": [
+    "The fee payer of the creation taken for a party.",
+    "The dispute said to be co-signed by the respondent."
+  ],
+  "buyer": "CbnFtyKAu47962TbE67Qo4KwNctCUcwo2BEayENvP4ZQ",
+  "seller": "69ZqspkEeoRcU6x8Z8H49dVEN869V7QWtzm1oP7TRsEb",
+  "claimant": "buyer",
+  "respondent": "seller",
+  "dispute": "DjXZRAGZ5ziKZJYwGMoFPEUtQreVdRfq74RWq5tuTqvi",
+  "disputedMilestone": 0,
+  "disputedAmount": "70000000",
+  "bond": "5000000",
+  "deposit": "5000000",
+  "total": "100000000",
+  "milestones": [
+    {
+      "index": 0,
+      "amount": "70000000",
+      "state": "Disputed",
+      "passed": [
+        "Pending",
+        "Disputed"
+      ]
+    },
+    {
+      "index": 1,
+      "amount": "30000000",
+      "state": "Pending",
+      "passed": [
+        "Pending"
+      ]
+    }
+  ],
+  "transactions": [
+    {
+      "signature": "56QcrHz5mcnj1a8EJoYtZTNqrtV9244Umjgiu2mDiBy9BZTAafQrzF3Ra1dB8VXykERte7uqqd11oBGLaecENoiw",
+      "slot": 505150000,
+      "blockTime": 1791209600,
+      "what": "Escrow created: buyer CbnFtyKAu47962TbE67Qo4KwNctCUcwo2BEayENvP4ZQ, seller 69ZqspkEeoRcU6x8Z8H49dVEN869V7QWtzm1oP7TRsEb, total 100000000, 2 milestone(s), bond 5000000 per side per milestone."
+    },
+    {
+      "signature": "4KnTjnTeEPGxbfyAsWHcnzw4jYfdUCWjAow9PZ2EwjSkurWFzcCVnHTpxUipP1XkMruxiYtEj6mCHbiZx9x928M6",
+      "slot": 509686000,
+      "blockTime": 1793024000,
+      "what": "The buyer opened dispute DjXZRAGZ5ziKZJYwGMoFPEUtQreVdRfq74RWq5tuTqvi over milestone 0 (70000000), paid a deposit of 5000000; a panel of three was selected."
+    }
+  ],
+  "collected": {
+    "transactions": 2,
+    "truncated": false,
+    "logsCut": 0
+  },
+  "escrowProgramKnown": true
+}

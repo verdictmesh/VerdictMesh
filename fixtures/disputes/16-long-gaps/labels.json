@@ -1,0 +1,32 @@
+{
+  "fb3d8bd9bef3724e": {
+    "statement": "The escrow was opened with a total of 300000000 split into three milestones.",
+    "label": "consistent",
+    "note": ""
+  },
+  "033fa523ce927025": {
+    "statement": "Milestone 0, not the disputed milestone 1, was released for 100000000.",
+    "label": "consistent",
+    "note": ""
+  },
+  "bd5258891d33ff60": {
+    "statement": "The dispute concerns milestone index 1 with an amount of 100000000 and was opened by the seller as claimant.",
+    "label": "consistent",
+    "note": ""
+  },
+  "a0bf22fc5928837f": {
+    "statement": "The claimant posted a 5000000 deposit when opening the dispute, matching the escrow bond.",
+    "label": "consistent",
+    "note": ""
+  },
+  "088a601671991cc0": {
+    "statement": "At slot 534320003 the escrow shows milestone 0 Released, milestone 1 Disputed under this dispute, and milestone 2 Pending.",
+    "label": "consistent",
+    "note": ""
+  },
+  "3515defbb1c41c32": {
+    "statement": "The disputed milestone 1 funds have not been released or refunded to either party.",
+    "label": "consistent",
+    "note": "Flag overruled: the states are negated — the statement says the milestone was never released or refunded, which the snapshot confirms."
+  }
+}

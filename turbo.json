@@ -3,7 +3,7 @@
   "tasks": {
     "build": { "dependsOn": ["^build"], "outputs": ["dist/**"] },
     "dev": { "cache": false, "persistent": true },
-    "test": { "dependsOn": ["^build"] },
+    "test": { "dependsOn": ["^build"], "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/fixtures/**"] },
     "lint": {},
     "typecheck": { "dependsOn": ["^build"] }
   }

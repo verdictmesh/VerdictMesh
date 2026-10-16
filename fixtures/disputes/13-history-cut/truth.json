@@ -1,0 +1,100 @@
+{
+  "title": "The collector kept only the three newest transactions: the creation and two releases are missing.",
+  "traps": [
+    "Milestones 0 and 1 described as pending or never released (the snapshot shows them Released).",
+    "A creation time or creator named although the creation was not collected."
+  ],
+  "buyer": "4LkBJHEtWmPC7rbtceK3FzmC1M7RGz9DKJcEU3HKEPce",
+  "seller": "7xgczuJEjMDMZW4YGbvVAyCZm9jeaxpuSzTADJfY7mSK",
+  "claimant": "seller",
+  "respondent": "buyer",
+  "dispute": "BK58PhzHkgJMjJQKdiGH2HFu1miRbwnVJk1ewXEEgdh3",
+  "disputedMilestone": 3,
+  "disputedAmount": "30000000",
+  "bond": "1000000",
+  "deposit": "5000000",
+  "total": "60000000",
+  "milestones": [
+    {
+      "index": 0,
+      "amount": "10000000",
+      "state": "Released",
+      "passed": [
+        "Pending",
+        "Released"
+      ]
+    },
+    {
+      "index": 1,
+      "amount": "10000000",
+      "state": "Released",
+      "passed": [
+        "Pending",
+        "Released"
+      ]
+    },
+    {
+      "index": 2,
+      "amount": "10000000",
+      "state": "Refunded",
+      "passed": [
+        "Pending",
+        "Disputed",
+        "Refunded"
+      ]
+    },
+    {
+      "index": 3,
+      "amount": "30000000",
+      "state": "Disputed",
+      "passed": [
+        "Pending",
+        "Disputed"
+      ]
+    }
+  ],
+  "transactions": [
+    {
+      "signature": "2KhW6rAeYvWn4J1MjmVRAG1w5uKhasmXhcwEhY5rSpJiruPq13A44BAhCz4bvci3Jt88hAv5M4xstuSPYKwtm54Z",
+      "slot": 505130000,
+      "blockTime": 1791036800,
+      "what": "Escrow created: buyer 4LkBJHEtWmPC7rbtceK3FzmC1M7RGz9DKJcEU3HKEPce, seller 7xgczuJEjMDMZW4YGbvVAyCZm9jeaxpuSzTADJfY7mSK, total 60000000, 4 milestone(s), bond 1000000 per side per milestone."
+    },
+    {
+      "signature": "49DrKpVEkqc3rQ4RtNqKQZnoy48LsqfjzcB9qssmEwk7zFWiNnnMVuTPsGBADv5wXFBAYRy4vxYAVxShPFhd6F2S",
+      "slot": 505994000,
+      "blockTime": 1791382400,
+      "what": "The buyer released milestone 0 (10000000) to the seller without a dispute."
+    },
+    {
+      "signature": "4uNpMhoeghYRTfC71MgPCTpqa64ZDzZgDDX1zRYzQaVCppJ6jbc9tvTCqfgJkxvmi68pN6FPWKnAUhHuWLRk5QVs",
+      "slot": 506858000,
+      "blockTime": 1791728000,
+      "what": "The buyer released milestone 1 (10000000) to the seller without a dispute."
+    },
+    {
+      "signature": "4dMwYT62PXfbvdoYL7eBovFjonvLi5QNuP4GtshqmXpd6JNyU8xdXT3xSY76Jg8mj4aNM8cyauc3LkA8WtEoBeXW",
+      "slot": 507722000,
+      "blockTime": 1792073600,
+      "what": "The buyer opened dispute 8UsXX6nQdpk2nAcHbPa6WdrGc3NyFd5WYaWgYysKVixT over milestone 2 (10000000), paid a deposit of 5000000; a panel of three was selected."
+    },
+    {
+      "signature": "2w45iqVxiKi88KrYtB6hcE2j1fbRmtjJ4RNvHn1CLgqUMcQZuVtHHKtu5PtpNjT8td6nsHSpEJ9AkDHSTEMVRuYv",
+      "slot": 508586000,
+      "blockTime": 1792419200,
+      "what": "Earlier dispute 8UsXX6nQdpk2nAcHbPa6WdrGc3NyFd5WYaWgYysKVixT settled with verdict Claimant: 10000000 paid to the buyer, milestone Refunded; reimbursed 1000000."
+    },
+    {
+      "signature": "Dq6kpKfAn9z6H9RVHjVUbiNxrdohWCo6XdV8MZvGkCZoEPjMuNfYNbXSsyAKyCoJTxxbeuFsjretBQuvEougSV1",
+      "slot": 509450000,
+      "blockTime": 1792764800,
+      "what": "The seller opened dispute BK58PhzHkgJMjJQKdiGH2HFu1miRbwnVJk1ewXEEgdh3 over milestone 3 (30000000), paid a deposit of 5000000; a panel of three was selected."
+    }
+  ],
+  "collected": {
+    "transactions": 3,
+    "truncated": true,
+    "logsCut": 0
+  },
+  "escrowProgramKnown": true
+}

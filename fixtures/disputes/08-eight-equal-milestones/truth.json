@@ -1,0 +1,132 @@
+{
+  "title": "Eight equal milestones; amounts cannot tell them apart. Indices 0–2 and 5 released; the seller disputes index 4.",
+  "traps": [
+    "The wrong index named as disputed or released — only the index distinguishes them.",
+    "Index 3 (still pending) described as released."
+  ],
+  "buyer": "6noYcHUQQdkVzGXwFYeP3rBFZrki42aezktkSbzeBjaW",
+  "seller": "7AtJ4jdfDD2tj8xEdmn3HeC1neT63YcJyZX2pZMioCaq",
+  "claimant": "seller",
+  "respondent": "buyer",
+  "dispute": "BuDwj6qMvPt8i5UKTR7c1m4157i169dB7w2XijLYwdG3",
+  "disputedMilestone": 4,
+  "disputedAmount": "12500000",
+  "bond": "1000000",
+  "deposit": "5000000",
+  "total": "100000000",
+  "milestones": [
+    {
+      "index": 0,
+      "amount": "12500000",
+      "state": "Released",
+      "passed": [
+        "Pending",
+        "Released"
+      ]
+    },
+    {
+      "index": 1,
+      "amount": "12500000",
+      "state": "Released",
+      "passed": [
+        "Pending",
+        "Released"
+      ]
+    },
+    {
+      "index": 2,
+      "amount": "12500000",
+      "state": "Released",
+      "passed": [
+        "Pending",
+        "Released"
+      ]
+    },
+    {
+      "index": 3,
+      "amount": "12500000",
+      "state": "Pending",
+      "passed": [
+        "Pending"
+      ]
+    },
+    {
+      "index": 4,
+      "amount": "12500000",
+      "state": "Disputed",
+      "passed": [
+        "Pending",
+        "Disputed"
+      ]
+    },
+    {
+      "index": 5,
+      "amount": "12500000",
+      "state": "Released",
+      "passed": [
+        "Pending",
+        "Released"
+      ]
+    },
+    {
+      "index": 6,
+      "amount": "12500000",
+      "state": "Pending",
+      "passed": [
+        "Pending"
+      ]
+    },
+    {
+      "index": 7,
+      "amount": "12500000",
+      "state": "Pending",
+      "passed": [
+        "Pending"
+      ]
+    }
+  ],
+  "transactions": [
+    {
+      "signature": "4B14bEqV3DgMSD96QeAGmnjRggUTMJZcNC12j2CKjJ5vFF6LTC7Ky7d5TGN7SRKXFLhMTT1cC8fTk2XjKneJSa9w",
+      "slot": 505080000,
+      "blockTime": 1790604800,
+      "what": "Escrow created: buyer 6noYcHUQQdkVzGXwFYeP3rBFZrki42aezktkSbzeBjaW, seller 7AtJ4jdfDD2tj8xEdmn3HeC1neT63YcJyZX2pZMioCaq, total 100000000, 8 milestone(s), bond 1000000 per side per milestone."
+    },
+    {
+      "signature": "9eggonGYuMbkt6dQCcYidcG9WLoDpwA6nnSYyyRorkt8RJ9vKA5AoWwqVLTtNFi8XENTjwjKXcCRE6grVnf5jxq",
+      "slot": 505728000,
+      "blockTime": 1790864000,
+      "what": "The buyer released milestone 0 (12500000) to the seller without a dispute."
+    },
+    {
+      "signature": "2QjV72EHvaVtbeTmmLvNQ85j1iDhRcsnUhTe9W7En21ULiPHsKWCqSGQd6s2KXYXcKoyvZvR1mqVRkr93hno34Y3",
+      "slot": 506376000,
+      "blockTime": 1791123200,
+      "what": "The buyer released milestone 1 (12500000) to the seller without a dispute."
+    },
+    {
+      "signature": "5Zyehks4igdcrtWeR1q2p1c4xtrHiPQ5xP4Jh5DTNQyRb7ugLFT45mVHWodWojuVxCdUrcFGdLFq6foLGji1jiXC",
+      "slot": 507024000,
+      "blockTime": 1791382400,
+      "what": "The buyer released milestone 2 (12500000) to the seller without a dispute."
+    },
+    {
+      "signature": "RX6gyrsa2g4vQgsAZZWEstREdzCq9ayE4EUQ6B8uhRgapavHAiyPncekJA121T13kb7e5bLmykUq6dwHXuKLAGs",
+      "slot": 507672000,
+      "blockTime": 1791641600,
+      "what": "The buyer released milestone 5 (12500000) to the seller without a dispute."
+    },
+    {
+      "signature": "4WK89zpeisEeXe8DHWb4G4mU7aLh6gmf9gX6QMSEoar4azvyhJXonT2vPjTwp5vg6dEKUs3uJeWvuV6Mqg6j9MKk",
+      "slot": 508320000,
+      "blockTime": 1791900800,
+      "what": "The seller opened dispute BuDwj6qMvPt8i5UKTR7c1m4157i169dB7w2XijLYwdG3 over milestone 4 (12500000), paid a deposit of 5000000; a panel of three was selected."
+    }
+  ],
+  "collected": {
+    "transactions": 6,
+    "truncated": false,
+    "logsCut": 0
+  },
+  "escrowProgramKnown": true
+}

@@ -1,0 +1,63 @@
+{
+  "title": "The escrow belongs to a program without an IDL: its events and account cannot be decoded, positions are fingerprints only.",
+  "traps": [
+    "Escrow terms (total, milestones, roles of buyer/seller) stated as confirmed — nothing decodes them.",
+    "The positions of the parties described in words."
+  ],
+  "buyer": "Hn3E2UKHx2C6JhPB65iSKqmmLWWRqHvmLzJbyy3tjHpD",
+  "seller": "HibFNKXSeGiSw2hTpEgYCumRXKte3L4oM4CVSsFXB9Tw",
+  "claimant": "seller",
+  "respondent": "buyer",
+  "dispute": "6sTKakdmyaW1Zwkacmu6CQZF1cPfAJQBuqwsXEwyN1vY",
+  "disputedMilestone": 1,
+  "disputedAmount": "55000000",
+  "bond": "5000000",
+  "deposit": "5000000",
+  "total": "100000000",
+  "milestones": [
+    {
+      "index": 0,
+      "amount": "45000000",
+      "state": "Released",
+      "passed": [
+        "Pending",
+        "Released"
+      ]
+    },
+    {
+      "index": 1,
+      "amount": "55000000",
+      "state": "Disputed",
+      "passed": [
+        "Pending",
+        "Disputed"
+      ]
+    }
+  ],
+  "transactions": [
+    {
+      "signature": "21DWCRqxv6ZeTyVNZ4d4MbPNrJMYxas1nUVVyZheURXENRMUzVXcgkotVfpbxQjmz5cddPDn1pHQnQkJvRNhyT6Q",
+      "slot": 505140000,
+      "blockTime": 1791123200,
+      "what": "Escrow created: buyer Hn3E2UKHx2C6JhPB65iSKqmmLWWRqHvmLzJbyy3tjHpD, seller HibFNKXSeGiSw2hTpEgYCumRXKte3L4oM4CVSsFXB9Tw, total 100000000, 2 milestone(s), bond 5000000 per side per milestone."
+    },
+    {
+      "signature": "265bdi4YSN6139XoDghD61sb9QnXk7sxMSoSd9eEnCFCzrKdfoV9VogkooPZXuqkRvVXhZves9oAGrpzcnMCNWjW",
+      "slot": 506436000,
+      "blockTime": 1791641600,
+      "what": "The buyer released milestone 0 (45000000) to the seller without a dispute."
+    },
+    {
+      "signature": "2noYrKVujaQzeMzUGW3ZESFVK9QwTBedQgARfGXHmSBWnP6ht6ThitekbHdh31oDsnrM53UrNwEjpWzR7VuQchN8",
+      "slot": 507084000,
+      "blockTime": 1791900800,
+      "what": "The seller opened dispute 6sTKakdmyaW1Zwkacmu6CQZF1cPfAJQBuqwsXEwyN1vY over milestone 1 (55000000), paid a deposit of 5000000; a panel of three was selected."
+    }
+  ],
+  "collected": {
+    "transactions": 3,
+    "truncated": false,
+    "logsCut": 0
+  },
+  "escrowProgramKnown": false
+}

@@ -107,7 +107,7 @@ export interface Positions {
 }
 
 /** The program that owns the escrow account, read off the account row. */
-function escrowOwner(set: EvidenceSet): string | null {
+export function escrowOwner(set: EvidenceSet): string | null {
   const owner = set.rows.find((row) => row.kind === 'account')?.payload.owner
   return typeof owner === 'string' ? owner : null
 }

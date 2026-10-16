@@ -1,0 +1,16 @@
+{
+  "disputes": 20,
+  "confirmed": 111,
+  "contradicted": 0,
+  "unverifiable": 1,
+  "consistent": 110,
+  "unlabelled": 0,
+  "flagged": 3,
+  "demoted": 16,
+  "stripped": 0,
+  "failedCopies": 5,
+  "models": [
+    "claude-opus-5"
+  ],
+  "contradictedIn": []
+}

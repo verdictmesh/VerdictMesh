@@ -1,0 +1,32 @@
+{
+  "9c384d01d7f51e52": {
+    "statement": "The escrow was opened with buyer 5azHjgBwohqhs5ieqWBY69C53QfB4Y4Mzgt7iQCpKQyB and seller GYrzHeQ16ChVwYAMbYb3RigPJJyK6RViCFqH1kggvaTM for a total of 60000000.",
+    "label": "consistent",
+    "note": ""
+  },
+  "14d0ad599262f135": {
+    "statement": "The claimant (seller) opened the dispute over 20000000 base units and paid a 5000000 deposit.",
+    "label": "consistent",
+    "note": ""
+  },
+  "2f97258c6b4b5b3a": {
+    "statement": "The escrow holds three milestones of 10000000, 20000000 and 30000000, with the 20000000 milestone in Disputed state referencing this dispute.",
+    "label": "consistent",
+    "note": ""
+  },
+  "8fd713277000fc78": {
+    "statement": "No milestone of this escrow has been marked completed, released or refunded.",
+    "label": "consistent",
+    "note": ""
+  },
+  "49cefbfe8a2c66e2": {
+    "statement": "A panel of three jurors was selected using entropy from slot 508888845.",
+    "label": "consistent",
+    "note": ""
+  },
+  "12c0e524cc25073f": {
+    "statement": "The dispute was opened one second after the escrow was created, leaving no on-chain interval for work to be performed.",
+    "label": "unverifiable",
+    "note": "The timing is right (blockTime 1791479715 → 1791479716). \"Leaving no on-chain interval for work to be performed\" is an inference about off-chain work: the chain neither shows nor contradicts it, so it should not have been marked confirmed."
+  }
+}

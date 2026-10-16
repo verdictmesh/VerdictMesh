@@ -1,0 +1,32 @@
+{
+  "da0507db37fbd16f": {
+    "statement": "The escrow lists Dp5XGpQJ as buyer and 42ogyyCe as seller, matching the dispute's respondent and claimant.",
+    "label": "consistent",
+    "note": ""
+  },
+  "e8069f6e63a99d9e": {
+    "statement": "Milestone 0 worth 15000000 was released to the seller.",
+    "label": "consistent",
+    "note": ""
+  },
+  "8b183dabe21fc600": {
+    "statement": "Milestone 1 holds 35000000 and remains in Disputed state referencing dispute HxAKKT8dsbsZaC6Wd75N33LAbZC6QXE8umvgSrJspFXL.",
+    "label": "consistent",
+    "note": ""
+  },
+  "41f3ae385fcedfdd": {
+    "statement": "An earlier dispute over the same milestone closed with no winner and no funds moved.",
+    "label": "consistent",
+    "note": ""
+  },
+  "3a59dc5dd3a659d4": {
+    "statement": "The claimant posted a 5000000 deposit when opening the present dispute.",
+    "label": "consistent",
+    "note": ""
+  },
+  "2f72b3289eecb34d": {
+    "statement": "The panel chosen for this dispute is identical to the panel of the prior dispute, though entropy slot differs.",
+    "label": "consistent",
+    "note": ""
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "7aaca192c33ee680": {
+    "statement": "The escrow was opened with total 100000000, two milestones, mint B3w3Lppf... and integrator AJVteJ27....",
+    "label": "consistent",
+    "note": ""
+  },
+  "3fbe42ac98d194b1": {
+    "statement": "The claimant opened a non-optimistic dispute for 70000000 at 1793024000 and paid a 5000000 deposit.",
+    "label": "consistent",
+    "note": ""
+  },
+  "d6c8dca947ecb5d2": {
+    "statement": "Milestone #0 holds 70000000 and is in Disputed state referencing dispute DjXZRAGZ...; milestone #1 holds 30000000 and is Pending.",
+    "label": "consistent",
+    "note": ""
+  },
+  "abb13de401ff21b4": {
+    "statement": "No release or refund of milestone #0 funds has occurred on chain.",
+    "label": "consistent",
+    "note": ""
+  }
+}

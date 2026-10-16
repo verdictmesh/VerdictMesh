@@ -1,0 +1,56 @@
+{
+  "title": "Amounts beyond 2^53 — a nine-decimal token with a huge supply; any rounding is a wrong number.",
+  "traps": [
+    "Amounts rounded or written in scientific notation.",
+    "The total misstated by losing low digits."
+  ],
+  "buyer": "4mCAJmNTM774e1VcPuT4o2dxHY2o94zcWWoCQunBXHHD",
+  "seller": "69iBYuhBv3HV5f2nYtoMpy2WHED7GZQn64iZCeJZtXc7",
+  "claimant": "seller",
+  "respondent": "buyer",
+  "dispute": "GN8hSuXyBWUc2omtLZfST26628oABCRuTRs7WtG5YvMv",
+  "disputedMilestone": 1,
+  "disputedAmount": "4503599627370497",
+  "bond": "1000000000000001",
+  "deposit": "5000000",
+  "total": "13510798882111490",
+  "milestones": [
+    {
+      "index": 0,
+      "amount": "9007199254740993",
+      "state": "Pending",
+      "passed": [
+        "Pending"
+      ]
+    },
+    {
+      "index": 1,
+      "amount": "4503599627370497",
+      "state": "Disputed",
+      "passed": [
+        "Pending",
+        "Disputed"
+      ]
+    }
+  ],
+  "transactions": [
+    {
+      "signature": "ETXPpvVqzrVi7usFZ6aWx84bWbj5q6EjUK4NG6qb4pov84LzLV5C1fcrEhqeuzAUDjhBy1B8ee8PXjBMhfskMWj",
+      "slot": 505110000,
+      "blockTime": 1790864000,
+      "what": "Escrow created: buyer 4mCAJmNTM774e1VcPuT4o2dxHY2o94zcWWoCQunBXHHD, seller 69iBYuhBv3HV5f2nYtoMpy2WHED7GZQn64iZCeJZtXc7, total 13510798882111490, 2 milestone(s), bond 1000000000000001 per side per milestone."
+    },
+    {
+      "signature": "4caWeVFs91pMLY9SGyUCFFmx8K4EPqKx3LpabHQJXjyE1a3GYB6tNknP9z12Xdr93BzghPm7vT5vnR8WJyoXSN5R",
+      "slot": 505974000,
+      "blockTime": 1791209600,
+      "what": "The seller opened dispute GN8hSuXyBWUc2omtLZfST26628oABCRuTRs7WtG5YvMv over milestone 1 (4503599627370497), paid a deposit of 5000000; a panel of three was selected."
+    }
+  ],
+  "collected": {
+    "transactions": 2,
+    "truncated": false,
+    "logsCut": 0
+  },
+  "escrowProgramKnown": true
+}

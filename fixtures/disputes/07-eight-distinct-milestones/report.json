@@ -1,0 +1,212 @@
+{
+  "model": "claude-opus-5",
+  "generationMs": 17510,
+  "demoted": 11,
+  "stripped": 0,
+  "failures": [],
+  "generated": {
+    "summary": "An 8-milestone escrow (36xvsAUyP9m84jCkpfjtpAE6WbjYjekczEyS1dLQCAxS) was opened on 1790518400 between buyer D3wyMYHnCKDNT5Wsho7EWdgAW6p4f5JJJTbcH27t8RTn and seller HxHuAFwmbRLBkLtavLTiQ3nLXjEcYxFTNicYsegfpG6h for a total of 100000000 base units. Milestones 0-4 were released by the buyer between 1790691200 and 1791382400. On 1791555200 the buyer paid a 5000000 deposit, opened dispute 6ju6rTPuy7SUKryXxnJrD4mtG8E43ZwihPTGNd3fYzrw over milestone 7 (25000000), and a three-juror panel was selected. The escrow snapshot shows milestone 7 as Disputed and milestones 5 and 6 Pending. The buyer says milestone 7 was undelivered; the seller says it was delivered. No on-chain evidence addresses delivery.",
+    "timeline": [
+      {
+        "at": 1790518400,
+        "what": "Escrow opened with buyer, seller, 8 milestones, total 100000000 and bond 1000000. ,"
+      },
+      {
+        "at": 1790691200,
+        "what": "Milestone 0 released for 5000000, signed by the buyer.','"
+      },
+      {
+        "at": 1790864000,
+        "what": "Milestone 1 released for 7500000, signed by the buyer."
+      },
+      {
+        "at": 1791036800,
+        "what": "Milestone 2 released for 12000000, signed by the buyer."
+      },
+      {
+        "at": 1791209600,
+        "what": "Milestone 4 released for 14000000, signed by the buyer (out of order)."
+      },
+      {
+        "at": 1791382400,
+        "what": "Milestone 3 released for 9000000, signed by the buyer."
+      },
+      {
+        "at": 1791555200,
+        "what": "Buyer paid a 5000000 deposit, dispute opened over milestone 7 for 25000000, and a panel of three jurors was selected."
+      }
+    ],
+    "facts": [
+      {
+        "statement": "The escrow was opened on 1790518400 with total 100000000 across 8 milestones between buyer D3wyMYHnCKDNT5Wsho7EWdgAW6p4f5JJJTbcH27t8RTn and seller HxHuAFwmbRLBkLtavLTiQ3nLXjEcYxFTNicYsegfpG6h.",
+        "verdict": "confirmed"
+      },
+      {
+        "statement": "Milestone 0 was released for 5000000.",
+        "verdict": "confirmed"
+      },
+      {
+        "statement": "Milestone 1 was released for 7500000.",
+        "verdict": "confirmed"
+      },
+      {
+        "statement": "Milestone 2 was released for 12000000.",
+        "verdict": "confirmed"
+      },
+      {
+        "statement": "Milestone 4 was released for 14000000 before milestone 3 was released.",
+        "verdict": "confirmed"
+      },
+      {
+        "statement": "Milestone 3 was released for 9000000.",
+        "verdict": "confirmed"
+      },
+      {
+        "statement": "The dispute concerns milestone 7 with a locked amount of 25000000 and was opened at 1791555200 by the buyer.",
+        "verdict": "confirmed"
+      },
+      {
+        "statement": "The escrow account shows milestones 0-4 Released, milestones 5 and 6 Pending, and milestone 7 Disputed under this dispute.",
+        "verdict": "confirmed"
+      },
+      {
+        "statement": "A deposit of 5000000 was collected from the claimant when the dispute was opened.",
+        "verdict": "confirmed"
+      },
+      {
+        "statement": "A three-member juror panel was selected for the dispute.",
+        "verdict": "confirmed"
+      },
+      {
+        "statement": "Milestone 7 work was delivered off chain by the seller.",
+        "verdict": "unconfirmed"
+      },
+      {
+        "statement": "Funds for milestone 7 were released or refunded to either party.",
+        "verdict": "contradicted"
+      }
+    ],
+    "claims": [
+      {
+        "party": "claimant",
+        "statement": "Milestone #7 was not delivered, so its locked funds should be refunded to the buyer.",
+        "assessment": "unsupported"
+      },
+      {
+        "party": "respondent",
+        "statement": "Milestone #7 was delivered, so its locked funds should be released to the seller.",
+        "assessment": "unsupported"
+      }
+    ],
+    "gaps": [
+      "No evidence shows whether the milestone 7 deliverable was produced or accepted off chain.",
+      " No acceptance criteria or contract terms for milestone 7 appear in the evidence.",
+      "The evidence does not explain why milestones 5 and 6 remain Pending while milestone 7 was disputed.",
+      "No communication between buyer and seller about delivery is in the record.",
+      "The escrow lists a separate settlement_mint, and the evidence does not show how payout conversion would work."
+    ]
+  },
+  "report": {
+    "summary": "An 8-milestone escrow (36xvsAUyP9m84jCkpfjtpAE6WbjYjekczEyS1dLQCAxS) was opened on 1790518400 between buyer D3wyMYHnCKDNT5Wsho7EWdgAW6p4f5JJJTbcH27t8RTn and seller HxHuAFwmbRLBkLtavLTiQ3nLXjEcYxFTNicYsegfpG6h for a total of 100000000 base units. Milestones 0-4 were released by the buyer between 1790691200 and 1791382400. On 1791555200 the buyer paid a 5000000 deposit, opened dispute 6ju6rTPuy7SUKryXxnJrD4mtG8E43ZwihPTGNd3fYzrw over milestone 7 (25000000), and a three-juror panel was selected. The escrow snapshot shows milestone 7 as Disputed and milestones 5 and 6 Pending. The buyer says milestone 7 was undelivered; the seller says it was delivered. No on-chain evidence addresses delivery.",
+    "timeline": [
+      {
+        "at": 1790518400,
+        "what": "Escrow opened with buyer, seller, 8 milestones, total 100000000 and bond 1000000. ,"
+      },
+      {
+        "at": 1790691200,
+        "what": "Milestone 0 released for 5000000, signed by the buyer.','"
+      },
+      {
+        "at": 1790864000,
+        "what": "Milestone 1 released for 7500000, signed by the buyer."
+      },
+      {
+        "at": 1791036800,
+        "what": "Milestone 2 released for 12000000, signed by the buyer."
+      },
+      {
+        "at": 1791209600,
+        "what": "Milestone 4 released for 14000000, signed by the buyer (out of order)."
+      },
+      {
+        "at": 1791382400,
+        "what": "Milestone 3 released for 9000000, signed by the buyer."
+      },
+      {
+        "at": 1791555200,
+        "what": "Buyer paid a 5000000 deposit, dispute opened over milestone 7 for 25000000, and a panel of three jurors was selected."
+      }
+    ],
+    "facts": [
+      {
+        "statement": "The escrow was opened on 1790518400 with total 100000000 across 8 milestones between buyer D3wyMYHnCKDNT5Wsho7EWdgAW6p4f5JJJTbcH27t8RTn and seller HxHuAFwmbRLBkLtavLTiQ3nLXjEcYxFTNicYsegfpG6h.",
+        "verdict": "unconfirmed"
+      },
+      {
+        "statement": "Milestone 0 was released for 5000000.",
+        "verdict": "unconfirmed"
+      },
+      {
+        "statement": "Milestone 1 was released for 7500000.",
+        "verdict": "unconfirmed"
+      },
+      {
+        "statement": "Milestone 2 was released for 12000000.",
+        "verdict": "unconfirmed"
+      },
+      {
+        "statement": "Milestone 4 was released for 14000000 before milestone 3 was released.",
+        "verdict": "unconfirmed"
+      },
+      {
+        "statement": "Milestone 3 was released for 9000000.",
+        "verdict": "unconfirmed"
+      },
+      {
+        "statement": "The dispute concerns milestone 7 with a locked amount of 25000000 and was opened at 1791555200 by the buyer.",
+        "verdict": "unconfirmed"
+      },
+      {
+        "statement": "The escrow account shows milestones 0-4 Released, milestones 5 and 6 Pending, and milestone 7 Disputed under this dispute.",
+        "verdict": "unconfirmed"
+      },
+      {
+        "statement": "A deposit of 5000000 was collected from the claimant when the dispute was opened.",
+        "verdict": "unconfirmed"
+      },
+      {
+        "statement": "A three-member juror panel was selected for the dispute.",
+        "verdict": "unconfirmed"
+      },
+      {
+        "statement": "Milestone 7 work was delivered off chain by the seller.",
+        "verdict": "unconfirmed"
+      },
+      {
+        "statement": "Funds for milestone 7 were released or refunded to either party.",
+        "verdict": "unconfirmed"
+      }
+    ],
+    "claims": [
+      {
+        "party": "claimant",
+        "statement": "Milestone #7 was not delivered, so its locked funds should be refunded to the buyer.",
+        "assessment": "unsupported"
+      },
+      {
+        "party": "respondent",
+        "statement": "Milestone #7 was delivered, so its locked funds should be released to the seller.",
+        "assessment": "unsupported"
+      }
+    ],
+    "gaps": [
+      "0 reference(s) pointed at evidence that was not collected and were removed; 11 statement(s) left without a source are shown as unconfirmed.",
+      "No evidence shows whether the milestone 7 deliverable was produced or accepted off chain.",
+      " No acceptance criteria or contract terms for milestone 7 appear in the evidence.",
+      "The evidence does not explain why milestones 5 and 6 remain Pending while milestone 7 was disputed.",
+      "No communication between buyer and seller about delivery is in the record.",
+      "The escrow lists a separate settlement_mint, and the evidence does not show how payout conversion would work."
+    ]
+  }
+}

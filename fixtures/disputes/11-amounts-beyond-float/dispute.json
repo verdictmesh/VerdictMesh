@@ -1,0 +1,10 @@
+{
+  "pda": "GN8hSuXyBWUc2omtLZfST26628oABCRuTRs7WtG5YvMv",
+  "escrowRef": "21MvtCMneu6VoD8J8PHy349ipoaveLDoJ6kvELedMqgi",
+  "claimant": "69iBYuhBv3HV5f2nYtoMpy2WHED7GZQn64iZCeJZtXc7",
+  "respondent": "4mCAJmNTM774e1VcPuT4o2dxHY2o94zcWWoCQunBXHHD",
+  "amount": "4503599627370497",
+  "openedAt": 1791209600,
+  "claimantClaimHash": "abb00935209710643d059e1d4ad049cc7c5d1c9420ce8992d421843dfb0517ea",
+  "respondentClaimHash": "55b183d05b87cbd4de49604dc6ef2807a62842caa9e6be3aa25675aa2937ced7"
+}

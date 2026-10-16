@@ -1,0 +1,37 @@
+{
+  "75206f3adc9387ed": {
+    "statement": "The escrow was opened for a total of 50,000,000 across 2 milestones with a bond of 4,000,000.",
+    "label": "consistent",
+    "note": ""
+  },
+  "cb2d4bfd61d2ea72": {
+    "statement": "This dispute concerns milestone index 1 and an amount of 25,000,000, opened at 1791728000 in non-optimistic mode.",
+    "label": "consistent",
+    "note": ""
+  },
+  "5ea9d374081c345b": {
+    "statement": "The claimant (seller) paid a dispute deposit of 5,000,000.",
+    "label": "consistent",
+    "note": ""
+  },
+  "684f7a57f5d994cd": {
+    "statement": "Milestone 0 is in Refunded state and milestone 1 is in Disputed state referencing this dispute.",
+    "label": "consistent",
+    "note": ""
+  },
+  "f738207d195b333c": {
+    "statement": "An earlier dispute over milestone 0 was settled in favour of the buyer for 25,000,000 with 0 reimbursed.",
+    "label": "consistent",
+    "note": ""
+  },
+  "6385f67bd5b59168": {
+    "statement": "The same three jurors selected for the first dispute were selected again for this dispute, with entropy slot 507652001.",
+    "label": "consistent",
+    "note": ""
+  },
+  "c879f90b35cf2645": {
+    "statement": "The escrow's settlement_mint (EGYga9MCxXcwPrPVAwJ14xVe2gQokJcPYbL8qZu2KAag) differs from the deposit mint recorded at opening.",
+    "label": "consistent",
+    "note": "Both addresses are right and do differ. \"Deposit mint\" here means the escrow's deal mint (what the buyer deposited), not the mint of the dispute deposit — wording a juror could misread, not a contradiction."
+  }
+}

@@ -1,0 +1,148 @@
+{
+  "rows": [
+    {
+      "disputePda": "GN8hSuXyBWUc2omtLZfST26628oABCRuTRs7WtG5YvMv",
+      "kind": "transaction",
+      "source": "4caWeVFs91pMLY9SGyUCFFmx8K4EPqKx3LpabHQJXjyE1a3GYB6tNknP9z12Xdr93BzghPm7vT5vnR8WJyoXSN5R",
+      "slot": 505974000,
+      "payload": {
+        "blockTime": 1791209600,
+        "signers": [
+          "J8Kri2EsygCp7jSonTjyroEXEhw6wNW9Dgcf88s86J3Y",
+          "69iBYuhBv3HV5f2nYtoMpy2WHED7GZQn64iZCeJZtXc7"
+        ],
+        "programs": [
+          "4iYF4WRdtuSmjTXH5fSa2ow5WrdeonEoeoY3epypfTHo",
+          "8WyWpDD1ZbkTRGG6SRcYyWxApPsHaSgWn2SWJQ8xSgxq",
+          "11111111111111111111111111111111",
+          "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        ],
+        "events": [
+          {
+            "program": "verdict_mesh",
+            "name": "DepositCollected",
+            "data": {
+              "dispute": "GN8hSuXyBWUc2omtLZfST26628oABCRuTRs7WtG5YvMv",
+              "depositor": "69iBYuhBv3HV5f2nYtoMpy2WHED7GZQn64iZCeJZtXc7",
+              "amount": "5000000"
+            }
+          },
+          {
+            "program": "verdict_mesh",
+            "name": "DisputeOpened",
+            "data": {
+              "dispute": "GN8hSuXyBWUc2omtLZfST26628oABCRuTRs7WtG5YvMv",
+              "integrator": "DYQxHdVQ4j2po6mYjYB9e5Y6t12KyrEkuYEcfpkRezYh",
+              "escrow_ref": "21MvtCMneu6VoD8J8PHy349ipoaveLDoJ6kvELedMqgi",
+              "claimant": "69iBYuhBv3HV5f2nYtoMpy2WHED7GZQn64iZCeJZtXc7",
+              "respondent": "4mCAJmNTM774e1VcPuT4o2dxHY2o94zcWWoCQunBXHHD",
+              "amount": "4503599627370497",
+              "optimistic": false,
+              "opened_at": "1791209600"
+            }
+          },
+          {
+            "program": "reference_escrow",
+            "name": "MilestoneDisputed",
+            "data": {
+              "escrow": "21MvtCMneu6VoD8J8PHy349ipoaveLDoJ6kvELedMqgi",
+              "milestone": 1,
+              "dispute": "GN8hSuXyBWUc2omtLZfST26628oABCRuTRs7WtG5YvMv",
+              "claimant": "69iBYuhBv3HV5f2nYtoMpy2WHED7GZQn64iZCeJZtXc7",
+              "amount": "4503599627370497"
+            }
+          },
+          {
+            "program": "verdict_mesh",
+            "name": "PanelSelected",
+            "data": {
+              "dispute": "GN8hSuXyBWUc2omtLZfST26628oABCRuTRs7WtG5YvMv",
+              "panel": [
+                "DonJ536zizBPckCMK7Cz4xeq1geTciztDuNX4svseWHH",
+                "87PxbqSaGAAByBd488i9JAqVz9Jw7dBEoSwaVJ5vPmNf",
+                "J66VJhvktqCb5rwXhoBAsa8QfbR1RUN92tNFyUooRqZ1"
+              ],
+              "entropy_slot": "505110001"
+            }
+          }
+        ],
+        "logsTruncated": false
+      }
+    },
+    {
+      "disputePda": "GN8hSuXyBWUc2omtLZfST26628oABCRuTRs7WtG5YvMv",
+      "kind": "transaction",
+      "source": "ETXPpvVqzrVi7usFZ6aWx84bWbj5q6EjUK4NG6qb4pov84LzLV5C1fcrEhqeuzAUDjhBy1B8ee8PXjBMhfskMWj",
+      "slot": 505110000,
+      "payload": {
+        "blockTime": 1790864000,
+        "signers": [
+          "J8Kri2EsygCp7jSonTjyroEXEhw6wNW9Dgcf88s86J3Y",
+          "4mCAJmNTM774e1VcPuT4o2dxHY2o94zcWWoCQunBXHHD",
+          "69iBYuhBv3HV5f2nYtoMpy2WHED7GZQn64iZCeJZtXc7"
+        ],
+        "programs": [
+          "4iYF4WRdtuSmjTXH5fSa2ow5WrdeonEoeoY3epypfTHo",
+          "11111111111111111111111111111111",
+          "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        ],
+        "events": [
+          {
+            "program": "reference_escrow",
+            "name": "EscrowOpened",
+            "data": {
+              "escrow": "21MvtCMneu6VoD8J8PHy349ipoaveLDoJ6kvELedMqgi",
+              "buyer": "4mCAJmNTM774e1VcPuT4o2dxHY2o94zcWWoCQunBXHHD",
+              "seller": "69iBYuhBv3HV5f2nYtoMpy2WHED7GZQn64iZCeJZtXc7",
+              "mint": "4SmPghuHsg3N11uDJqxtBD4erZqv2Eye75PtuR9VZnnc",
+              "integrator": "DYQxHdVQ4j2po6mYjYB9e5Y6t12KyrEkuYEcfpkRezYh",
+              "total": "13510798882111490",
+              "milestones": 2,
+              "bond": "1000000000000001"
+            }
+          }
+        ],
+        "logsTruncated": false
+      }
+    },
+    {
+      "disputePda": "GN8hSuXyBWUc2omtLZfST26628oABCRuTRs7WtG5YvMv",
+      "kind": "account",
+      "source": "21MvtCMneu6VoD8J8PHy349ipoaveLDoJ6kvELedMqgi",
+      "slot": 505974003,
+      "payload": {
+        "owner": "4iYF4WRdtuSmjTXH5fSa2ow5WrdeonEoeoY3epypfTHo",
+        "program": "reference_escrow",
+        "account": "Escrow",
+        "data": {
+          "buyer": "4mCAJmNTM774e1VcPuT4o2dxHY2o94zcWWoCQunBXHHD",
+          "seller": "69iBYuhBv3HV5f2nYtoMpy2WHED7GZQn64iZCeJZtXc7",
+          "mint": "4SmPghuHsg3N11uDJqxtBD4erZqv2Eye75PtuR9VZnnc",
+          "settlement_mint": "EGYga9MCxXcwPrPVAwJ14xVe2gQokJcPYbL8qZu2KAag",
+          "integrator": "DYQxHdVQ4j2po6mYjYB9e5Y6t12KyrEkuYEcfpkRezYh",
+          "bond": "1000000000000001",
+          "deal_id": "11",
+          "milestones": [
+            {
+              "amount": "9007199254740993",
+              "state": {
+                "Pending": {}
+              }
+            },
+            {
+              "amount": "4503599627370497",
+              "state": {
+                "Disputed": {
+                  "dispute": "GN8hSuXyBWUc2omtLZfST26628oABCRuTRs7WtG5YvMv"
+                }
+              }
+            }
+          ],
+          "bump": 254
+        },
+        "bytes": 239
+      }
+    }
+  ],
+  "truncated": false
+}

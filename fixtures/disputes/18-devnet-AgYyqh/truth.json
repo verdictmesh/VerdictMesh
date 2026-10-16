@@ -1,0 +1,64 @@
+{
+  "title": "Frozen from devnet: the seller disputes milestone 1 right after creation.",
+  "traps": [
+    "Milestone 1 (index) called the first milestone, or given the amount of index 0 or 2.",
+    "The deposit and the bond (equal here) confused with each other or with an amount."
+  ],
+  "buyer": "8KsQjWirA8GghUMcwWeKJUzcBiyuyLGeUT7nuzbn17Bn",
+  "seller": "8aZ6UYEnrmuMMCqxxUm5DqKnEu43u7Kq6VCe7p2sjUuE",
+  "claimant": "seller",
+  "respondent": "buyer",
+  "dispute": "AgYyqhjTgpvNcKtCFxzRXx698vqdoy9tpjP7DrM6rEu8",
+  "disputedMilestone": 1,
+  "disputedAmount": "20000000",
+  "bond": "5000000",
+  "deposit": "5000000",
+  "total": "60000000",
+  "milestones": [
+    {
+      "index": 0,
+      "amount": "10000000",
+      "state": "Pending",
+      "passed": [
+        "Pending"
+      ]
+    },
+    {
+      "index": 1,
+      "amount": "20000000",
+      "state": "Disputed",
+      "passed": [
+        "Pending",
+        "Disputed"
+      ]
+    },
+    {
+      "index": 2,
+      "amount": "30000000",
+      "state": "Pending",
+      "passed": [
+        "Pending"
+      ]
+    }
+  ],
+  "transactions": [
+    {
+      "signature": "4dTZsqKPFXBPUuFX5SzeJ8G8MNM6ERmugBQXcUmddKMxMAhbdZxgc2v3sAH18rgwvPAhDNgcug36DhN6TqfobKVv",
+      "slot": 505200561,
+      "blockTime": 1790609016,
+      "what": "EscrowOpened"
+    },
+    {
+      "signature": "43tVL29h39y79oXpn47jg1GsBtXsG6zmdveWXDebD46Eye2yBpxCnPYeZiRg9NPVeWUD6kqetEXTwz6PHp8xnHUC",
+      "slot": 505200566,
+      "blockTime": 1790609017,
+      "what": "DepositCollected, DisputeOpened, MilestoneDisputed, PanelSelected"
+    }
+  ],
+  "collected": {
+    "transactions": 2,
+    "truncated": false,
+    "logsCut": 0
+  },
+  "escrowProgramKnown": true
+}

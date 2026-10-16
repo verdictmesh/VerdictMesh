@@ -1,0 +1,78 @@
+{
+  "title": "The node cut the logs of the release of milestone 0; the event is missing, but the account shows the milestone Released.",
+  "traps": [
+    "Milestone 0 said never to have been released (silence of cut logs read as evidence).",
+    "The cut transaction described as doing something specific."
+  ],
+  "buyer": "4BjDkdTB3eHFcJcYQx35p5eJLUp3epbY3zvGq7WBUu79",
+  "seller": "7HbdPSffjKRMxepQJUmDJZ1SsPod5VDNasPjf6g9Na5D",
+  "claimant": "buyer",
+  "respondent": "seller",
+  "dispute": "77EgMXcLzBdaVsN7vjaHthVT8yhYKgceT4r4dcx62jdq",
+  "disputedMilestone": 2,
+  "disputedAmount": "50000000",
+  "bond": "2500000",
+  "deposit": "5000000",
+  "total": "100000000",
+  "milestones": [
+    {
+      "index": 0,
+      "amount": "20000000",
+      "state": "Released",
+      "passed": [
+        "Pending",
+        "Released"
+      ]
+    },
+    {
+      "index": 1,
+      "amount": "30000000",
+      "state": "Released",
+      "passed": [
+        "Pending",
+        "Released"
+      ]
+    },
+    {
+      "index": 2,
+      "amount": "50000000",
+      "state": "Disputed",
+      "passed": [
+        "Pending",
+        "Disputed"
+      ]
+    }
+  ],
+  "transactions": [
+    {
+      "signature": "5hHLKmYV8DpLitEbPNqdMZbU57jtSvZ195yoK6edXr4e4PrcJcbsugLvhFDcfLfWgddiGDpMLjca2XZxxdkWxwHR",
+      "slot": 505120000,
+      "blockTime": 1790950400,
+      "what": "Escrow created: buyer 4BjDkdTB3eHFcJcYQx35p5eJLUp3epbY3zvGq7WBUu79, seller 7HbdPSffjKRMxepQJUmDJZ1SsPod5VDNasPjf6g9Na5D, total 100000000, 3 milestone(s), bond 2500000 per side per milestone."
+    },
+    {
+      "signature": "ZHCvd2FbQeceFxdDu88eYoZTzReFgVTCRTgBFfwwYYYx2rkxNp9zdneQyn55zdVed7XwWH6E22R2yAWn6PedkYP",
+      "slot": 506200000,
+      "blockTime": 1791382400,
+      "what": "The buyer released milestone 0 (20000000) to the seller without a dispute."
+    },
+    {
+      "signature": "52XpLFJc76kkBX44uSTMERaE3hKYrZWMmptUEVCizpqPnCpxvNgThZviYe58uCoZAoJRicdwMaSy8vSrtjuvh1Yn",
+      "slot": 507280000,
+      "blockTime": 1791814400,
+      "what": "The buyer released milestone 1 (30000000) to the seller without a dispute."
+    },
+    {
+      "signature": "3fnWCW11faFhXu82h4iT2PFUqv5qx4u9KFBEfpHozVW5Q5fLB2wueWmCKH7E2bo5An6CrwqSP9LTjnma8WmR7gBg",
+      "slot": 508360000,
+      "blockTime": 1792246400,
+      "what": "The buyer opened dispute 77EgMXcLzBdaVsN7vjaHthVT8yhYKgceT4r4dcx62jdq over milestone 2 (50000000), paid a deposit of 5000000; a panel of three was selected."
+    }
+  ],
+  "collected": {
+    "transactions": 4,
+    "truncated": false,
+    "logsCut": 1
+  },
+  "escrowProgramKnown": true
+}

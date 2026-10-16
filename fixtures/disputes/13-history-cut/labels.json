@@ -1,0 +1,37 @@
+{
+  "c2a267cf5b213422": {
+    "statement": "The dispute under review concerns milestone index 3 of escrow HSpFvAeC9fWQ7z2wHKvkNNHAuz6yRk337Wcy6HzeTNJ3 for an amount of 30000000 and is not optimistic.",
+    "label": "consistent",
+    "note": ""
+  },
+  "30537642a4df6b60": {
+    "statement": "The claimant paid a deposit of 5000000 when opening the dispute.",
+    "label": "consistent",
+    "note": ""
+  },
+  "e4c6f86cfa00395a": {
+    "statement": "The claimant 7xgczuJEjMDMZW4YGbvVAyCZm9jeaxpuSzTADJfY7mSK is the seller and the respondent 4LkBJHEtWmPC7rbtceK3FzmC1M7RGz9DKJcEU3HKEPce is the buyer.",
+    "label": "consistent",
+    "note": ""
+  },
+  "d2111275893b9215": {
+    "statement": "Milestone index 3 is in state Disputed referencing BK58PhzHkgJMjJQKdiGH2HFu1miRbwnVJk1ewXEEgdh3, so its funds have not been released or refunded.",
+    "label": "consistent",
+    "note": "Flag overruled: the states are negated — the statement says the milestone was never released or refunded, which the snapshot confirms."
+  },
+  "eb08cbfaeacd7469": {
+    "statement": "Milestones 0 and 1 are Released and milestone 2 is Refunded.",
+    "label": "consistent",
+    "note": ""
+  },
+  "1ca50d1027ebe6ce": {
+    "statement": "A prior dispute over milestone 2 between the same parties was resolved in the buyer's favour.",
+    "label": "consistent",
+    "note": ""
+  },
+  "8b2be71e180685ed": {
+    "statement": "The same three jurors selected for the earlier dispute were selected again for this dispute.",
+    "label": "consistent",
+    "note": ""
+  }
+}

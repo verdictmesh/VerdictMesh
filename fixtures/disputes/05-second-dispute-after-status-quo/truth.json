@@ -1,0 +1,84 @@
+{
+  "title": "The same milestone is disputed a second time: the first dispute ended in status quo and returned it to Pending.",
+  "traps": [
+    "The milestone said to be settled, paid or closed already.",
+    "A winner named for the earlier dispute (there was none).",
+    "The zero amount of the earlier settlement read as the milestone amount."
+  ],
+  "buyer": "Dp5XGpQJ1Dfp2zCgpHUxUfyzVL9LYtMjU2i8ZKW8CeB9",
+  "seller": "42ogyyCe9m9NuPi9CQ9u5oki4sFCP6kioa1z2oWDEm3q",
+  "claimant": "seller",
+  "respondent": "buyer",
+  "dispute": "HxAKKT8dsbsZaC6Wd75N33LAbZC6QXE8umvgSrJspFXL",
+  "disputedMilestone": 1,
+  "disputedAmount": "35000000",
+  "bond": "5000000",
+  "deposit": "5000000",
+  "total": "100000000",
+  "milestones": [
+    {
+      "index": 0,
+      "amount": "15000000",
+      "state": "Released",
+      "passed": [
+        "Pending",
+        "Released"
+      ]
+    },
+    {
+      "index": 1,
+      "amount": "35000000",
+      "state": "Disputed",
+      "passed": [
+        "Pending",
+        "Disputed"
+      ]
+    },
+    {
+      "index": 2,
+      "amount": "50000000",
+      "state": "Pending",
+      "passed": [
+        "Pending"
+      ]
+    }
+  ],
+  "transactions": [
+    {
+      "signature": "5Z6cn8oPeF8v7m6sZ2YW2V9YCwobVhEaMuuqxSw4bbDasFA17gYt14rcTHuhtVnxChDFHjhephbW6V4hpoWEKfdN",
+      "slot": 505050000,
+      "blockTime": 1790345600,
+      "what": "Escrow created: buyer Dp5XGpQJ1Dfp2zCgpHUxUfyzVL9LYtMjU2i8ZKW8CeB9, seller 42ogyyCe9m9NuPi9CQ9u5oki4sFCP6kioa1z2oWDEm3q, total 100000000, 3 milestone(s), bond 5000000 per side per milestone."
+    },
+    {
+      "signature": "3a51BgxkPgjW3nVyryeS4LRYRCm2aTWBv7sVaoDnfG2vPo4W5rUJbspZEQ2giY52JpKcbw3XMRzL5khfkURHGaoP",
+      "slot": 505698000,
+      "blockTime": 1790604800,
+      "what": "The buyer released milestone 0 (15000000) to the seller without a dispute."
+    },
+    {
+      "signature": "3xiS7oXFKnvH1x9FZ4gDizizZx8Hfp4kXvmGQ9mB4MLTUXfVFUfCq6SgqcBK8diF9voo98Mrd7H9u8aeUtEQA3g",
+      "slot": 506994000,
+      "blockTime": 1791123200,
+      "what": "The seller opened dispute 6o43VhaqANMtFszJUz9UBBFxGyE6wRf9hAq4iAB7WJxz over milestone 1 (35000000), paid a deposit of 5000000; a panel of three was selected."
+    },
+    {
+      "signature": "4CJDUpxeGkHpMZsfa7NhHzrJWBaUawtWYH3RdX2WLiquBJm2krXgdW2PCrn4AXMhPzbGmt3KYYF9nC5h6mJZeQyq",
+      "slot": 508074000,
+      "blockTime": 1791555200,
+      "what": "Earlier dispute 6o43VhaqANMtFszJUz9UBBFxGyE6wRf9hAq4iAB7WJxz settled with verdict StatusQuo: nothing paid, milestone back to Pending; reimbursed 0."
+    },
+    {
+      "signature": "4dqfkP7F6KDLs5axGrTRQq6pEmBnG1grcEDAxuaawtunqg1eC9r5z8EYU52G6aipuwuedaVWcJg8G5B5mSgkP6Jk",
+      "slot": 508290000,
+      "blockTime": 1791641600,
+      "what": "The seller opened dispute HxAKKT8dsbsZaC6Wd75N33LAbZC6QXE8umvgSrJspFXL over milestone 1 (35000000), paid a deposit of 5000000; a panel of three was selected."
+    }
+  ],
+  "collected": {
+    "transactions": 5,
+    "truncated": false,
+    "logsCut": 0
+  },
+  "escrowProgramKnown": true
+}

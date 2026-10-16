@@ -1,0 +1,57 @@
+{
+  "title": "The buyer disputes the first of two milestones; nothing was released before.",
+  "traps": [
+    "Milestone 0 called \"milestone 1\" with the amount of index 1.",
+    "The claimant called the seller.",
+    "The bond or the deposit given as the disputed amount."
+  ],
+  "buyer": "EGt9y5MY1P71eWk3WxUHJoKhn7moR6enmrEjZ1GTdfQW",
+  "seller": "6MMRHwnYT9Lf31L8khPBu4Zgt7wTdCTrFYe8Qrsg3Z9s",
+  "claimant": "buyer",
+  "respondent": "seller",
+  "dispute": "63BpvCncCQwD5nKJ5D49RSXH2CNVwqRjtutxDXqy4YSH",
+  "disputedMilestone": 0,
+  "disputedAmount": "40000000",
+  "bond": "5000000",
+  "deposit": "5000000",
+  "total": "100000000",
+  "milestones": [
+    {
+      "index": 0,
+      "amount": "40000000",
+      "state": "Disputed",
+      "passed": [
+        "Pending",
+        "Disputed"
+      ]
+    },
+    {
+      "index": 1,
+      "amount": "60000000",
+      "state": "Pending",
+      "passed": [
+        "Pending"
+      ]
+    }
+  ],
+  "transactions": [
+    {
+      "signature": "2ZRf63wxGe9Hvw5bBGChVZjtnFL92vL1Cm4EHPkRhFfWg5TE34aW2nE1A18c93LZU4ikjDcERh8QkZEuYJujAZap",
+      "slot": 505010000,
+      "blockTime": 1790000000,
+      "what": "Escrow created: buyer EGt9y5MY1P71eWk3WxUHJoKhn7moR6enmrEjZ1GTdfQW, seller 6MMRHwnYT9Lf31L8khPBu4Zgt7wTdCTrFYe8Qrsg3Z9s, total 100000000, 2 milestone(s), bond 5000000 per side per milestone."
+    },
+    {
+      "signature": "ZKaqimiasmbPdHDVW4bxoAH4X6Ck2nZkXkSjhiBFeoySBXUTC1Tp4aDFHuswL89dTKykuhbJgPsvRtXoMn3XYnK",
+      "slot": 505658000,
+      "blockTime": 1790259200,
+      "what": "The buyer opened dispute 63BpvCncCQwD5nKJ5D49RSXH2CNVwqRjtutxDXqy4YSH over milestone 0 (40000000), paid a deposit of 5000000; a panel of three was selected."
+    }
+  ],
+  "collected": {
+    "transactions": 2,
+    "truncated": false,
+    "logsCut": 0
+  },
+  "escrowProgramKnown": true
+}

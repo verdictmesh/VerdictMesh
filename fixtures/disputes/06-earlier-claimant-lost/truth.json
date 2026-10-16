@@ -1,0 +1,70 @@
+{
+  "title": "The seller lost an earlier dispute over milestone 0 (refunded to the buyer); now the seller disputes milestone 1.",
+  "traps": [
+    "The earlier dispute reported as won by the seller, or the seller reimbursed.",
+    "Milestone 0 described as released."
+  ],
+  "buyer": "9ueh1vZVA9NThvGuiacfnPSZKaAZiEgFPdBArS4BBDeK",
+  "seller": "2Vzu8utMgg8kkh99KkwJjojYxdMFTgJ24A4vRXmWnwZT",
+  "claimant": "seller",
+  "respondent": "buyer",
+  "dispute": "9MbLwN8sq3MymwqNei49xBQsgojTonSjUSU7V8jTrPcb",
+  "disputedMilestone": 1,
+  "disputedAmount": "25000000",
+  "bond": "4000000",
+  "deposit": "5000000",
+  "total": "50000000",
+  "milestones": [
+    {
+      "index": 0,
+      "amount": "25000000",
+      "state": "Refunded",
+      "passed": [
+        "Pending",
+        "Disputed",
+        "Refunded"
+      ]
+    },
+    {
+      "index": 1,
+      "amount": "25000000",
+      "state": "Disputed",
+      "passed": [
+        "Pending",
+        "Disputed"
+      ]
+    }
+  ],
+  "transactions": [
+    {
+      "signature": "5gUMKFYyTr8rZSmje5xWGVhDQsAKDYs8BCvxXUeKaqhaoChR7AsQJzhTmbF5encETECSHb8rXWM7VxQ8RnHSVMBp",
+      "slot": 505060000,
+      "blockTime": 1790432000,
+      "what": "Escrow created: buyer 9ueh1vZVA9NThvGuiacfnPSZKaAZiEgFPdBArS4BBDeK, seller 2Vzu8utMgg8kkh99KkwJjojYxdMFTgJ24A4vRXmWnwZT, total 50000000, 2 milestone(s), bond 4000000 per side per milestone."
+    },
+    {
+      "signature": "5oeuuijqXM3ubBhApqiRH2d9btCqj8RtmNKvbf5whzxVEhHae99HUXYgpaCmaJimYt4jJTDG4pENpUSj7jWrgamu",
+      "slot": 506788000,
+      "blockTime": 1791123200,
+      "what": "The seller opened dispute 8LSfMDUsRSvuLHpprNusXLhfjRfNVHFRBWrRq8j5cUja over milestone 0 (25000000), paid a deposit of 5000000; a panel of three was selected."
+    },
+    {
+      "signature": "4C7eSFFHyAUb9X614EoU2BoFFoHZUg9vw9mQ1UG2Qsh1mpbqzeyKBr66eHkVqhDjfZqWhxSwGLJHqnbZ4ooAeoP4",
+      "slot": 507652000,
+      "blockTime": 1791468800,
+      "what": "Earlier dispute 8LSfMDUsRSvuLHpprNusXLhfjRfNVHFRBWrRq8j5cUja settled with verdict Respondent: 25000000 paid to the buyer, milestone Refunded; reimbursed 0."
+    },
+    {
+      "signature": "4TXphjUqknzuUP8ZdDeTY54NSyLTBkJ27hfwHuSEndZFtv9H59tHJFbRa7Pekfe31mMLAeQRaSq5upmFDH6gkmz2",
+      "slot": 508300000,
+      "blockTime": 1791728000,
+      "what": "The seller opened dispute 9MbLwN8sq3MymwqNei49xBQsgojTonSjUSU7V8jTrPcb over milestone 1 (25000000), paid a deposit of 5000000; a panel of three was selected."
+    }
+  ],
+  "collected": {
+    "transactions": 4,
+    "truncated": false,
+    "logsCut": 0
+  },
+  "escrowProgramKnown": true
+}

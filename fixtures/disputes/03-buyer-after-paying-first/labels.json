@@ -1,0 +1,32 @@
+{
+  "3964c9e4429f3e22": {
+    "statement": "The escrow was opened with buyer 2dopdDEaTFzwGTLMGwEv1rs7SV2BV2yZBq3CCwqPQzHW and seller 9fHgRXfpYCnkzrRQ262QDUczSJmiUvSK48HviDuAv44d for total 100000000.",
+    "label": "consistent",
+    "note": ""
+  },
+  "4013ac3be3c250a4": {
+    "statement": "Milestone index 0, worth 30000000, was released to the seller in a transaction signed only by the buyer.",
+    "label": "consistent",
+    "note": ""
+  },
+  "4db35d572ab325c1": {
+    "statement": "The escrow account shows milestone 0 Released, milestone 1 Disputed under this dispute, and milestone 2 (40000000) Pending.",
+    "label": "consistent",
+    "note": ""
+  },
+  "e6b406a8f1dc1bdd": {
+    "statement": "The disputed funds are milestone index 1 for 30000000, not the first milestone, which was already released.",
+    "label": "consistent",
+    "note": ""
+  },
+  "571cde3d3d2c7644": {
+    "statement": "The buyer paid a dispute deposit of 5000000 and the dispute was opened in non-optimistic mode with a three-juror panel.",
+    "label": "consistent",
+    "note": ""
+  },
+  "03edfe3ca844de26": {
+    "statement": "The escrow's settlement mint EGYga9MCxXcwPrPVAwJ14xVe2gQokJcPYbL8qZu2KAag differs from the deposit mint FS7RfkqQ9shKrJ96okoBAf9KoR3XSogn55vzLKPoBVf6.",
+    "label": "consistent",
+    "note": "Both addresses are right and do differ. \"Deposit mint\" here means the escrow's deal mint (what the buyer deposited), not the mint of the dispute deposit — wording a juror could misread, not a contradiction."
+  }
+}

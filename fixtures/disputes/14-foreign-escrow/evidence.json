@@ -1,0 +1,115 @@
+{
+  "rows": [
+    {
+      "disputePda": "6sTKakdmyaW1Zwkacmu6CQZF1cPfAJQBuqwsXEwyN1vY",
+      "kind": "transaction",
+      "source": "2noYrKVujaQzeMzUGW3ZESFVK9QwTBedQgARfGXHmSBWnP6ht6ThitekbHdh31oDsnrM53UrNwEjpWzR7VuQchN8",
+      "slot": 507084000,
+      "payload": {
+        "blockTime": 1791900800,
+        "signers": [
+          "5jp7eqhkDNrDaKD1uUtSDPzDPeSHkSVdQNJcGZQ6dmXN",
+          "HibFNKXSeGiSw2hTpEgYCumRXKte3L4oM4CVSsFXB9Tw"
+        ],
+        "programs": [
+          "6AXixykKqHUR2TdBNpEqsSoYByRiDvnDiHM9w7ThxpWR",
+          "8WyWpDD1ZbkTRGG6SRcYyWxApPsHaSgWn2SWJQ8xSgxq",
+          "11111111111111111111111111111111",
+          "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        ],
+        "events": [
+          {
+            "program": "verdict_mesh",
+            "name": "DepositCollected",
+            "data": {
+              "dispute": "6sTKakdmyaW1Zwkacmu6CQZF1cPfAJQBuqwsXEwyN1vY",
+              "depositor": "HibFNKXSeGiSw2hTpEgYCumRXKte3L4oM4CVSsFXB9Tw",
+              "amount": "5000000"
+            }
+          },
+          {
+            "program": "verdict_mesh",
+            "name": "DisputeOpened",
+            "data": {
+              "dispute": "6sTKakdmyaW1Zwkacmu6CQZF1cPfAJQBuqwsXEwyN1vY",
+              "integrator": "8epjDMxYJApkroSPXvjtY6vC64JDJsHCHNsEXb5vrdH2",
+              "escrow_ref": "82SNo6Cmx5QKCgk4mWxuvvQvg5ocXGvyVUyWXeEAa2bM",
+              "claimant": "HibFNKXSeGiSw2hTpEgYCumRXKte3L4oM4CVSsFXB9Tw",
+              "respondent": "Hn3E2UKHx2C6JhPB65iSKqmmLWWRqHvmLzJbyy3tjHpD",
+              "amount": "55000000",
+              "optimistic": false,
+              "opened_at": "1791900800"
+            }
+          },
+          {
+            "program": "verdict_mesh",
+            "name": "PanelSelected",
+            "data": {
+              "dispute": "6sTKakdmyaW1Zwkacmu6CQZF1cPfAJQBuqwsXEwyN1vY",
+              "panel": [
+                "DonJ536zizBPckCMK7Cz4xeq1geTciztDuNX4svseWHH",
+                "87PxbqSaGAAByBd488i9JAqVz9Jw7dBEoSwaVJ5vPmNf",
+                "J66VJhvktqCb5rwXhoBAsa8QfbR1RUN92tNFyUooRqZ1"
+              ],
+              "entropy_slot": "506436001"
+            }
+          }
+        ],
+        "logsTruncated": false
+      }
+    },
+    {
+      "disputePda": "6sTKakdmyaW1Zwkacmu6CQZF1cPfAJQBuqwsXEwyN1vY",
+      "kind": "transaction",
+      "source": "265bdi4YSN6139XoDghD61sb9QnXk7sxMSoSd9eEnCFCzrKdfoV9VogkooPZXuqkRvVXhZves9oAGrpzcnMCNWjW",
+      "slot": 506436000,
+      "payload": {
+        "blockTime": 1791641600,
+        "signers": [
+          "Hn3E2UKHx2C6JhPB65iSKqmmLWWRqHvmLzJbyy3tjHpD"
+        ],
+        "programs": [
+          "6AXixykKqHUR2TdBNpEqsSoYByRiDvnDiHM9w7ThxpWR",
+          "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        ],
+        "events": [],
+        "logsTruncated": false
+      }
+    },
+    {
+      "disputePda": "6sTKakdmyaW1Zwkacmu6CQZF1cPfAJQBuqwsXEwyN1vY",
+      "kind": "transaction",
+      "source": "21DWCRqxv6ZeTyVNZ4d4MbPNrJMYxas1nUVVyZheURXENRMUzVXcgkotVfpbxQjmz5cddPDn1pHQnQkJvRNhyT6Q",
+      "slot": 505140000,
+      "payload": {
+        "blockTime": 1791123200,
+        "signers": [
+          "5jp7eqhkDNrDaKD1uUtSDPzDPeSHkSVdQNJcGZQ6dmXN",
+          "Hn3E2UKHx2C6JhPB65iSKqmmLWWRqHvmLzJbyy3tjHpD",
+          "HibFNKXSeGiSw2hTpEgYCumRXKte3L4oM4CVSsFXB9Tw"
+        ],
+        "programs": [
+          "6AXixykKqHUR2TdBNpEqsSoYByRiDvnDiHM9w7ThxpWR",
+          "11111111111111111111111111111111",
+          "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        ],
+        "events": [],
+        "logsTruncated": false
+      }
+    },
+    {
+      "disputePda": "6sTKakdmyaW1Zwkacmu6CQZF1cPfAJQBuqwsXEwyN1vY",
+      "kind": "account",
+      "source": "82SNo6Cmx5QKCgk4mWxuvvQvg5ocXGvyVUyWXeEAa2bM",
+      "slot": 507084003,
+      "payload": {
+        "owner": "6AXixykKqHUR2TdBNpEqsSoYByRiDvnDiHM9w7ThxpWR",
+        "program": null,
+        "account": null,
+        "data": null,
+        "bytes": 239
+      }
+    }
+  ],
+  "truncated": false
+}

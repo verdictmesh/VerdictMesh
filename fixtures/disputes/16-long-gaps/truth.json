@@ -1,0 +1,71 @@
+{
+  "title": "Months between steps: created, one release after 40 days, the dispute after 95 more. Order and time are the trap.",
+  "traps": [
+    "The order of events reversed or the dispute dated to the creation.",
+    "Durations between events stated wrongly."
+  ],
+  "buyer": "ActYnZgXX5e7jTCeaoGLTFVnWorB7G14ZM93gidEtXsR",
+  "seller": "5hGjedB7shV1dGZ6PFXSG3H4AB7LiPTzB9wn6faeVvLG",
+  "claimant": "seller",
+  "respondent": "buyer",
+  "dispute": "7NmEW9Ezt5ZkTmRuvCDRm3wyVQ8ALKuppJcvcLevabMa",
+  "disputedMilestone": 1,
+  "disputedAmount": "100000000",
+  "bond": "5000000",
+  "deposit": "5000000",
+  "total": "300000000",
+  "milestones": [
+    {
+      "index": 0,
+      "amount": "100000000",
+      "state": "Released",
+      "passed": [
+        "Pending",
+        "Released"
+      ]
+    },
+    {
+      "index": 1,
+      "amount": "100000000",
+      "state": "Disputed",
+      "passed": [
+        "Pending",
+        "Disputed"
+      ]
+    },
+    {
+      "index": 2,
+      "amount": "100000000",
+      "state": "Pending",
+      "passed": [
+        "Pending"
+      ]
+    }
+  ],
+  "transactions": [
+    {
+      "signature": "3QsT3bBorKSzjJ1XjwDHyiUc7pB9uxu5stcSUweezWmEGCqAPgP3QjBs9vmsf4uvmnKK5Fh5CwXgiA45HRkbtWFM",
+      "slot": 505160000,
+      "blockTime": 1777904000,
+      "what": "Escrow created: buyer ActYnZgXX5e7jTCeaoGLTFVnWorB7G14ZM93gidEtXsR, seller 5hGjedB7shV1dGZ6PFXSG3H4AB7LiPTzB9wn6faeVvLG, total 300000000, 3 milestone(s), bond 5000000 per side per milestone."
+    },
+    {
+      "signature": "2cQV798XasfxyF11QWsEn6PJp6oNu5zxZ7xtu2xsUthRV1EKVvmBpPHSbno6rxtDCDt5oXX8Uf5KrKaf6otbZhmK",
+      "slot": 513800000,
+      "blockTime": 1781360000,
+      "what": "The buyer released milestone 0 (100000000) to the seller without a dispute."
+    },
+    {
+      "signature": "4Hu3tUJ3eH9M7rfWUdPHyLS2WuNzjt5bMrUrve6DsNrF7MYgUVBGn1x7tQRgxg5PBUG35rHQarSDgu6Fmy7swNVN",
+      "slot": 534320000,
+      "blockTime": 1789568000,
+      "what": "The seller opened dispute 7NmEW9Ezt5ZkTmRuvCDRm3wyVQ8ALKuppJcvcLevabMa over milestone 1 (100000000), paid a deposit of 5000000; a panel of three was selected."
+    }
+  ],
+  "collected": {
+    "transactions": 3,
+    "truncated": false,
+    "logsCut": 0
+  },
+  "escrowProgramKnown": true
+}

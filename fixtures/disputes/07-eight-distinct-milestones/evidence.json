@@ -1,0 +1,324 @@
+{
+  "rows": [
+    {
+      "disputePda": "6ju6rTPuy7SUKryXxnJrD4mtG8E43ZwihPTGNd3fYzrw",
+      "kind": "transaction",
+      "source": "5YeMvyH9suCUvj9fyNZJSCT92qPDLYi1PjjZHSWLAaAVrCGmDXiYqCTaTZgYa9HTt6NJKoxZpGbTjxwRCDR6zQPS",
+      "slot": 507662000,
+      "payload": {
+        "blockTime": 1791555200,
+        "signers": [
+          "89JqQ5uhLvbZvGap2HWZgGJjw9qaUiopqof1sz39kdYA",
+          "D3wyMYHnCKDNT5Wsho7EWdgAW6p4f5JJJTbcH27t8RTn"
+        ],
+        "programs": [
+          "4iYF4WRdtuSmjTXH5fSa2ow5WrdeonEoeoY3epypfTHo",
+          "8WyWpDD1ZbkTRGG6SRcYyWxApPsHaSgWn2SWJQ8xSgxq",
+          "11111111111111111111111111111111",
+          "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        ],
+        "events": [
+          {
+            "program": "verdict_mesh",
+            "name": "DepositCollected",
+            "data": {
+              "dispute": "6ju6rTPuy7SUKryXxnJrD4mtG8E43ZwihPTGNd3fYzrw",
+              "depositor": "D3wyMYHnCKDNT5Wsho7EWdgAW6p4f5JJJTbcH27t8RTn",
+              "amount": "5000000"
+            }
+          },
+          {
+            "program": "verdict_mesh",
+            "name": "DisputeOpened",
+            "data": {
+              "dispute": "6ju6rTPuy7SUKryXxnJrD4mtG8E43ZwihPTGNd3fYzrw",
+              "integrator": "92sG3LuriTsg3rH8P9Pnfbrr8WqZ7A59MMdrRvYNGqF7",
+              "escrow_ref": "36xvsAUyP9m84jCkpfjtpAE6WbjYjekczEyS1dLQCAxS",
+              "claimant": "D3wyMYHnCKDNT5Wsho7EWdgAW6p4f5JJJTbcH27t8RTn",
+              "respondent": "HxHuAFwmbRLBkLtavLTiQ3nLXjEcYxFTNicYsegfpG6h",
+              "amount": "25000000",
+              "optimistic": false,
+              "opened_at": "1791555200"
+            }
+          },
+          {
+            "program": "reference_escrow",
+            "name": "MilestoneDisputed",
+            "data": {
+              "escrow": "36xvsAUyP9m84jCkpfjtpAE6WbjYjekczEyS1dLQCAxS",
+              "milestone": 7,
+              "dispute": "6ju6rTPuy7SUKryXxnJrD4mtG8E43ZwihPTGNd3fYzrw",
+              "claimant": "D3wyMYHnCKDNT5Wsho7EWdgAW6p4f5JJJTbcH27t8RTn",
+              "amount": "25000000"
+            }
+          },
+          {
+            "program": "verdict_mesh",
+            "name": "PanelSelected",
+            "data": {
+              "dispute": "6ju6rTPuy7SUKryXxnJrD4mtG8E43ZwihPTGNd3fYzrw",
+              "panel": [
+                "DonJ536zizBPckCMK7Cz4xeq1geTciztDuNX4svseWHH",
+                "87PxbqSaGAAByBd488i9JAqVz9Jw7dBEoSwaVJ5vPmNf",
+                "J66VJhvktqCb5rwXhoBAsa8QfbR1RUN92tNFyUooRqZ1"
+              ],
+              "entropy_slot": "507230001"
+            }
+          }
+        ],
+        "logsTruncated": false
+      }
+    },
+    {
+      "disputePda": "6ju6rTPuy7SUKryXxnJrD4mtG8E43ZwihPTGNd3fYzrw",
+      "kind": "transaction",
+      "source": "4PLa6PmRAm8drVt6mgNB1drpgN7LNtgXAWuNNwbymtMv5ndXjPBk5P6eoFySLhoeDE3diJaiPgGLgskRKpaDBejZ",
+      "slot": 507230000,
+      "payload": {
+        "blockTime": 1791382400,
+        "signers": [
+          "D3wyMYHnCKDNT5Wsho7EWdgAW6p4f5JJJTbcH27t8RTn"
+        ],
+        "programs": [
+          "4iYF4WRdtuSmjTXH5fSa2ow5WrdeonEoeoY3epypfTHo",
+          "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        ],
+        "events": [
+          {
+            "program": "reference_escrow",
+            "name": "MilestoneReleased",
+            "data": {
+              "escrow": "36xvsAUyP9m84jCkpfjtpAE6WbjYjekczEyS1dLQCAxS",
+              "milestone": 3,
+              "amount": "9000000"
+            }
+          }
+        ],
+        "logsTruncated": false
+      }
+    },
+    {
+      "disputePda": "6ju6rTPuy7SUKryXxnJrD4mtG8E43ZwihPTGNd3fYzrw",
+      "kind": "transaction",
+      "source": "64yzZmNNzpiKM5vC4fcpcWLkQ1AxtnUU9eSkJeoQXRXQCPkLBeXvgRfP7gy4B57dQyM7DSUewWUdYBjrzCBgdLC2",
+      "slot": 506798000,
+      "payload": {
+        "blockTime": 1791209600,
+        "signers": [
+          "D3wyMYHnCKDNT5Wsho7EWdgAW6p4f5JJJTbcH27t8RTn"
+        ],
+        "programs": [
+          "4iYF4WRdtuSmjTXH5fSa2ow5WrdeonEoeoY3epypfTHo",
+          "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        ],
+        "events": [
+          {
+            "program": "reference_escrow",
+            "name": "MilestoneReleased",
+            "data": {
+              "escrow": "36xvsAUyP9m84jCkpfjtpAE6WbjYjekczEyS1dLQCAxS",
+              "milestone": 4,
+              "amount": "14000000"
+            }
+          }
+        ],
+        "logsTruncated": false
+      }
+    },
+    {
+      "disputePda": "6ju6rTPuy7SUKryXxnJrD4mtG8E43ZwihPTGNd3fYzrw",
+      "kind": "transaction",
+      "source": "2shMWRt3nmF9KWwBDbfh2qLR1EP1bsErdvR3XCBgDncWkSofUshv55mc8EhrttYbfaAXmobSnH7AGNKWtighGSNn",
+      "slot": 506366000,
+      "payload": {
+        "blockTime": 1791036800,
+        "signers": [
+          "D3wyMYHnCKDNT5Wsho7EWdgAW6p4f5JJJTbcH27t8RTn"
+        ],
+        "programs": [
+          "4iYF4WRdtuSmjTXH5fSa2ow5WrdeonEoeoY3epypfTHo",
+          "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        ],
+        "events": [
+          {
+            "program": "reference_escrow",
+            "name": "MilestoneReleased",
+            "data": {
+              "escrow": "36xvsAUyP9m84jCkpfjtpAE6WbjYjekczEyS1dLQCAxS",
+              "milestone": 2,
+              "amount": "12000000"
+            }
+          }
+        ],
+        "logsTruncated": false
+      }
+    },
+    {
+      "disputePda": "6ju6rTPuy7SUKryXxnJrD4mtG8E43ZwihPTGNd3fYzrw",
+      "kind": "transaction",
+      "source": "29FmEhbkvDTxf1C5picAcRKS9Sai9hhKddFySG8fH57n5uqFfQFP6Leuk7ZTb3BYSsvfdMfoCPHEkGDRHa466ubL",
+      "slot": 505934000,
+      "payload": {
+        "blockTime": 1790864000,
+        "signers": [
+          "D3wyMYHnCKDNT5Wsho7EWdgAW6p4f5JJJTbcH27t8RTn"
+        ],
+        "programs": [
+          "4iYF4WRdtuSmjTXH5fSa2ow5WrdeonEoeoY3epypfTHo",
+          "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        ],
+        "events": [
+          {
+            "program": "reference_escrow",
+            "name": "MilestoneReleased",
+            "data": {
+              "escrow": "36xvsAUyP9m84jCkpfjtpAE6WbjYjekczEyS1dLQCAxS",
+              "milestone": 1,
+              "amount": "7500000"
+            }
+          }
+        ],
+        "logsTruncated": false
+      }
+    },
+    {
+      "disputePda": "6ju6rTPuy7SUKryXxnJrD4mtG8E43ZwihPTGNd3fYzrw",
+      "kind": "transaction",
+      "source": "5wEXDrosmr5ys2QyKP3R3ZA5n8khFW4aTPtMh3CPAvKxF6EnEXG9DhJ2yPXDZZfL55zi8L3LEPEQC2sekt4CfUSz",
+      "slot": 505502000,
+      "payload": {
+        "blockTime": 1790691200,
+        "signers": [
+          "D3wyMYHnCKDNT5Wsho7EWdgAW6p4f5JJJTbcH27t8RTn"
+        ],
+        "programs": [
+          "4iYF4WRdtuSmjTXH5fSa2ow5WrdeonEoeoY3epypfTHo",
+          "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        ],
+        "events": [
+          {
+            "program": "reference_escrow",
+            "name": "MilestoneReleased",
+            "data": {
+              "escrow": "36xvsAUyP9m84jCkpfjtpAE6WbjYjekczEyS1dLQCAxS",
+              "milestone": 0,
+              "amount": "5000000"
+            }
+          }
+        ],
+        "logsTruncated": false
+      }
+    },
+    {
+      "disputePda": "6ju6rTPuy7SUKryXxnJrD4mtG8E43ZwihPTGNd3fYzrw",
+      "kind": "transaction",
+      "source": "2bphfnUZoJqVUPiqFxMFSWf5PDp6zvp2fU8yoqHT9gnRcsmpFHvfZK4MKkGbSPbxjdeAkubk7BkK2uH4hLY5iXoQ",
+      "slot": 505070000,
+      "payload": {
+        "blockTime": 1790518400,
+        "signers": [
+          "89JqQ5uhLvbZvGap2HWZgGJjw9qaUiopqof1sz39kdYA",
+          "D3wyMYHnCKDNT5Wsho7EWdgAW6p4f5JJJTbcH27t8RTn",
+          "HxHuAFwmbRLBkLtavLTiQ3nLXjEcYxFTNicYsegfpG6h"
+        ],
+        "programs": [
+          "4iYF4WRdtuSmjTXH5fSa2ow5WrdeonEoeoY3epypfTHo",
+          "11111111111111111111111111111111",
+          "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        ],
+        "events": [
+          {
+            "program": "reference_escrow",
+            "name": "EscrowOpened",
+            "data": {
+              "escrow": "36xvsAUyP9m84jCkpfjtpAE6WbjYjekczEyS1dLQCAxS",
+              "buyer": "D3wyMYHnCKDNT5Wsho7EWdgAW6p4f5JJJTbcH27t8RTn",
+              "seller": "HxHuAFwmbRLBkLtavLTiQ3nLXjEcYxFTNicYsegfpG6h",
+              "mint": "8obhPBmjzuCyeypYmKdDULUYBYseFkH9mwjTkaHDdzDw",
+              "integrator": "92sG3LuriTsg3rH8P9Pnfbrr8WqZ7A59MMdrRvYNGqF7",
+              "total": "100000000",
+              "milestones": 8,
+              "bond": "1000000"
+            }
+          }
+        ],
+        "logsTruncated": false
+      }
+    },
+    {
+      "disputePda": "6ju6rTPuy7SUKryXxnJrD4mtG8E43ZwihPTGNd3fYzrw",
+      "kind": "account",
+      "source": "36xvsAUyP9m84jCkpfjtpAE6WbjYjekczEyS1dLQCAxS",
+      "slot": 507662003,
+      "payload": {
+        "owner": "4iYF4WRdtuSmjTXH5fSa2ow5WrdeonEoeoY3epypfTHo",
+        "program": "reference_escrow",
+        "account": "Escrow",
+        "data": {
+          "buyer": "D3wyMYHnCKDNT5Wsho7EWdgAW6p4f5JJJTbcH27t8RTn",
+          "seller": "HxHuAFwmbRLBkLtavLTiQ3nLXjEcYxFTNicYsegfpG6h",
+          "mint": "8obhPBmjzuCyeypYmKdDULUYBYseFkH9mwjTkaHDdzDw",
+          "settlement_mint": "EGYga9MCxXcwPrPVAwJ14xVe2gQokJcPYbL8qZu2KAag",
+          "integrator": "92sG3LuriTsg3rH8P9Pnfbrr8WqZ7A59MMdrRvYNGqF7",
+          "bond": "1000000",
+          "deal_id": "7",
+          "milestones": [
+            {
+              "amount": "5000000",
+              "state": {
+                "Released": {}
+              }
+            },
+            {
+              "amount": "7500000",
+              "state": {
+                "Released": {}
+              }
+            },
+            {
+              "amount": "12000000",
+              "state": {
+                "Released": {}
+              }
+            },
+            {
+              "amount": "9000000",
+              "state": {
+                "Released": {}
+              }
+            },
+            {
+              "amount": "14000000",
+              "state": {
+                "Released": {}
+              }
+            },
+            {
+              "amount": "11000000",
+              "state": {
+                "Pending": {}
+              }
+            },
+            {
+              "amount": "16500000",
+              "state": {
+                "Pending": {}
+              }
+            },
+            {
+              "amount": "25000000",
+              "state": {
+                "Disputed": {
+                  "dispute": "6ju6rTPuy7SUKryXxnJrD4mtG8E43ZwihPTGNd3fYzrw"
+                }
+              }
+            }
+          ],
+          "bump": 254
+        },
+        "bytes": 293
+      }
+    }
+  ],
+  "truncated": false
+}

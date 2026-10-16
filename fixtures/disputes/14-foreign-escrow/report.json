@@ -1,0 +1,159 @@
+{
+  "model": "claude-opus-5",
+  "generationMs": 25550,
+  "demoted": 0,
+  "stripped": 0,
+  "failures": [],
+  "generated": {
+    "summary": "A dispute over escrow 82SNo6Cmx5QKCgk4mWxuvvQvg5ocXGvyVUyWXeEAa2bM concerns 55000000 base units. On-chain records show an initial transaction on 2026-10-??? (blockTime 1791123200) signed by both parties and a third signer, a later transaction signed only by the respondent, and the dispute opening on 1791900800 by the claimant, who paid a 5000000 deposit. A three-member panel was selected. Neither party submitted a written position; both are identified only by fingerprints. The evidence contains no event data for the first two transactions, so their purpose (funding, delivery or withdrawal) cannot be determined from the input.",
+    "timeline": [
+      {
+        "sourceSignature": "21DWCRqxv6ZeTyVNZ4d4MbPNrJMYxas1nUVVyZheURXENRMUzVXcgkotVfpbxQjmz5cddPDn1pHQnQkJvRNhyT6Q",
+        "at": 1791123200,
+        "what": "A transaction signed by claimant, respondent and 5jp7eqhkDNrDaKD1uUtSDPzDPeSHkSVdQNJcGZQ6dmXN invoked the escrow program, System and Token programs, with no events emitted."
+      },
+      {
+        "sourceSignature": "265bdi4YSN6139XoDghD61sb9QnXk7sxMSoSd9eEnCFCzrKdfoV9VogkooPZXuqkRvVXhZves9oAGrpzcnMCNWjW",
+        "at": 1791641600,
+        "what": "A transaction signed only by the respondent invoked the escrow program and the Token program, with no events emitted."
+      },
+      {
+        "sourceSignature": "2noYrKVujaQzeMzUGW3ZESFVK9QwTBedQgARfGXHmSBWnP6ht6ThitekbHdh31oDsnrM53UrNwEjpWzR7VuQchN8",
+        "at": 1791900800,
+        "what": "The claimant opened the dispute for 55000000, paid a 5000000 deposit, and a three-juror panel was selected using entropy slot 506436001."
+      }
+    ],
+    "facts": [
+      {
+        "sourceSignature": "2noYrKVujaQzeMzUGW3ZESFVK9QwTBedQgARfGXHmSBWnP6ht6ThitekbHdh31oDsnrM53UrNwEjpWzR7VuQchN8",
+        "statement": "The dispute was opened at 1791900800 naming HibFNKXSeGiSw2hTpEgYCumRXKte3L4oM4CVSsFXB9Tw as claimant and Hn3E2UKHx2C6JhPB65iSKqmmLWWRqHvmLzJbyy3tjHpD as respondent for 55000000.",
+        "verdict": "confirmed"
+      },
+      {
+        "sourceSignature": "2noYrKVujaQzeMzUGW3ZESFVK9QwTBedQgARfGXHmSBWnP6ht6ThitekbHdh31oDsnrM53UrNwEjpWzR7VuQchN8",
+        "statement": "The claimant paid a dispute deposit of 5000000.",
+        "verdict": "confirmed"
+      },
+      {
+        "sourceSignature": "2noYrKVujaQzeMzUGW3ZESFVK9QwTBedQgARfGXHmSBWnP6ht6ThitekbHdh31oDsnrM53UrNwEjpWzR7VuQchN8",
+        "statement": "The dispute is not in optimistic mode and a panel of three jurors was selected.",
+        "verdict": "confirmed"
+      },
+      {
+        "sourceAccount": "82SNo6Cmx5QKCgk4mWxuvvQvg5ocXGvyVUyWXeEAa2bM",
+        "statement": "The escrow account still exists at slot 507084003 and is owned by program 6AXixykKqHUR2TdBNpEqsSoYByRiDvnDiHM9w7ThxpWR with 239 bytes of data.",
+        "verdict": "confirmed"
+      },
+      {
+        "sourceAccount": "82SNo6Cmx5QKCgk4mWxuvvQvg5ocXGvyVUyWXeEAa2bM",
+        "statement": "The decoded balance and state fields of the escrow account are visible in the evidence.",
+        "verdict": "unconfirmed"
+      },
+      {
+        "sourceSignature": "265bdi4YSN6139XoDghD61sb9QnXk7sxMSoSd9eEnCFCzrKdfoV9VogkooPZXuqkRvVXhZves9oAGrpzcnMCNWjW",
+        "statement": "The respondent acted alone on the escrow program before the dispute was opened, but the nature of that action is not shown.",
+        "verdict": "confirmed"
+      },
+      {
+        "statement": "Funds of 55000000 were released to either party before the dispute opened.",
+        "verdict": "unconfirmed"
+      }
+    ],
+    "claims": [
+      {
+        "party": "claimant",
+        "statement": "The claimant filed no written statement; the position is known only by fingerprint 49d968a71bcc724058c0b0d6c400324ef41a0150154d209a3e74400fb60d5932.",
+        "assessment": "unsupported"
+      },
+      {
+        "party": "respondent",
+        "statement": "The respondent filed no written statement; the position is known only by fingerprint 06be7df437f5d4c4e0129babfea57d6ee7b2a0a16b435ae94ddc1ac45dbb242c.",
+        "assessment": "unsupported"
+      }
+    ],
+    "gaps": [
+      "Neither party provided a written position, so the substance of the disagreement is unknown.",
+      "No events were emitted by the first two transactions, so whether they funded, modified or withdrew from the escrow is unknown.",
+      "The escrow account snapshot is undecoded, so the current locked balance and state are unknown.",
+      "Whether any off-chain goods or services were delivered is not shown by any evidence.",
+      "The role of third signer 5jp7eqhkDNrDaKD1uUtSDPzDPeSHkSVdQNJcGZQ6dmXN is not shown."
+    ]
+  },
+  "report": {
+    "summary": "A dispute over escrow 82SNo6Cmx5QKCgk4mWxuvvQvg5ocXGvyVUyWXeEAa2bM concerns 55000000 base units. On-chain records show an initial transaction on 2026-10-??? (blockTime 1791123200) signed by both parties and a third signer, a later transaction signed only by the respondent, and the dispute opening on 1791900800 by the claimant, who paid a 5000000 deposit. A three-member panel was selected. Neither party submitted a written position; both are identified only by fingerprints. The evidence contains no event data for the first two transactions, so their purpose (funding, delivery or withdrawal) cannot be determined from the input.",
+    "timeline": [
+      {
+        "sourceSignature": "21DWCRqxv6ZeTyVNZ4d4MbPNrJMYxas1nUVVyZheURXENRMUzVXcgkotVfpbxQjmz5cddPDn1pHQnQkJvRNhyT6Q",
+        "at": 1791123200,
+        "what": "A transaction signed by claimant, respondent and 5jp7eqhkDNrDaKD1uUtSDPzDPeSHkSVdQNJcGZQ6dmXN invoked the escrow program, System and Token programs, with no events emitted."
+      },
+      {
+        "sourceSignature": "265bdi4YSN6139XoDghD61sb9QnXk7sxMSoSd9eEnCFCzrKdfoV9VogkooPZXuqkRvVXhZves9oAGrpzcnMCNWjW",
+        "at": 1791641600,
+        "what": "A transaction signed only by the respondent invoked the escrow program and the Token program, with no events emitted."
+      },
+      {
+        "sourceSignature": "2noYrKVujaQzeMzUGW3ZESFVK9QwTBedQgARfGXHmSBWnP6ht6ThitekbHdh31oDsnrM53UrNwEjpWzR7VuQchN8",
+        "at": 1791900800,
+        "what": "The claimant opened the dispute for 55000000, paid a 5000000 deposit, and a three-juror panel was selected using entropy slot 506436001."
+      }
+    ],
+    "facts": [
+      {
+        "sourceSignature": "2noYrKVujaQzeMzUGW3ZESFVK9QwTBedQgARfGXHmSBWnP6ht6ThitekbHdh31oDsnrM53UrNwEjpWzR7VuQchN8",
+        "statement": "The dispute was opened at 1791900800 naming HibFNKXSeGiSw2hTpEgYCumRXKte3L4oM4CVSsFXB9Tw as claimant and Hn3E2UKHx2C6JhPB65iSKqmmLWWRqHvmLzJbyy3tjHpD as respondent for 55000000.",
+        "verdict": "confirmed"
+      },
+      {
+        "sourceSignature": "2noYrKVujaQzeMzUGW3ZESFVK9QwTBedQgARfGXHmSBWnP6ht6ThitekbHdh31oDsnrM53UrNwEjpWzR7VuQchN8",
+        "statement": "The claimant paid a dispute deposit of 5000000.",
+        "verdict": "confirmed"
+      },
+      {
+        "sourceSignature": "2noYrKVujaQzeMzUGW3ZESFVK9QwTBedQgARfGXHmSBWnP6ht6ThitekbHdh31oDsnrM53UrNwEjpWzR7VuQchN8",
+        "statement": "The dispute is not in optimistic mode and a panel of three jurors was selected.",
+        "verdict": "confirmed"
+      },
+      {
+        "sourceAccount": "82SNo6Cmx5QKCgk4mWxuvvQvg5ocXGvyVUyWXeEAa2bM",
+        "statement": "The escrow account still exists at slot 507084003 and is owned by program 6AXixykKqHUR2TdBNpEqsSoYByRiDvnDiHM9w7ThxpWR with 239 bytes of data.",
+        "verdict": "confirmed"
+      },
+      {
+        "sourceAccount": "82SNo6Cmx5QKCgk4mWxuvvQvg5ocXGvyVUyWXeEAa2bM",
+        "statement": "The decoded balance and state fields of the escrow account are visible in the evidence.",
+        "verdict": "unconfirmed"
+      },
+      {
+        "sourceSignature": "265bdi4YSN6139XoDghD61sb9QnXk7sxMSoSd9eEnCFCzrKdfoV9VogkooPZXuqkRvVXhZves9oAGrpzcnMCNWjW",
+        "statement": "The respondent acted alone on the escrow program before the dispute was opened, but the nature of that action is not shown.",
+        "verdict": "confirmed"
+      },
+      {
+        "statement": "Funds of 55000000 were released to either party before the dispute opened.",
+        "verdict": "unconfirmed"
+      }
+    ],
+    "claims": [
+      {
+        "party": "claimant",
+        "statement": "The position of the claimant is known only by its fingerprint 49d968a71bcc724058c0b0d6c400324ef41a0150154d209a3e74400fb60d5932.",
+        "assessment": "unsupported"
+      },
+      {
+        "party": "respondent",
+        "statement": "The position of the respondent is known only by its fingerprint 06be7df437f5d4c4e0129babfea57d6ee7b2a0a16b435ae94ddc1ac45dbb242c.",
+        "assessment": "unsupported"
+      }
+    ],
+    "gaps": [
+      "The text of the claimant's position could not be recovered from its on-chain fingerprint.",
+      "The text of the respondent's position could not be recovered from its on-chain fingerprint.",
+      "Neither party provided a written position, so the substance of the disagreement is unknown.",
+      "No events were emitted by the first two transactions, so whether they funded, modified or withdrew from the escrow is unknown.",
+      "The escrow account snapshot is undecoded, so the current locked balance and state are unknown.",
+      "Whether any off-chain goods or services were delivered is not shown by any evidence.",
+      "The role of third signer 5jp7eqhkDNrDaKD1uUtSDPzDPeSHkSVdQNJcGZQ6dmXN is not shown."
+    ]
+  }
+}

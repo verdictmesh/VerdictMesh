@@ -1,0 +1,143 @@
+{
+  "model": "claude-opus-5",
+  "generationMs": 20139,
+  "demoted": 0,
+  "stripped": 0,
+  "failures": [],
+  "generated": {
+    "summary": "An escrow of 250000000 base units between buyer AaWmhxCocr15J8JEcoNmsSHKEKaJL1JsF8cgJUHWoHLs and seller 8dztFF1nQWFyEkSEnf7PEaxQC3J5Hskt8esJsZMynaT7 was opened with one milestone and a 10000000 bond. On 1791900800 the seller, as claimant, opened dispute 8iXu813Heyi39P6uQRAn2HkSpmu2acWNtZx4VENXsJVp, paid a 5000000 deposit, milestone #0 was marked Disputed and a three-juror panel was selected. The seller says milestone #0 was delivered and should be released; the buyer says it was not delivered and should be refunded. The chain shows the escrow state and dispute mechanics only; it contains no evidence of delivery or non-delivery of the off-chain work.",
+    "timeline": [
+      {
+        "sourceSignature": "3nteLnr26CxGQHM9gwHm38BAX64UDjaxYBppQkxEqxQGAWZqySSqBv6Wi8qmPatVf9QCp9jVnPTUGsbWb1BwhrXA",
+        "at": 1790691200,
+        "what": "Escrow FcEgaGgh8jwYKb9wA4LBfAnS1GWa8ZLb7YTcQnjYVuji was opened with total 250000000, one milestone and a bond of 10000000."
+      },
+      {
+        "sourceSignature": "3hniz15bGAQpAFzTwhX42Awbnanq7KDQxZRGxtSq6GifZKsTo6Hm7h49RjnWV8Gg87bU9g2nzNDYGXb8Dw8Y55Mv",
+        "at": 1791900800,
+        "what": "The seller paid a 5000000 deposit, the dispute was opened over 250000000, milestone #0 was marked disputed and a three-member panel was selected."
+      }
+    ],
+    "facts": [
+      {
+        "sourceSignature": "3nteLnr26CxGQHM9gwHm38BAX64UDjaxYBppQkxEqxQGAWZqySSqBv6Wi8qmPatVf9QCp9jVnPTUGsbWb1BwhrXA",
+        "statement": "The escrow was created with buyer AaWmhxCocr15J8JEcoNmsSHKEKaJL1JsF8cgJUHWoHLs, seller 8dztFF1nQWFyEkSEnf7PEaxQC3J5Hskt8esJsZMynaT7 and a single milestone of total 250000000.",
+        "verdict": "confirmed"
+      },
+      {
+        "sourceSignature": "3hniz15bGAQpAFzTwhX42Awbnanq7KDQxZRGxtSq6GifZKsTo6Hm7h49RjnWV8Gg87bU9g2nzNDYGXb8Dw8Y55Mv",
+        "statement": "The claimant is the seller, who opened the dispute and paid a deposit of 5000000.",
+        "verdict": "confirmed"
+      },
+      {
+        "sourceSignature": "3hniz15bGAQpAFzTwhX42Awbnanq7KDQxZRGxtSq6GifZKsTo6Hm7h49RjnWV8Gg87bU9g2nzNDYGXb8Dw8Y55Mv",
+        "statement": "The dispute is non-optimistic and a panel of three jurors was selected with entropy slot 505090001.",
+        "verdict": "confirmed"
+      },
+      {
+        "sourceAccount": "FcEgaGgh8jwYKb9wA4LBfAnS1GWa8ZLb7YTcQnjYVuji",
+        "statement": "Milestone #0 is in state Disputed, referencing dispute 8iXu813Heyi39P6uQRAn2HkSpmu2acWNtZx4VENXsJVp, and its 250000000 remain locked.",
+        "verdict": "confirmed"
+      },
+      {
+        "sourceAccount": "FcEgaGgh8jwYKb9wA4LBfAnS1GWa8ZLb7YTcQnjYVuji",
+        "statement": "No release or refund of milestone #0 funds has occurred.",
+        "verdict": "confirmed"
+      },
+      {
+        "statement": "Milestone #0 work was delivered off chain by the seller.",
+        "verdict": "unconfirmed"
+      },
+      {
+        "statement": "The buyer accepted or rejected milestone #0 through an on-chain action before the dispute.",
+        "verdict": "unconfirmed"
+      }
+    ],
+    "claims": [
+      {
+        "party": "claimant",
+        "statement": "Milestone #0 was delivered, so its locked funds should be released to the seller.",
+        "assessment": "unsupported"
+      },
+      {
+        "party": "respondent",
+        "statement": "Milestone #0 was not delivered, so its locked funds should be refunded to the buyer.",
+        "assessment": "unsupported"
+      }
+    ],
+    "gaps": [
+      "No evidence shows whether the off-chain deliverable for milestone #0 was actually provided or accepted.",
+      "No communications, acceptance records or delivery artifacts between buyer and seller are in evidence.",
+      "The escrow lists a settlement mint different from the deposit mint, and no evidence explains the conversion or payout path.",
+      "No evidence shows the terms or acceptance criteria agreed for milestone #0."
+    ]
+  },
+  "report": {
+    "summary": "An escrow of 250000000 base units between buyer AaWmhxCocr15J8JEcoNmsSHKEKaJL1JsF8cgJUHWoHLs and seller 8dztFF1nQWFyEkSEnf7PEaxQC3J5Hskt8esJsZMynaT7 was opened with one milestone and a 10000000 bond. On 1791900800 the seller, as claimant, opened dispute 8iXu813Heyi39P6uQRAn2HkSpmu2acWNtZx4VENXsJVp, paid a 5000000 deposit, milestone #0 was marked Disputed and a three-juror panel was selected. The seller says milestone #0 was delivered and should be released; the buyer says it was not delivered and should be refunded. The chain shows the escrow state and dispute mechanics only; it contains no evidence of delivery or non-delivery of the off-chain work.",
+    "timeline": [
+      {
+        "sourceSignature": "3nteLnr26CxGQHM9gwHm38BAX64UDjaxYBppQkxEqxQGAWZqySSqBv6Wi8qmPatVf9QCp9jVnPTUGsbWb1BwhrXA",
+        "at": 1790691200,
+        "what": "Escrow FcEgaGgh8jwYKb9wA4LBfAnS1GWa8ZLb7YTcQnjYVuji was opened with total 250000000, one milestone and a bond of 10000000."
+      },
+      {
+        "sourceSignature": "3hniz15bGAQpAFzTwhX42Awbnanq7KDQxZRGxtSq6GifZKsTo6Hm7h49RjnWV8Gg87bU9g2nzNDYGXb8Dw8Y55Mv",
+        "at": 1791900800,
+        "what": "The seller paid a 5000000 deposit, the dispute was opened over 250000000, milestone #0 was marked disputed and a three-member panel was selected."
+      }
+    ],
+    "facts": [
+      {
+        "sourceSignature": "3nteLnr26CxGQHM9gwHm38BAX64UDjaxYBppQkxEqxQGAWZqySSqBv6Wi8qmPatVf9QCp9jVnPTUGsbWb1BwhrXA",
+        "statement": "The escrow was created with buyer AaWmhxCocr15J8JEcoNmsSHKEKaJL1JsF8cgJUHWoHLs, seller 8dztFF1nQWFyEkSEnf7PEaxQC3J5Hskt8esJsZMynaT7 and a single milestone of total 250000000.",
+        "verdict": "confirmed"
+      },
+      {
+        "sourceSignature": "3hniz15bGAQpAFzTwhX42Awbnanq7KDQxZRGxtSq6GifZKsTo6Hm7h49RjnWV8Gg87bU9g2nzNDYGXb8Dw8Y55Mv",
+        "statement": "The claimant is the seller, who opened the dispute and paid a deposit of 5000000.",
+        "verdict": "confirmed"
+      },
+      {
+        "sourceSignature": "3hniz15bGAQpAFzTwhX42Awbnanq7KDQxZRGxtSq6GifZKsTo6Hm7h49RjnWV8Gg87bU9g2nzNDYGXb8Dw8Y55Mv",
+        "statement": "The dispute is non-optimistic and a panel of three jurors was selected with entropy slot 505090001.",
+        "verdict": "confirmed"
+      },
+      {
+        "sourceAccount": "FcEgaGgh8jwYKb9wA4LBfAnS1GWa8ZLb7YTcQnjYVuji",
+        "statement": "Milestone #0 is in state Disputed, referencing dispute 8iXu813Heyi39P6uQRAn2HkSpmu2acWNtZx4VENXsJVp, and its 250000000 remain locked.",
+        "verdict": "confirmed"
+      },
+      {
+        "sourceAccount": "FcEgaGgh8jwYKb9wA4LBfAnS1GWa8ZLb7YTcQnjYVuji",
+        "statement": "No release or refund of milestone #0 funds has occurred.",
+        "verdict": "confirmed"
+      },
+      {
+        "statement": "Milestone #0 work was delivered off chain by the seller.",
+        "verdict": "unconfirmed"
+      },
+      {
+        "statement": "The buyer accepted or rejected milestone #0 through an on-chain action before the dispute.",
+        "verdict": "unconfirmed"
+      }
+    ],
+    "claims": [
+      {
+        "party": "claimant",
+        "statement": "Milestone #0 was delivered, so its locked funds should be released to the seller.",
+        "assessment": "unsupported"
+      },
+      {
+        "party": "respondent",
+        "statement": "Milestone #0 was not delivered, so its locked funds should be refunded to the buyer.",
+        "assessment": "unsupported"
+      }
+    ],
+    "gaps": [
+      "No evidence shows whether the off-chain deliverable for milestone #0 was actually provided or accepted.",
+      "No communications, acceptance records or delivery artifacts between buyer and seller are in evidence.",
+      "The escrow lists a settlement mint different from the deposit mint, and no evidence explains the conversion or payout path.",
+      "No evidence shows the terms or acceptance criteria agreed for milestone #0."
+    ]
+  }
+}

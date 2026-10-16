@@ -1,0 +1,37 @@
+{
+  "e4298bda1eccf650": {
+    "statement": "The escrow was opened with both buyer and seller as signers alongside a third signer CKfcz2aY5C88ULV5PcFFFtLRe8xe8fM5PdMtLapiypRQ.",
+    "label": "consistent",
+    "note": ""
+  },
+  "6d8e8befe813f7d4": {
+    "statement": "The escrow account records three milestones of 20000000, 30000000 and 50000000, the first two Released and the third Disputed.",
+    "label": "consistent",
+    "note": ""
+  },
+  "fec728713a8e96b5": {
+    "statement": "The disputed milestone in the escrow account references dispute 77EgMXcLzBdaVsN7vjaHthVT8yhYKgceT4r4dcx62jdq.",
+    "label": "consistent",
+    "note": ""
+  },
+  "380b701e9b145657": {
+    "statement": "A MilestoneReleased event for milestone index 1 with amount 30000000 was emitted.",
+    "label": "consistent",
+    "note": ""
+  },
+  "c1fa86dc9e8fdc29": {
+    "statement": "The dispute was opened in non-optimistic mode with amount 50000000 at opened_at 1792246400.",
+    "label": "consistent",
+    "note": ""
+  },
+  "ffa9d7e41eb0345a": {
+    "statement": "A panel of three jurors was selected using entropy slot 507280001.",
+    "label": "consistent",
+    "note": ""
+  },
+  "778c72b44f19326a": {
+    "statement": "The escrow's settlement_mint (EGYga9MCxXcwPrPVAwJ14xVe2gQokJcPYbL8qZu2KAag) differs from its deposit mint (8mPqHq1YnaHD7dtT3XkBHS9Kt1iLtrYPGYMC4ubcYUwe).",
+    "label": "consistent",
+    "note": "Both addresses are right and do differ. \"Deposit mint\" here means the escrow's deal mint (what the buyer deposited), not the mint of the dispute deposit — wording a juror could misread, not a contradiction."
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "ec04c710c8d8f49e": {
+    "statement": "The escrow was opened with buyer B7EueD74EaS8ikgVxESqMcVAEhwHhjrykCELCHXoMy6S, seller 76U2trWcWk7v5Ws25rgQsvCywJgGXqnne3XKpUc9nZLd and total 90000000 across 3 milestones.",
+    "label": "consistent",
+    "note": ""
+  },
+  "5d2bceea6d6b99e6": {
+    "statement": "This dispute concerns milestone index 1 with a disputed amount of 30000000 and is not optimistic.",
+    "label": "consistent",
+    "note": ""
+  },
+  "49d9c16517037468": {
+    "statement": "The claimant paid a 5000000 deposit when opening this dispute.",
+    "label": "consistent",
+    "note": ""
+  },
+  "2d1e6135f6c60500": {
+    "statement": "The same three jurors selected for the earlier dispute were selected again for this dispute.",
+    "label": "consistent",
+    "note": ""
+  },
+  "ad9fcd913d005bdf": {
+    "statement": "An earlier dispute over milestone 0 was resolved in the buyer's favour for 30000000.",
+    "label": "consistent",
+    "note": ""
+  },
+  "34b47b02b5820e97": {
+    "statement": "At slot 507692003 milestone 0 is Refunded, milestone 1 is Disputed under this dispute, and milestone 2 is Pending.",
+    "label": "consistent",
+    "note": ""
+  },
+  "159c61b36f894172": {
+    "statement": "The escrow records mint AhAxsu8PCh6dDVsTHbkfgzYPBsVetNQnobWcyaBbutCH and a different settlement_mint EGYga9MCxXcwPrPVAwJ14xVe2gQokJcPYbL8qZu2KAag.",
+    "label": "consistent",
+    "note": ""
+  }
+}
