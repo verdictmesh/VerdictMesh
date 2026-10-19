@@ -16,6 +16,7 @@
     "@solana/wallet-standard-features": "^1.5.0",
     "@solana/web3.js": "^1.98.4",
     "@tanstack/react-query": "^5.104.0",
+    "@verdictmesh/sdk": "workspace:*",
     "@verdictmesh/shared": "workspace:*",
     "@wallet-standard/app": "^1.1.1",
     "@wallet-standard/base": "^1.1.1",

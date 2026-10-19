@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { BN, BorshCoder, type Idl, utils } from '@coral-xyz/anchor'
 import { PublicKey } from '@solana/web3.js'
+import { verdictMeshIdl } from '@verdictmesh/sdk'
 import { claimOf } from '../claims.js'
 import {
   type ChainTransaction,
@@ -11,7 +12,6 @@ import {
   type SignatureInfo,
 } from '../evidence.js'
 import { referenceEscrowIdl } from '../idl/reference-escrow.js'
-import { verdictMeshIdl } from '../idl/verdict-mesh.js'
 
 /**
  * A modelled dispute for `SC-007`: an escrow history written as steps, played

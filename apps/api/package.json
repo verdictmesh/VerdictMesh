@@ -23,6 +23,7 @@
     "@noble/hashes": "^1.8.0",
     "@solana/web3.js": "^1.98.4",
     "@verdictmesh/db": "workspace:*",
+    "@verdictmesh/sdk": "workspace:*",
     "@verdictmesh/shared": "workspace:*",
     "drizzle-orm": "0.45.2",
     "hono": "^4.9.0",

@@ -1,22 +1,24 @@
 /**
- * Наскрізний прогін на devnet — `SC-001`, `SC-002`, `SC-005`.
+ * End-to-end run on devnet — `SC-001`, `SC-002`, `SC-005`.
  *
- * Скрипт проходить повний цикл «спір → голосування → виплата» стільки разів,
- * скільки просить `--disputes`, і міряє три речі: скільки триває цикл, у скільки
- * обходяться його комісії всім учасникам разом і скільки разів довелося втрутитись
- * руками. Рішення «пройшов / не пройшов» рахує `./e2e.ts` — воно під тестами,
- * бо числа з devnet приходять повільно й один раз.
+ * The script walks the full "dispute → vote → payout" cycle as many times as
+ * `--disputes` asks and measures three things: how long a cycle takes, what its
+ * fees cost all participants combined, and how many times a human had to step
+ * in. The pass/fail verdict is computed by `./e2e.ts`, which is under tests,
+ * because numbers from devnet arrive slowly and only once.
  *
- * **SDK ще немає** (T035), тож транзакції складаються тут вручну. Одна з них
- * несе два підписи: спір відкриває PDA ескроу через CPI, а депозит за розгляд
- * платить ініціатор власним ключем (`FR-026`) — і без його підпису VerdictMesh
- * такий спір не прийме.
+ * The VerdictMesh side — addresses, the commitment, registration, and the
+ * accounts and panel selection for opening a dispute — comes from
+ * `@verdictmesh/sdk`; the escrow's own instructions are still built here. One
+ * transaction carries two signatures: the escrow PDA opens the dispute via CPI,
+ * while the claimant pays the hearing deposit with their own key (`FR-026`),
+ * and without that signature VerdictMesh will not accept the dispute.
  *
- * **Усі ключі прогону виводяться з ключа казначейства.** Відбір панелі отримує
- * реєстр цілком (`FR-006`), тож випадкові присяжні, згенеровані в пам'яті,
- * лишались би в ньому назавжди після кожного падіння — застейкані, придатні до
- * відбору і без приватного ключа. Детерміновані ключі роблять повторний запуск
- * тим самим запуском: реєстр не росте, а вже застейкані присяжні впізнаються.
+ * **Every key in the run is derived from the treasury key.** Panel selection
+ * takes the whole registry (`FR-006`), so random jurors generated in memory
+ * would stay in it forever after every crash — staked, eligible for selection,
+ * and with no private key. Deterministic keys make a rerun the same run: the
+ * registry does not grow, and already-staked jurors are recognised.
  */
 
 import { createHash, createPrivateKey, sign } from 'node:crypto'
@@ -36,16 +38,28 @@ import {
   Keypair,
   LAMPORTS_PER_SOL,
   PublicKey,
-  SYSVAR_SLOT_HASHES_PUBKEY,
   SystemProgram,
   sendAndConfirmTransaction,
   Transaction,
 } from '@solana/web3.js'
+import {
+  ballotArg,
+  commitmentOf,
+  configAddress,
+  disputeVaultAddress,
+  integratorAddress,
+  jurorAddress,
+  jurorIndexAddress,
+  registryAddress,
+  type Ballot as Side,
+  stakeVaultAddress,
+  VerdictMeshClient,
+  voteAddress,
+} from '@verdictmesh/sdk'
 import bs58 from 'bs58'
 import { z } from 'zod'
 import { type Ballot, cycleFloorSeconds, expectedOutcome, measure, type Run } from './e2e.js'
 import type { ReferenceEscrow } from './idl/reference_escrow.js'
-import type { VerdictMesh } from './idl/verdict_mesh.js'
 
 const envSchema = z.object({
   SOLANA_RPC_URL: z.url(),
@@ -56,9 +70,9 @@ const envSchema = z.object({
 const { values } = parseArgs({
   options: {
     disputes: { type: 'string', default: '20' },
-    // Публічний devnet-RPC відповідає 429 уже на трьох паралельних циклах:
-    // кожен із них це десяток транзакцій і стільки ж підтверджень. Ширшу хвилю
-    // має сенс просити лише у власного вузла.
+    // The public devnet RPC already answers 429 at three parallel cycles: each
+    // is a dozen transactions and as many confirmations. A wider wave only
+    // makes sense against your own node.
     batch: { type: 'string', default: '3' },
     // One panel seat whose vote comes from outside the script — the web panel
     // driven by a person or a browser. The script waits for that vote instead
@@ -87,19 +101,21 @@ const provider = new AnchorProvider(connection, new Wallet(treasury), {
 })
 
 /**
- * IDL береться зі свіжої збірки, а тип — із копії в `./idl` (див. `sync-idl.ts`).
- * Розходження між ними стає червоним типечеком, а не сюрпризом на devnet.
+ * The IDL comes from the fresh build, the type from the copy in `./idl` (see
+ * `sync-idl.ts`). Drift between them becomes a red typecheck, not a surprise on
+ * devnet.
  */
 const readIdl = <T>(name: string): T =>
   JSON.parse(readFileSync(new URL(`../target/idl/${name}.json`, import.meta.url), 'utf8')) as T
 
-const mesh = new Program<VerdictMesh>(readIdl<VerdictMesh>('verdict_mesh'), provider)
+const client = new VerdictMeshClient(provider)
+const mesh = client.program
 const escrowProgram = new Program<ReferenceEscrow>(
   readIdl<ReferenceEscrow>('reference_escrow'),
   provider,
 )
 
-// ── демо-конфігурація з docs/PLAN.md ────────────────────────────────────────
+// ── demo configuration from docs/PLAN.md ────────────────────────────────────
 
 const DECIMALS = 6
 const unit = (amount: number) => new BN(amount * 10 ** DECIMALS)
@@ -109,11 +125,12 @@ const POLICY = {
   extendedPanelSize: 5,
   quorum: 2,
   extendedQuorum: 3,
-  // Поріг придатності, а не «скільки внести». 120 — вище за 100, зі стейком
-  // якого в devnet-реєстрі лишились присяжні аварійного прогону (ключів до них
-  // немає), і нижче за те, що зараз мають присяжні цього прогону. Придатність
-  // міряється політикою спору (`FR-011a`), тож поріг — штатний спосіб не саджати
-  // чужих. Жоден із трьох критеріїв від розміру стейку не залежить.
+  // An eligibility threshold, not "how much to deposit". 120 is above the 100
+  // staked by the jurors a crashed run left in the devnet registry (their keys
+  // are gone), and below what this run's jurors hold now. Eligibility is
+  // measured against the dispute's policy (`FR-011a`), so the threshold is the
+  // intended way to keep strangers off the panel. None of the three criteria
+  // depends on the stake size.
   jurorStake: unit(120),
   slashBpsWrong: 1_000,
   slashBpsNoReveal: 2_000,
@@ -129,31 +146,29 @@ const MILESTONES = [unit(10), unit(20), unit(30)]
 const DISPUTED_MILESTONE = 1
 
 /**
- * Панель голосує одностайно, і це вимушено.
+ * The panel votes unanimously, and it has to.
  *
- * Розділена панель на вимірі з двадцяти спорів неможлива: `stake` створює запис
- * присяжного через `init`, доливати стейк нічим, а програний голос коштує 10%
- * (`FR-011`). Присяжний, що втратив частку, падає нижче порога придатності —
- * і більше не потрапляє в жодну панель, тобто не має як відіграти втрачене.
- * Реєстр із трьох на панель із трьох після першого ж розділеного голосування
- * не збирає панелі взагалі: `RegistryTooSmall`.
+ * A split panel is impossible over a twenty-dispute measurement: `stake`
+ * creates the juror record via `init`, there is no way to top up a stake, and a
+ * losing vote costs 10% (`FR-011`). A juror who lost a share drops below the
+ * eligibility threshold and never lands on a panel again, so has no way to win
+ * the loss back. A registry of three for a panel of three cannot assemble a
+ * panel at all after the first split vote: `RegistryTooSmall`.
  *
- * Це властивість конструкції, а не збій прогону, і вона записана як знахідка
- * T025. Слешинг при цьому не лишається неперевіреним: його доводять 26 тестів
- * `settle_stakes.rs` і окремий прогін на одному спорі, де панель ділиться 2:1.
+ * This is a property of the design, not a run failure, and it is recorded as
+ * finding T025. Slashing does not go unverified: it is proven by 26 tests in
+ * `settle_stakes.rs` and by a separate single-dispute run where the panel
+ * splits 2:1.
  */
 const BALLOTS: Ballot[] = ['claimant', 'claimant', 'claimant']
 
-/** Той самий вибір у вигляді, якого чекає Anchor від перелічуваного типу. */
-const BALLOT_ARG = {
-  claimant: { claimant: {} },
-  respondent: { respondent: {} },
-} as const
+/** The run's sides under the names the SDK and the IDL give them. */
+const SIDE: Record<Ballot, Side> = { claimant: 'Claimant', respondent: 'Respondent' }
 
 /**
- * Ключі прогону: та сама казна дає ту саму трійцю присяжних і ту саму
- * авторитетність інтегратора. Секрет казначейства входить у seed, тож ключі не
- * виводяться нізвідки, крім машини, яка вже й так ним розпоряджається.
+ * The run's keys: the same treasury yields the same three jurors and the same
+ * integrator authority. The treasury secret is part of the seed, so the keys
+ * can only be derived on a machine that already controls it.
  */
 function derivedKey(role: string, index: number): Keypair {
   return Keypair.fromSeed(
@@ -174,21 +189,6 @@ const pda = (seeds: (Buffer | Uint8Array)[], programId: PublicKey) =>
 
 const u64 = (value: number | BN) => new BN(value).toArrayLike(Buffer, 'le', 8)
 
-const configPda = () => pda([Buffer.from('config')], mesh.programId)
-const registryPda = () => pda([Buffer.from('registry')], mesh.programId)
-const stakeVaultPda = () => pda([Buffer.from('stake_vault')], mesh.programId)
-const integratorPda = (authority: PublicKey) =>
-  pda([Buffer.from('integrator'), authority.toBuffer()], mesh.programId)
-const disputePda = (integrator: PublicKey, id: BN) =>
-  pda([Buffer.from('dispute'), integrator.toBuffer(), u64(id)], mesh.programId)
-const disputeVaultPda = (dispute: PublicKey) =>
-  pda([Buffer.from('dispute_vault'), dispute.toBuffer()], mesh.programId)
-const votePda = (dispute: PublicKey, juror: PublicKey) =>
-  pda([Buffer.from('vote'), dispute.toBuffer(), juror.toBuffer()], mesh.programId)
-const jurorPda = (wallet: PublicKey) =>
-  pda([Buffer.from('juror'), wallet.toBuffer()], mesh.programId)
-const jurorIndexPda = (index: number) =>
-  pda([Buffer.from('juror_idx'), new BN(index).toArrayLike(Buffer, 'le', 4)], mesh.programId)
 const escrowPda = (buyer: PublicKey, dealId: BN) =>
   pda([Buffer.from('escrow'), buyer.toBuffer(), u64(dealId)], escrowProgram.programId)
 const escrowVaultPda = (escrow: PublicKey) =>
@@ -196,40 +196,13 @@ const escrowVaultPda = (escrow: PublicKey) =>
 const bondVaultPda = (escrow: PublicKey) =>
   pda([Buffer.from('bond_vault'), escrow.toBuffer()], escrowProgram.programId)
 
-/**
- * Відбиток голосу. Формула — з `programs/verdict-mesh/src/vote.rs`, і другого
- * джерела правди про неї немає: розбіжність тут дає голос, який неможливо
- * розкрити, і присяжного, слешеного за мовчання, якого він не обирав.
- */
-const DOMAIN = Buffer.from('verdict_mesh/vote/v1')
-const BALLOT_TAG: Record<Ballot, number> = { claimant: 1, respondent: 2 }
-
-function commitmentOf(
-  dispute: PublicKey,
-  juror: PublicKey,
-  choice: Ballot,
-  salt: Uint8Array,
-): Buffer {
-  return Buffer.from(
-    keccak_256(
-      Buffer.concat([
-        DOMAIN,
-        dispute.toBuffer(),
-        juror.toBuffer(),
-        Buffer.from([BALLOT_TAG[choice]]),
-        Buffer.from(salt),
-      ]),
-    ),
-  )
-}
-
-// ── дрібні помічники ────────────────────────────────────────────────────────
+// ── small helpers ───────────────────────────────────────────────────────────
 
 /**
- * Вердикт зі стану спору. Anchor віддає перелічуваний тип об'єктом з єдиним
- * ключем; `null` тут неможливий — його не буває після вдалого `tally`, — але
- * мовчазне припущення про це зробило б помилку прогону схожою на помилку
- * протоколу.
+ * The verdict from the dispute state. Anchor returns an enum as an object with a
+ * single key; `null` is impossible here — it never follows a successful
+ * `tally` — but silently assuming so would make a run error look like a
+ * protocol error.
  */
 function outcomeOf(verdict: { claimant?: object; respondent?: object; statusQuo?: object } | null) {
   if (verdict === null) throw new Error('The dispute was tallied but carries no verdict')
@@ -241,9 +214,9 @@ function outcomeOf(verdict: { claimant?: object; respondent?: object; statusQuo?
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, Math.max(0, ms)))
 
 /**
- * Чекає, поки закриється вікно, за годинником **ланцюга**, а не за локальним.
- * Дедлайни записані в спорі в часі кластера, і на devnet він відходить від
- * настінного на секунди — досить, щоб інструкція прийшла на такт раніше.
+ * Waits for a window to close by the **chain's** clock, not the local one.
+ * Deadlines are stored in the dispute in cluster time, and on devnet that drifts
+ * from wall time by seconds — enough for an instruction to arrive a beat early.
  */
 async function waitForDeadline(deadline: number): Promise<void> {
   for (;;) {
@@ -255,12 +228,12 @@ async function waitForDeadline(deadline: number): Promise<void> {
 }
 
 /**
- * Комісії — з ланцюга, а не з припущення про 5000 лампортів на підпис.
+ * Fees come from the chain, not from an assumed 5000 lamports per signature.
  *
- * Читаються **після** циклу, а не за кожною транзакцією одразу: `getTransaction`
- * — найдорожчий метод із тих, які тут потрібні, і публічний devnet-RPC відповідає
- * на нього 429 рівно тоді, коли цикл поспішає встигнути у вікно. Ціна виміру не
- * має входити у вимір.
+ * They are read **after** the cycle, not right after each transaction:
+ * `getTransaction` is the most expensive method needed here, and the public
+ * devnet RPC answers it with 429 exactly when the cycle is racing to make a
+ * window. The cost of measuring must not leak into the measurement.
  */
 async function feesOf(signatures: readonly string[]): Promise<bigint> {
   let total = 0n
@@ -276,8 +249,8 @@ async function feesOf(signatures: readonly string[]): Promise<bigint> {
         })
         fee = tx?.meta?.fee
       } catch {
-        // 429 і мережеві збої — не результат, а затримка: транзакція вже
-        // підтверджена, її комісія нікуди не подінеться.
+        // A 429 or a network failure is a delay, not a result: the transaction
+        // is already confirmed, and its fee is not going anywhere.
       }
       if (fee === undefined) await sleep(1000 * (attempt + 1))
     }
@@ -303,9 +276,9 @@ async function fundWithSol(recipients: PublicKey[], sol: number): Promise<void> 
 }
 
 /**
- * Наповнення розрахунковим активом. Казначейство — це і mint authority, тож
- * учасники прогону отримують кошти емісією, а не переказом із запасу, якого
- * може не вистачити посеред прогону.
+ * Funding with the settlement asset. The treasury is also the mint authority,
+ * so run participants receive funds by minting, not by transfer from a reserve
+ * that could run dry mid-run.
  */
 async function mintTo(owner: PublicKey, amount: BN): Promise<PublicKey> {
   const ata = getAssociatedTokenAddressSync(settlementMint, owner)
@@ -322,16 +295,16 @@ async function mintTo(owner: PublicKey, amount: BN): Promise<PublicKey> {
   return ata
 }
 
-// ── підготовка протоколу ────────────────────────────────────────────────────
+// ── protocol setup ──────────────────────────────────────────────────────────
 
 /**
- * `initialize` і `register_integrator` виконуються один раз на кластер, тож
- * прогін перевіряє наявність замість того, щоб покладатись на «має бути». Свій
- * `Integrator` він реєструє під власною виведеною авторитетністю — політика
- * прогону не має ані залежати від чужої, ані переписувати її.
+ * `initialize` and `register_integrator` run once per cluster, so the run checks
+ * for their accounts instead of assuming "they should be there". It registers
+ * its own `Integrator` under its own derived authority — the run's policy must
+ * neither depend on someone else's nor overwrite it.
  */
 async function ensureProtocol(): Promise<PublicKey> {
-  const config = configPda()
+  const config = configAddress()
 
   if ((await connection.getAccountInfo(config)) === null) {
     await mesh.methods
@@ -346,31 +319,33 @@ async function ensureProtocol(): Promise<PublicKey> {
     console.log(`initialized the protocol · config ${config.toBase58()}`)
   }
 
-  // Друга авторитетність, а не перша: перший `Integrator` зареєстрований з
-  // порогом 150, якого присяжні цього прогону вже не досягають — слешинг зняв
-  // із одного з них 10%, а долити стейк нічим. Політика незмінна після
-  // реєстрації (`FR-003`), тож потрібен новий інтегратор, а не правка старого.
+  // The second authority, not the first: the first `Integrator` was registered
+  // with a threshold of 150, which this run's jurors no longer reach — slashing
+  // took 10% from one of them, and there is no way to top up a stake. A policy
+  // is immutable after registration (`FR-003`), so this needs a new integrator,
+  // not an edit to the old one.
   const authority = derivedKey('integrator', 1)
-  const integrator = integratorPda(authority.publicKey)
+  const integrator = integratorAddress(authority.publicKey)
 
   if ((await connection.getAccountInfo(integrator)) === null) {
     await fundWithSol([authority.publicKey], 0.02)
-    await mesh.methods
-      .registerIntegrator(POLICY)
-      .accountsPartial({
-        authority: authority.publicKey,
-        integrator,
-        config,
-        escrowProgram: escrowProgram.programId,
-        systemProgram: SystemProgram.programId,
-      })
-      .signers([authority])
-      .rpc()
+    await sendAndConfirmTransaction(
+      connection,
+      new Transaction().add(
+        await client.registerIntegrator({
+          authority: authority.publicKey,
+          escrowProgram: escrowProgram.programId,
+          policy: POLICY,
+        }),
+      ),
+      [treasury, authority],
+    )
     console.log(`registered the integrator ${integrator.toBase58()}`)
   }
 
-  // Скарбниця отримує частку протоколу в оплаті розгляду — токен-акаунт має
-  // існувати до першого розрахунку, інакше падає вся фіналізація.
+  // The treasury receives the protocol's share of the hearing fee — its token
+  // account must exist before the first settlement, or the whole finalization
+  // fails.
   await mintTo(treasury.publicKey, new BN(0))
 
   return integrator
@@ -382,31 +357,31 @@ interface Juror {
 }
 
 /**
- * Скільки SOL має тримати присяжний на весь прогін. Оренда акаунта голосу —
- * ~0.0017 SOL на розгляд і **не повертається**, тож сума росте разом із кількістю
- * спорів. Заміряно: прогін на 20 спорах із фінансуванням «на око» здихав на
- * шістнадцятому, і виглядало це як помилка протоколу, а не як порожній гаманець.
+ * How much SOL a juror must hold for the whole run. Vote account rent is
+ * ~0.0017 SOL per hearing and is **not refunded**, so the amount grows with the
+ * number of disputes. Measured: a 20-dispute run funded by eye died on the
+ * sixteenth, and it looked like a protocol error, not an empty wallet.
  */
 const jurorSolNeeded = () => 0.01 + disputeCount * 0.0025
 
 /**
- * Присяжні прогону. Уже застейканий впізнається за власним акаунтом і не
- * стейкається вдруге: `stake` створює його через `init`, тож повторний виклик
- * однаково відхилився б, а прогін має бути повторюваним.
+ * The run's jurors. One already staked is recognised by its own account and is
+ * not staked again: `stake` creates that account via `init`, so a second call
+ * would be rejected anyway, and the run has to be repeatable.
  */
 async function ensureJurors(): Promise<Juror[]> {
   const jurors: Juror[] = []
 
   for (let index = 0; index < POLICY.panelSize; index += 1) {
     const keypair = derivedKey('juror', index)
-    const record = jurorPda(keypair.publicKey)
+    const record = jurorAddress(keypair.publicKey)
     const existing = await mesh.account.juror.fetchNullable(record)
 
     if (existing !== null) {
-      // Долити SOL доводиться щоразу: оренду акаунта голосу присяжний платить
-      // сам і назад не отримує — `VoteCommit` не закривається ніде (борг T020).
-      // Тобто витрата присяжного лінійна від кількості розглядів, і прогін на
-      // двадцять спорів коштує йому вчетверо більше за прогін на п'ять.
+      // SOL has to be topped up every time: the juror pays the vote account
+      // rent and never gets it back — `VoteCommit` is closed nowhere (debt
+      // T020). So a juror's cost is linear in the number of hearings, and a
+      // twenty-dispute run costs them four times as much as a five-dispute one.
       const balance = await connection.getBalance(keypair.publicKey)
       const needed = Math.round(jurorSolNeeded() * LAMPORTS_PER_SOL)
       if (balance < needed) {
@@ -421,20 +396,20 @@ async function ensureJurors(): Promise<Juror[]> {
     await fundWithSol([keypair.publicKey], jurorSolNeeded())
     const jurorTokens = await mintTo(keypair.publicKey, POLICY.jurorStake)
 
-    const registry = await mesh.account.jurorRegistry.fetch(registryPda())
+    const registry = await mesh.account.jurorRegistry.fetch(registryAddress())
     const slot = registry.jurorCount
 
     await mesh.methods
       .stake(POLICY.jurorStake)
       .accountsPartial({
         juror: keypair.publicKey,
-        config: configPda(),
+        config: configAddress(),
         settlementMint,
-        registry: registryPda(),
+        registry: registryAddress(),
         jurorAccount: record,
-        jurorIndex: jurorIndexPda(slot),
+        jurorIndex: jurorIndexAddress(slot),
         jurorTokens,
-        stakeVault: stakeVaultPda(),
+        stakeVault: stakeVaultAddress(),
         tokenProgram: TOKEN_PROGRAM_ID,
         systemProgram: SystemProgram.programId,
       })
@@ -448,31 +423,9 @@ async function ensureJurors(): Promise<Juror[]> {
   return jurors
 }
 
-/** Увесь реєстр парами (`JurorIndex`, `Juror`) — саме цього чекає відбір. */
-async function registryAccounts() {
-  const registry = await mesh.account.jurorRegistry.fetch(registryPda())
-  const slots = Array.from({ length: registry.jurorCount }, (_, slot) => slot)
+// ── one cycle ───────────────────────────────────────────────────────────────
 
-  return Promise.all(
-    slots.map(async (slot) => {
-      const index = jurorIndexPda(slot)
-      const entry = await mesh.account.jurorIndex.fetch(index)
-      return [
-        { pubkey: index, isSigner: false, isWritable: false },
-        { pubkey: jurorPda(entry.wallet), isSigner: false, isWritable: true },
-      ]
-    }),
-  ).then((pairs) => pairs.flat())
-}
-
-// ── один цикл ───────────────────────────────────────────────────────────────
-
-async function runCycle(
-  index: number,
-  integrator: PublicKey,
-  jurors: Juror[],
-  registry: Awaited<ReturnType<typeof registryAccounts>>,
-): Promise<Run> {
+async function runCycle(index: number, integrator: PublicKey, jurors: Juror[]): Promise<Run> {
   const interventions: string[] = []
   const signatures: string[] = []
 
@@ -484,13 +437,13 @@ async function runCycle(
   const total = MILESTONES.reduce((sum, amount) => sum.add(amount), new BN(0))
   const bonds = POLICY.deposit.muln(MILESTONES.length)
 
-  // Замовник платить оренду за угоду, її касу і касу застав; виконавець — за
-  // акаунт спору і його сховище. Разом ~0.007 у кожного; решта — запас на
-  // комісії. Щедріше фінансування просто замикає devnet-SOL у гаманцях, які
-  // після прогону вже нікому не потрібні.
+  // The buyer pays rent for the deal, its vault and the bond vault; the seller
+  // for the dispute account and its vault. About 0.007 each; the rest is
+  // headroom for fees. More generous funding just locks devnet SOL in wallets
+  // nobody needs after the run.
   await fundWithSol([buyer.publicKey, seller.publicKey], 0.012)
   const buyerTokens = await mintTo(buyer.publicKey, total.add(bonds))
-  // Виконавець вносить свою заставу і депозит за розгляд: спір відкриває він.
+  // The seller puts up their bond and the hearing deposit: they open the dispute.
   const sellerTokens = await mintTo(seller.publicKey, bonds.add(POLICY.deposit))
 
   await escrowProgram.methods
@@ -500,7 +453,7 @@ async function runCycle(
       seller: seller.publicKey,
       mint: settlementMint,
       integrator,
-      config: configPda(),
+      config: configAddress(),
       settlementMint,
       escrow,
       buyerTokens,
@@ -515,42 +468,20 @@ async function runCycle(
     .signers([buyer, seller])
     .rpc()
 
-  // Цикл починається тут: `SC-001` міряє «спір → голосування → виплата», а не
-  // укладання угоди, яке відбувається з розглядом і без нього однаково.
+  // The cycle starts here: `SC-001` measures "dispute → vote → payout", not
+  // making the deal, which happens the same way with or without a hearing.
   const started = Date.now()
 
-  const integratorAccount = await mesh.account.integrator.fetch(integrator)
-  const dispute = disputePda(integrator, integratorAccount.disputeCount)
+  const prepared = await client.prepareDispute({ integrator, claimant: seller.publicKey })
+  const dispute = prepared.dispute
 
-  // Відкриття спору і відбір панелі — одна транзакція. Панель визначена слотом,
-  // записаним при відкритті (`FR-006`), тож розносити їх у часі немає причин, а
-  // тримати спір без панелі — є ризик.
+  // Opening the dispute and selecting the panel are one transaction. The panel
+  // is fixed by the slot recorded at opening (`FR-006`), so there is no reason
+  // to split them in time, and keeping a dispute without a panel is a risk.
   const opening = await escrowProgram.methods
     .disputeMilestone(DISPUTED_MILESTONE)
-    .accountsPartial({
-      claimant: seller.publicKey,
-      escrow,
-      integrator,
-      config: configPda(),
-      settlementMint,
-      dispute,
-      claimantTokens: sellerTokens,
-      disputeVault: disputeVaultPda(dispute),
-      verdictMeshProgram: mesh.programId,
-      tokenProgram: TOKEN_PROGRAM_ID,
-      systemProgram: SystemProgram.programId,
-    })
-    .postInstructions([
-      await mesh.methods
-        .selectPanel()
-        .accountsPartial({
-          dispute,
-          registry: registryPda(),
-          slotHashes: SYSVAR_SLOT_HASHES_PUBKEY,
-        })
-        .remainingAccounts(registry)
-        .instruction(),
-    ])
+    .accountsPartial({ ...prepared.accounts, claimant: seller.publicKey, escrow })
+    .postInstructions(prepared.postInstructions)
     .signers([seller])
     .rpc()
   signatures.push(opening)
@@ -558,14 +489,15 @@ async function runCycle(
   const opened = await mesh.account.dispute.fetch(dispute)
   const panel = opened.panel.map((wallet) => wallet.toBase58())
 
-  // Голоси роздаються за місцями в панелі, а не за порядком стейкання: відбір
-  // детермінований, але не тотожний реєстру.
+  // Ballots are assigned by panel seat, not by staking order: selection is
+  // deterministic, but not identical to the registry.
   const seated = panel.map((wallet, seat) => {
     const juror = jurors.find((candidate) => candidate.keypair.publicKey.toBase58() === wallet)
-    // Реєстр спільний на весь протокол, і в ньому можуть сидіти присяжні, яких
-    // цей прогін не заводив. Політика прогону їх не пускає порогом стейку — але
-    // якщо один усе ж сів, це не збій скрипта, а розгляд, який без рук не
-    // закінчиться, і `SC-005` мусить це побачити.
+    // The registry is shared across the whole protocol and may hold jurors
+    // this run did not create. The run's policy keeps them out with the stake
+    // threshold — but if one is seated anyway, that is not a script failure
+    // but a hearing that will not finish without a human, and `SC-005` must
+    // see it.
     if (juror === undefined) {
       throw new Error(`Panel seat ${seat} went to ${wallet}, a juror this run cannot vote for`)
     }
@@ -588,12 +520,12 @@ async function runCycle(
   for (const member of scripted) {
     const signature = await mesh.methods
       .commitVote([
-        ...commitmentOf(dispute, member.juror.keypair.publicKey, member.choice, member.salt),
+        ...commitmentOf(dispute, member.juror.keypair.publicKey, SIDE[member.choice], member.salt),
       ])
       .accountsPartial({
         juror: member.juror.keypair.publicKey,
         dispute,
-        vote: votePda(dispute, member.juror.keypair.publicKey),
+        vote: voteAddress(dispute, member.juror.keypair.publicKey),
         systemProgram: SystemProgram.programId,
       })
       .signers([member.juror.keypair])
@@ -615,11 +547,11 @@ async function runCycle(
 
   for (const member of scripted) {
     const signature = await mesh.methods
-      .revealVote(BALLOT_ARG[member.choice], [...member.salt])
+      .revealVote(ballotArg(SIDE[member.choice]), [...member.salt])
       .accountsPartial({
         juror: member.juror.keypair.publicKey,
         dispute,
-        vote: votePda(dispute, member.juror.keypair.publicKey),
+        vote: voteAddress(dispute, member.juror.keypair.publicKey),
       })
       .signers([member.juror.keypair])
       .rpc()
@@ -635,11 +567,13 @@ async function runCycle(
       'opened',
       opened.revealDeadline.toNumber() - 20,
     )
-    const vote = await mesh.account.voteCommit.fetchNullable(votePda(dispute, keypair.publicKey))
+    const vote = await mesh.account.voteCommit.fetchNullable(
+      voteAddress(dispute, keypair.publicKey),
+    )
     if (!openedOutside && vote && vote.choice === null) {
       const salt = webSalt(keypair, dispute)
       const choice = (['claimant', 'respondent'] as const).find((candidate) =>
-        commitmentOf(dispute, keypair.publicKey, candidate, salt).equals(
+        Buffer.from(commitmentOf(dispute, keypair.publicKey, SIDE[candidate], salt)).equals(
           Buffer.from(vote.commitment),
         ),
       )
@@ -647,11 +581,11 @@ async function runCycle(
         throw new Error('The web seat sealed a vote the web salt does not open')
       signatures.push(
         await mesh.methods
-          .revealVote(BALLOT_ARG[choice], [...salt])
+          .revealVote(ballotArg(SIDE[choice]), [...salt])
           .accountsPartial({
             juror: keypair.publicKey,
             dispute,
-            vote: votePda(dispute, keypair.publicKey),
+            vote: voteAddress(dispute, keypair.publicKey),
           })
           .signers([keypair])
           .rpc(),
@@ -687,9 +621,10 @@ async function runCycle(
     .rpc()
   signatures.push(settlement)
 
-  // Виплата відбулась — цикл `SC-001` закінчився. Розрахунок стейків панелі йде
-  // після і на нього не чекають: це внутрішня справа протоколу, і тримати чужі
-  // кошти замкненими доти було б рівно тим, чого `settle_milestone` не робить.
+  // The payout is done — the `SC-001` cycle is over. Settling the panel's
+  // stakes comes after and is not waited on: it is the protocol's internal
+  // business, and keeping other people's funds locked until then would be
+  // exactly what `settle_milestone` does not do.
   const elapsedMs = Date.now() - started
 
   const settleStakes = await mesh.methods
@@ -697,18 +632,18 @@ async function runCycle(
     .accountsPartial({
       dispute,
       crank: treasury.publicKey,
-      config: configPda(),
+      config: configAddress(),
       settlementMint,
-      disputeVault: disputeVaultPda(dispute),
-      stakeVault: stakeVaultPda(),
+      disputeVault: disputeVaultAddress(dispute),
+      stakeVault: stakeVaultAddress(),
       treasuryTokens: getAssociatedTokenAddressSync(settlementMint, treasury.publicKey),
       tokenProgram: TOKEN_PROGRAM_ID,
     })
     .remainingAccounts(
       seated.flatMap((member) => [
-        { pubkey: jurorPda(member.juror.keypair.publicKey), isSigner: false, isWritable: true },
+        { pubkey: jurorAddress(member.juror.keypair.publicKey), isSigner: false, isWritable: true },
         {
-          pubkey: votePda(dispute, member.juror.keypair.publicKey),
+          pubkey: voteAddress(dispute, member.juror.keypair.publicKey),
           isSigner: false,
           isWritable: false,
         },
@@ -761,14 +696,14 @@ async function waitForOutsideVote(
   deadline: number,
 ): Promise<boolean> {
   for (;;) {
-    const vote = await mesh.account.voteCommit.fetchNullable(votePda(dispute, juror))
+    const vote = await mesh.account.voteCommit.fetchNullable(voteAddress(dispute, juror))
     if (vote && (step === 'sealed' || vote.choice !== null)) return true
     if (Date.now() / 1000 >= deadline) return false
     await new Promise((resolve) => setTimeout(resolve, 2_000))
   }
 }
 
-// ── прогін ──────────────────────────────────────────────────────────────────
+// ── run ─────────────────────────────────────────────────────────────────────
 
 const mint = await getMint(connection, settlementMint)
 if (mint.decimals !== DECIMALS) {
@@ -786,13 +721,13 @@ console.log(
 
 const integrator = await ensureProtocol()
 const jurors = await ensureJurors()
-const registry = await registryAccounts()
 
 /**
- * Відмови RPC, що прилетіли повз ланцюг промісів. `@solana/web3.js` віддає
- * частину помилок транспорту через колбек, який ніхто не чекає, — і Node вбиває
- * процес посеред виміру. Мовчки проковтнути їх не можна: це рівно те, що `SC-005`
- * називає «знадобились руки», тож вони приписуються хвилі, під час якої сталися.
+ * RPC rejections that escaped the promise chain. `@solana/web3.js` surfaces some
+ * transport errors through a callback nobody awaits, and Node kills the process
+ * mid-measurement. They cannot be swallowed silently: this is exactly what
+ * `SC-005` calls "a hand was needed", so they are charged to the wave during
+ * which they happened.
  */
 const stray: string[] = []
 process.on('unhandledRejection', (reason) => {
@@ -807,18 +742,19 @@ for (let start = 0; start < disputeCount; start += batchSize) {
     (_, offset) => start + offset,
   )
 
-  // Цикли хвилі розводяться в часі: одночасний старт кладе на RPC десяток
-  // транзакцій в одну мить, і відповідь на це — 429 та «blockhash not found»,
-  // тобто провал виміру з причини, що до протоколу не має стосунку.
+  // A wave's cycles are staggered: a simultaneous start drops a dozen
+  // transactions on the RPC at once, and the answer is 429 and "blockhash not
+  // found" — a failed measurement for a reason unrelated to the protocol.
   const results = await Promise.allSettled(
     wave.map(async (index, offset) => {
       await sleep(offset * 3000)
-      return runCycle(index, integrator, jurors, registry)
+      return runCycle(index, integrator, jurors)
     }),
   )
 
-  // Те, що зірвалось повз проміси, належить цій хвилі — приписуємо першому ж її
-  // циклу, бо точніше не встановити, а втратити не можна.
+  // Whatever failed outside the promises belongs to this wave — charge it to
+  // the wave's first cycle, since it cannot be pinned down more precisely and
+  // must not be lost.
   const strayHere = stray.splice(0)
 
   results.forEach((result, offset) => {
@@ -831,8 +767,9 @@ for (let start = 0; start < disputeCount; start += batchSize) {
       return
     }
 
-    // Цикл, що впав, — не відсутній результат, а найважливіший із них: `SC-005`
-    // міряє саме частку розглядів, доведених без рук.
+    // A failed cycle is not a missing result but the most important one:
+    // `SC-005` measures exactly the share of hearings carried through without a
+    // human.
     console.error(`dispute ${wave[offset]} needed a hand: ${result.reason}`)
     runs.push({
       dispute: `deal ${wave[offset]}`,

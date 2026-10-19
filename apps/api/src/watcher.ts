@@ -1,9 +1,9 @@
 import { BN, BorshCoder } from '@coral-xyz/anchor'
 import type { PublicKey } from '@solana/web3.js'
 import type { disputes } from '@verdictmesh/db'
+import { verdictMeshIdl } from '@verdictmesh/sdk'
 import { disputeState, verdict as verdictContract } from '@verdictmesh/shared'
 import { z } from 'zod'
-import { verdictMeshIdl } from './idl/verdict-mesh.js'
 import { parseLogs } from './logs.js'
 
 /**

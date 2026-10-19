@@ -1,8 +1,8 @@
 import { BN, BorshCoder, EventParser, type Idl } from '@coral-xyz/anchor'
 import { PublicKey } from '@solana/web3.js'
+import { verdictMeshIdl } from '@verdictmesh/sdk'
 import { describe, expect, it } from 'vitest'
 import { referenceEscrowIdl } from './idl/reference-escrow.js'
-import { verdictMeshIdl } from './idl/verdict-mesh.js'
 import { parseLogs } from './logs.js'
 
 /** Raw IDLs, snake_case fields — the form `BorshCoder` has to be fed. */

@@ -1,12 +1,6 @@
 import { Connection, PublicKey, type Transaction } from '@solana/web3.js'
-import {
-  decodeJuror,
-  decodeVoteCommit,
-  type JurorAccount,
-  jurorAddress,
-  type VoteCommitAccount,
-  voteAddress,
-} from './vote'
+import { jurorAddress, voteAddress } from '@verdictmesh/sdk/pda'
+import { decodeJuror, decodeVoteCommit, type JurorAccount, type VoteCommitAccount } from './vote'
 
 /**
  * The page's own line to the chain — for what only the juror's wallet may do
@@ -36,7 +30,7 @@ export const CHAIN = 'solana:devnet'
 export const connection = new Connection(RPC_URL, 'confirmed')
 
 export async function readJuror(wallet: PublicKey): Promise<JurorAccount | null> {
-  const account = await connection.getAccountInfo(jurorAddress(PROGRAM_ID, wallet))
+  const account = await connection.getAccountInfo(jurorAddress(wallet, PROGRAM_ID))
   return account ? decodeJuror(account.data) : null
 }
 
@@ -44,7 +38,7 @@ export async function readVote(
   dispute: PublicKey,
   wallet: PublicKey,
 ): Promise<VoteCommitAccount | null> {
-  const account = await connection.getAccountInfo(voteAddress(PROGRAM_ID, dispute, wallet))
+  const account = await connection.getAccountInfo(voteAddress(dispute, wallet, PROGRAM_ID))
   return account ? decodeVoteCommit(account.data) : null
 }
 

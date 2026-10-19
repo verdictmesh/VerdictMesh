@@ -1,4 +1,5 @@
 import { PublicKey } from '@solana/web3.js'
+import { voteAddress } from '@verdictmesh/sdk/pda'
 import { describe, expect, it } from 'vitest'
 import {
   choiceSealedBy,
@@ -10,7 +11,6 @@ import {
   saltFromSignature,
   saltMessage,
   type VoteCommitAccount,
-  voteAddress,
   voteStep,
 } from './vote'
 
@@ -31,32 +31,6 @@ const devnet = {
 }
 
 const program = new PublicKey('8WyWpDD1ZbkTRGG6SRcYyWxApPsHaSgWn2SWJQ8xSgxq')
-
-describe('commitmentOf', () => {
-  it('matches a commitment the program accepted on devnet', () => {
-    expect(hex(commitmentOf(devnet.dispute, devnet.juror, 'Claimant', devnet.salt))).toBe(
-      devnet.commitment,
-    )
-  })
-
-  it('gives each choice its own commitment', () => {
-    expect(hex(commitmentOf(devnet.dispute, devnet.juror, 'Respondent', devnet.salt))).not.toBe(
-      devnet.commitment,
-    )
-  })
-
-  it('belongs to one juror', () => {
-    expect(hex(commitmentOf(devnet.dispute, program, 'Claimant', devnet.salt))).not.toBe(
-      devnet.commitment,
-    )
-  })
-
-  it('refuses a salt of the wrong length', () => {
-    expect(() =>
-      commitmentOf(devnet.dispute, devnet.juror, 'Claimant', new Uint8Array(31)),
-    ).toThrow()
-  })
-})
 
 describe('salt', () => {
   it('is the same for the same signature and differs per dispute message', () => {
@@ -85,7 +59,7 @@ describe('instructions', () => {
       [false, true],
       [false, false],
     ])
-    expect(ix.keys[2]?.pubkey.equals(voteAddress(program, devnet.dispute, devnet.juror))).toBe(true)
+    expect(ix.keys[2]?.pubkey.equals(voteAddress(devnet.dispute, devnet.juror, program))).toBe(true)
   })
 
   it('lays out reveal_vote with the borsh index of the choice, then the salt', () => {

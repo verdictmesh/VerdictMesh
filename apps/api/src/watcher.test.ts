@@ -1,7 +1,7 @@
 import { BN, BorshCoder } from '@coral-xyz/anchor'
 import { PublicKey } from '@solana/web3.js'
+import { verdictMeshIdl } from '@verdictmesh/sdk'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { verdictMeshIdl } from './idl/verdict-mesh.js'
 import {
   type Chain,
   type ChainAccount,

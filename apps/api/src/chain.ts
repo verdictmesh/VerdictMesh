@@ -1,8 +1,8 @@
 import { BorshCoder, utils } from '@coral-xyz/anchor'
 import type { Commitment, Connection, Finality } from '@solana/web3.js'
 import { PublicKey } from '@solana/web3.js'
+import { verdictMeshIdl } from '@verdictmesh/sdk'
 import type { EvidenceChain } from './evidence.js'
-import { verdictMeshIdl } from './idl/verdict-mesh.js'
 import type { SettlementChain } from './settlement.js'
 import type { Chain, ChainAccount } from './watcher.js'
 

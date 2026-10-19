@@ -1,8 +1,8 @@
 import { utils } from '@coral-xyz/anchor'
 import { type Connection, Keypair, PublicKey, type SignatureStatus } from '@solana/web3.js'
+import { verdictMeshIdl } from '@verdictmesh/sdk'
 import { describe, expect, it, vi } from 'vitest'
 import { attestInstruction, configPda, reporterKeypair, solanaAttester } from './attest.js'
-import { verdictMeshIdl } from './idl/verdict-mesh.js'
 
 const programId = new PublicKey(verdictMeshIdl.address)
 const reporter = Keypair.fromSeed(new Uint8Array(32).fill(7))

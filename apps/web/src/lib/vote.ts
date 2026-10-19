@@ -1,7 +1,10 @@
-import { keccak_256 } from '@noble/hashes/sha3'
 import { sha256 } from '@noble/hashes/sha256'
-import { PublicKey, SystemProgram, TransactionInstruction } from '@solana/web3.js'
+import { type PublicKey, SystemProgram, TransactionInstruction } from '@solana/web3.js'
+import { voteAddress } from '@verdictmesh/sdk/pda'
+import { type Ballot, commitmentOf, SALT_LEN } from '@verdictmesh/sdk/vote'
 import { Buffer } from 'buffer'
+
+export { type Ballot, commitmentOf, SALT_LEN }
 
 /**
  * A juror's vote, built in the browser and sent straight to the program from
@@ -13,20 +16,12 @@ import { Buffer } from 'buffer'
  * page for them would cost more than it checks. What keeps these bytes honest
  * is the program itself — a commitment that does not match is a reveal the
  * program refuses — and the tests against the formula the devnet runs used.
+ * The commitment formula and the addresses come from the SDK's Anchor-free
+ * entries, so the panel and an integrator seal votes with the same code.
  */
-
-/** `programs/verdict-mesh/src/vote.rs` → `DOMAIN`. */
-const DOMAIN = new TextEncoder().encode('verdict_mesh/vote/v1')
-
-export type Ballot = 'Claimant' | 'Respondent'
-
-/** `vote.rs` → `tag`: numbered from one, so zeroed memory is never a vote. */
-const TAG: Record<Ballot, number> = { Claimant: 1, Respondent: 2 }
 
 /** The borsh index of `Ballot` in the instruction argument — declaration order. */
 const VARIANT: Record<Ballot, number> = { Claimant: 0, Respondent: 1 }
-
-export const SALT_LEN = 32
 
 const concat = (...parts: Uint8Array[]) => {
   const out = new Uint8Array(parts.reduce((n, part) => n + part.length, 0))
@@ -36,19 +31,6 @@ const concat = (...parts: Uint8Array[]) => {
     offset += part.length
   }
   return out
-}
-
-/** `vote.rs` → `commitment_of`. The one formula; there is no other copy to drift from. */
-export function commitmentOf(
-  dispute: PublicKey,
-  juror: PublicKey,
-  choice: Ballot,
-  salt: Uint8Array,
-): Uint8Array {
-  if (salt.length !== SALT_LEN) throw new Error(`The salt must be ${SALT_LEN} bytes`)
-  return keccak_256(
-    concat(DOMAIN, dispute.toBytes(), juror.toBytes(), Uint8Array.of(TAG[choice]), salt),
-  )
 }
 
 /**
@@ -69,17 +51,6 @@ export const saltFromSignature = (signature: Uint8Array) => sha256(signature)
 /** A random salt, for a wallet that cannot sign messages. Must be kept until the reveal. */
 export const randomSalt = () => crypto.getRandomValues(new Uint8Array(SALT_LEN))
 
-const SEED = {
-  juror: new TextEncoder().encode('juror'),
-  vote: new TextEncoder().encode('vote'),
-}
-
-export const jurorAddress = (programId: PublicKey, wallet: PublicKey) =>
-  PublicKey.findProgramAddressSync([SEED.juror, wallet.toBytes()], programId)[0]
-
-export const voteAddress = (programId: PublicKey, dispute: PublicKey, juror: PublicKey) =>
-  PublicKey.findProgramAddressSync([SEED.vote, dispute.toBytes(), juror.toBytes()], programId)[0]
-
 /** Anchor discriminators, from `target/idl/verdict_mesh.json`. */
 const DISCRIMINATOR = {
   commitVote: Uint8Array.of(134, 97, 90, 126, 91, 66, 16, 26),
@@ -99,7 +70,7 @@ export function commitVoteInstruction(
     keys: [
       { pubkey: juror, isSigner: true, isWritable: true },
       { pubkey: dispute, isSigner: false, isWritable: false },
-      { pubkey: voteAddress(programId, dispute, juror), isSigner: false, isWritable: true },
+      { pubkey: voteAddress(dispute, juror, programId), isSigner: false, isWritable: true },
       { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
     ],
     data: Buffer.from(concat(DISCRIMINATOR.commitVote, commitment)),
@@ -118,7 +89,7 @@ export function revealVoteInstruction(
     keys: [
       { pubkey: juror, isSigner: true, isWritable: false },
       { pubkey: dispute, isSigner: false, isWritable: true },
-      { pubkey: voteAddress(programId, dispute, juror), isSigner: false, isWritable: true },
+      { pubkey: voteAddress(dispute, juror, programId), isSigner: false, isWritable: true },
     ],
     data: Buffer.from(concat(DISCRIMINATOR.revealVote, Uint8Array.of(VARIANT[choice]), salt)),
   })

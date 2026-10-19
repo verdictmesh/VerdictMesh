@@ -1,5 +1,6 @@
 import { BN, BorshCoder, type Idl } from '@coral-xyz/anchor'
 import { PublicKey } from '@solana/web3.js'
+import { verdictMeshIdl } from '@verdictmesh/sdk'
 import { describe, expect, it, vi } from 'vitest'
 import {
   type ChainTransaction,
@@ -10,7 +11,6 @@ import {
   toJson,
 } from './evidence.js'
 import { referenceEscrowIdl } from './idl/reference-escrow.js'
-import { verdictMeshIdl } from './idl/verdict-mesh.js'
 
 /**
  * As in the watcher tests, the bytes are produced by the same `BorshCoder`

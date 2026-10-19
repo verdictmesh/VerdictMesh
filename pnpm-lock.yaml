@@ -28,7 +28,7 @@ importers:
         version: 0.128.0(zod@4.4.3)
       '@coral-xyz/anchor':
         specifier: ^0.32.1
-        version: 0.32.1(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)
+        version: 0.32.1(bufferutil@4.1.0)(typescript@5.9.3)
       '@hono/node-server':
         specifier: ^1.19.0
         version: 1.19.17(hono@4.13.3)
@@ -44,6 +44,9 @@ importers:
       '@verdictmesh/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@verdictmesh/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
       '@verdictmesh/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -84,6 +87,9 @@ importers:
       '@tanstack/react-query':
         specifier: ^5.104.0
         version: 5.104.0(react@18.3.1)
+      '@verdictmesh/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
       '@verdictmesh/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -162,6 +168,21 @@ importers:
         specifier: 0.31.10
         version: 0.31.10
 
+  packages/sdk:
+    dependencies:
+      '@coral-xyz/anchor':
+        specifier: ^0.32.1
+        version: 0.32.1(bufferutil@4.1.0)(typescript@5.9.3)
+      '@noble/hashes':
+        specifier: ^1.8.0
+        version: 1.8.0
+      '@solana/spl-token':
+        specifier: ^0.4.15
+        version: 0.4.15(@solana/web3.js@1.98.4(bufferutil@4.1.0)(typescript@5.9.3))(bufferutil@4.1.0)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.9.3)
+      '@solana/web3.js':
+        specifier: ^1.98.4
+        version: 1.98.4(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)
+
   packages/shared:
     dependencies:
       zod:
@@ -172,7 +193,7 @@ importers:
     dependencies:
       '@coral-xyz/anchor':
         specifier: ^0.32.1
-        version: 0.32.1(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)
+        version: 0.32.1(bufferutil@4.1.0)(typescript@5.9.3)
       '@noble/hashes':
         specifier: ^1.8.0
         version: 1.8.0
@@ -182,6 +203,9 @@ importers:
       '@solana/web3.js':
         specifier: ^1.98.4
         version: 1.98.4(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)
+      '@verdictmesh/sdk':
+        specifier: workspace:*
+        version: link:../packages/sdk
       bs58:
         specifier: ^6.0.0
         version: 6.0.0
@@ -2591,7 +2615,7 @@ snapshots:
 
   '@coral-xyz/anchor-errors@0.31.1': {}
 
-  '@coral-xyz/anchor@0.32.1(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)':
+  '@coral-xyz/anchor@0.32.1(bufferutil@4.1.0)(typescript@5.9.3)':
     dependencies:
       '@coral-xyz/anchor-errors': 0.31.1
       '@coral-xyz/borsh': 0.31.1(@solana/web3.js@1.98.4(bufferutil@4.1.0)(typescript@5.9.3))

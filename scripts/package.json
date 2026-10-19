@@ -19,6 +19,7 @@
     "@solana/spl-token": "^0.4.15",
     "@solana/web3.js": "^1.98.4",
     "bs58": "^6.0.0",
+    "@verdictmesh/sdk": "workspace:*",
     "zod": "^4.1.0"
   },
   "devDependencies": {

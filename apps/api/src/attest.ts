@@ -1,7 +1,7 @@
 import { utils } from '@coral-xyz/anchor'
 import type { Connection } from '@solana/web3.js'
 import { Keypair, PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js'
-import { verdictMeshIdl } from './idl/verdict-mesh.js'
+import { verdictMeshIdl } from '@verdictmesh/sdk'
 
 /**
  * Writing the report fingerprint on chain — `attest_report`, signed by the
