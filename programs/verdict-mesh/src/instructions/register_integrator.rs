@@ -5,18 +5,18 @@ use crate::{
     state::{Config, Integrator, Policy},
 };
 
-/// Закріплює за інтегратором політику арбітражу — `FR-001`, `FR-002`.
+/// Binds an arbitration policy to an integrator — `FR-001`, `FR-002`.
 ///
-/// Політика перевіряється тут і більше ніде: у спір вона потрапляє знімком
-/// (`FR-003`), а знімок ніхто не переперевіряє. Тому `Policy::validate` — це
-/// єдина межа між числами, які прислав клієнт, і арифметикою над чужими
-/// коштами.
+/// The policy is validated here and nowhere else: it enters a dispute as a
+/// snapshot (`FR-003`), and nobody re-validates the snapshot. So
+/// `Policy::validate` is the only boundary between the numbers a client sent
+/// and arithmetic over other people's funds.
 ///
-/// Інструкції оновлення політики немає, як і в `initialize`. Політика, яку
-/// можна переставити під уже відкритими спорами, зробила б знімок у `Dispute`
-/// декорацією: сторони погоджувались на одні правила, а розгляд ішов би за
-/// іншими. Змінити правила можна лише реєстрацією нового інтегратора — тобто
-/// на очах у сторін, які до нього ще не приєднались.
+/// There is no instruction to update the policy, just as with `initialize`. A policy that could
+/// be changed under already open disputes would make the snapshot in `Dispute` mere decoration:
+/// the parties would agree to one set of rules while the review followed another. Rules can
+/// only be changed by registering a new integrator — that is, in full view of parties that
+/// have not yet joined it.
 impl RegisterIntegrator<'_> {
     pub fn handle(ctx: Context<RegisterIntegrator>, policy: Policy) -> Result<()> {
         policy.validate()?;
@@ -37,8 +37,8 @@ pub struct RegisterIntegrator<'info> {
     #[account(mut)]
     pub authority: Signer<'info>,
 
-    /// PDA за ключем власника: закріпити протокол за собою можна лише власним
-    /// підписом, і чужий ключ не має куди записати свою політику.
+    /// A PDA keyed by the owner: a protocol can be claimed only with one's own
+    /// signature, and someone else's key has nowhere to write its policy.
     #[account(
         init,
         payer = authority,
@@ -48,18 +48,18 @@ pub struct RegisterIntegrator<'info> {
     )]
     pub integrator: Account<'info, Integrator>,
 
-    /// Політики без розрахункового активу не буває: `juror_stake` і `deposit`
-    /// виражені саме в ньому (`FR-011a`). Присутність `Config` робить порядок
-    /// `initialize` → `register_integrator` перевіркою, а не домовленістю.
+    /// There is no policy without a settlement asset: `juror_stake` and
+    /// `deposit` are denominated in it (`FR-011a`). Requiring `Config` makes the
+    /// `initialize` → `register_integrator` order a check, not a convention.
     #[account(seeds = [seeds::CONFIG], bump = config.bump)]
     pub config: Account<'info, Config>,
 
-    /// Програма ескроу інтегратора: за нею `open_dispute` згодом упізнаватиме,
-    /// що спір відкриває саме її акаунт. Перевіряємо, що це справді програма —
-    /// оновити поле нічим, тож помилка в ньому була б назавжди.
+    /// The integrator's escrow program: `open_dispute` later uses it to recognize that a dispute
+    /// is opened by that program's own account. We check that it really is a program — nothing
+    /// can update this field, so a mistake in it would be permanent.
     ///
-    /// CHECK: жоден тест і жодна інструкція її не викликають; перевіряється
-    /// лише ознака executable.
+    /// CHECK: no test and no instruction invokes it; only the executable flag
+    /// is checked.
     #[account(executable)]
     pub escrow_program: UncheckedAccount<'info>,
 

@@ -8,24 +8,24 @@ use crate::{
     vote::{commitment_of, SALT_LEN},
 };
 
-/// Другий крок голосування — `FR-008a`: присяжний показує голос і секрет, за
-/// якими перевіряється поданий раніше відбиток.
+/// The second voting step — `FR-008a`: the juror discloses the vote and the secret
+/// against which the previously submitted commitment is checked.
 ///
-/// **Це та інструкція, що робить перший крок небезсенсовним.** Сам по собі
-/// відбиток не зобов'язує ні до чого — число як число. Зобов'язанням його
-/// робить те, що розкрити його можна рівно однією парою «вибір + секрет»,
-/// і рахується голос лише тоді, коли пара збіглась.
+/// **This is the instruction that gives the first step its meaning.** A commitment on
+/// its own binds to nothing — it is just a number. What makes it binding is that it
+/// can be revealed by exactly one "choice + secret" pair, and the vote counts only
+/// when that pair matches.
 ///
-/// **Розбіжність відхиляє транзакцію, а не «не враховує голос».** Формулювання
-/// `FR-008a` («не враховується у підрахунку») допускало б і мовчазне
-/// проковтування, але тоді присяжний, що помилився секретом, отримав би
-/// підтверджену транзакцію і дізнався б про втрату стейку аж на розрахунку.
-/// Відмова лишає йому час у вікні розкриття.
+/// **A mismatch rejects the transaction rather than "not counting the vote".** The
+/// wording of `FR-008a` ("not counted in the tally") would also allow silently
+/// swallowing it, but then a juror who got the secret wrong would receive a
+/// confirmed transaction and learn about losing the stake only at settlement.
+/// Rejection leaves them time within the reveal window.
 ///
-/// **Перевіряти нічого, крім хеша, тут не треба, і це властивість адреси.**
-/// Акаунт голосу виводиться з пари «спір + присяжний», тож його існування вже
-/// доводить, що підписант був у панелі, коли подавав відбиток (`commit_vote`
-/// без цього акаунт не створює). Повторна перевірка панелі нічого б не додала.
+/// **Nothing but the hash needs checking here, and that is a property of the address.**
+/// The vote account is derived from the "dispute + juror" pair, so its existence already
+/// proves the signer was on the panel when committing (`commit_vote` does not create the
+/// account otherwise). Re-checking the panel would add nothing.
 impl RevealVote<'_> {
     pub fn handle(ctx: Context<RevealVote>, choice: Ballot, salt: [u8; SALT_LEN]) -> Result<()> {
         let dispute_key = ctx.accounts.dispute.key();
@@ -40,9 +40,9 @@ impl RevealVote<'_> {
             ),
             VerdictMeshError::WrongState
         );
-        // `FR-009` на межі: розкритись до кінця вікна подання означає показати
-        // свій голос тим, хто ще не зафіксувався. Вікна стикаються — сам
-        // дедлайн подання вже належить розкриттю.
+        // `FR-009` at the boundary: revealing before the commit window ends means
+        // showing one's vote to those who have not committed yet. The windows are
+        // adjacent — the commit deadline itself already belongs to the reveal.
         require!(now >= dispute.commit_deadline, VerdictMeshError::WindowOpen);
         require!(
             now < dispute.reveal_deadline,
@@ -50,13 +50,13 @@ impl RevealVote<'_> {
         );
 
         let vote = &mut ctx.accounts.vote;
-        // Одноразово: друге розкриття порахувало б той самий голос двічі, і
-        // панель із трьох дала б кворум силами одного присяжного.
+        // Once only: a second reveal would count the same vote twice, and a panel
+        // of three would reach quorum on the strength of a single juror.
         require!(vote.choice.is_none(), VerdictMeshError::AlreadyRevealed);
-        // Відбиток першого кола, не розкритий до підрахунку, спізнився назавжди.
-        // Дозволити його зараз означало б дати присяжному вирішувати,
-        // оприлюднювати свій голос чи ні, **побачивши перший підрахунок**, — і
-        // тим скасувати слешинг, який `FR-027b` призначає саме за те мовчання.
+        // A first-round commitment not revealed before the tally is late for good.
+        // Allowing it now would let the juror decide whether to publish their vote
+        // **after seeing the first tally** — and thereby cancel the slashing that
+        // `FR-027b` imposes precisely for that silence.
         require!(
             vote.round == dispute.round(),
             VerdictMeshError::StaleCommitment
@@ -68,18 +68,18 @@ impl RevealVote<'_> {
 
         vote.choice = Some(choice);
 
-        // Лічильники живуть у спорі, а не виводяться перебором акаунтів голосів:
-        // підрахунок (T019) інакше мусив би отримати всю панель акаунтами і
-        // впирався б у ліміт транзакції там, де достатньо двох чисел. Перебір
-        // акаунтів однаково буде — але в розрахунку стейків (T020), якому вони
-        // потрібні поіменно.
+        // The counters live in the dispute rather than being derived by iterating
+        // vote accounts: otherwise the tally (T019) would have to receive the whole
+        // panel as accounts and would hit the transaction limit where two numbers
+        // suffice. The accounts will be iterated anyway — but in stake settlement
+        // (T020), which needs them individually.
         let counter = match choice {
             Ballot::Claimant => &mut dispute.votes_claimant,
             Ballot::Respondent => &mut dispute.votes_respondent,
         };
         *counter = counter.checked_add(1).ok_or(VerdictMeshError::Overflow)?;
 
-        // Перше розкриття закриває подання і в стані, а не лише за годинником.
+        // The first reveal closes commits in state too, not only by the clock.
         dispute.state = DisputeState::Revealing;
 
         emit!(VoteRevealed {
@@ -94,12 +94,12 @@ impl RevealVote<'_> {
 
 #[derive(Accounts)]
 pub struct RevealVote<'info> {
-    /// Підпис присяжного — те, чим акаунт голосу пов'язується з тим, хто його
-    /// подавав: гаманець підписанта входить і в адресу акаунта, і в сам хеш.
-    /// Тому розкрити чужий голос своїм підписом не можна — ні за присяжного,
-    /// який вирішив змовчати, ні проти нього.
+    /// The juror's signature is what ties the vote account to whoever submitted it:
+    /// the signer's wallet goes into both the account address and the hash itself.
+    /// So no one can reveal another juror's vote with their own signature — neither
+    /// on behalf of a juror who chose to stay silent, nor against them.
     ///
-    /// `mut` не потрібне: розкриття не створює акаунтів і не повертає оренди.
+    /// `mut` is not needed: revealing creates no accounts and refunds no rent.
     pub juror: Signer<'info>,
 
     #[account(
@@ -113,9 +113,9 @@ pub struct RevealVote<'info> {
     )]
     pub dispute: Account<'info, Dispute>,
 
-    /// Акаунт не закривається після розкриття: слешинг (`FR-011`, `FR-008b`,
-    /// T020) читає саме його, щоб відрізнити правильний голос від програного, а
-    /// обидва — від мовчання. Оренда повертається присяжному там.
+    /// The account is not closed after reveal: slashing (`FR-011`, `FR-008b`,
+    /// T020) reads exactly this account to tell a correct vote from a losing one,
+    /// and both from silence. The rent is returned to the juror there.
     #[account(
         mut,
         seeds = [seeds::VOTE, dispute.key().as_ref(), juror.key().as_ref()],

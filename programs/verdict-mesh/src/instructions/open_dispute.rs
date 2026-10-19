@@ -11,16 +11,16 @@ use crate::{
 };
 
 impl OpenDispute<'_> {
-    /// Відкриває спір над замкненим залишком — `FR-004`.
+    /// Opens a dispute over a locked balance — `FR-004`.
     ///
-    /// Політика копіюється, а не позичається: `FR-003` вимагає, щоб правила
-    /// розгляду не змінювались до фіналізації, а посилання на `Integrator`
-    /// цього не дає.
+    /// The policy is copied, not borrowed: `FR-003` requires that the review
+    /// rules do not change until finalization, and a reference to `Integrator`
+    /// does not guarantee that.
     ///
-    /// Депозит за розгляд знімається тут і зараз — `FR-026`. Він же і є ціна
-    /// розгляду (`FR-026d`), тож спору без оплаченого розгляду не існує в
-    /// принципі: сховище створюється й наповнюється тією ж транзакцією, що
-    /// відкриває спір, і панель ніколи не працює в борг.
+    /// The review deposit is collected here and now — `FR-026`. It is also the
+    /// price of the review (`FR-026d`), so a dispute without a paid review
+    /// cannot exist at all: the vault is created and funded by the same
+    /// transaction that opens the dispute, and the panel never works on credit.
     pub fn handle(
         ctx: Context<OpenDispute>,
         claimant: Pubkey,
@@ -31,9 +31,9 @@ impl OpenDispute<'_> {
     ) -> Result<()> {
         require_keys_neq!(claimant, respondent, VerdictMeshError::InvalidParties);
         require!(amount > 0, VerdictMeshError::InvalidAmount);
-        // FR-005: нульовий відбиток — не «порожнє твердження», а відсутнє.
-        // Присяжний побачив би позицію лише однієї сторони і не мав би як це
-        // помітити.
+        // FR-005: a zero fingerprint is not an "empty claim" but a missing one.
+        // A juror would see only one side's position and have no way to
+        // notice.
         require!(
             claimant_claim_hash != [0u8; 32] && respondent_claim_hash != [0u8; 32],
             VerdictMeshError::MissingClaim
@@ -68,14 +68,14 @@ impl OpenDispute<'_> {
         dispute.claimant_claim_hash = claimant_claim_hash;
         dispute.respondent_claim_hash = respondent_claim_hash;
         dispute.opened_at = opened_at;
-        // Ентропію відбору фіксуємо тут, а не там, де відбувається сам відбір
-        // (T016): інакше його можна було б переграти, повторюючи спробу зі
-        // слота в слот, доки панель не сподобається. Береться слот перед
-        // поточним — хеш поточного ще не існує.
+        // Selection entropy is fixed here, not where the selection itself
+        // happens (T016): otherwise it could be re-rolled by retrying slot
+        // after slot until the panel is to one's liking. The slot before the
+        // current one is used — the current slot's hash does not exist yet.
         dispute.entropy_slot = Clock::get()?.slot.saturating_sub(1);
         dispute.commit_deadline = commit_deadline;
         dispute.reveal_deadline = reveal_deadline;
-        // Вікно апеляції відкривається від вердикту, а не від відкриття спору.
+        // The appeal window starts at the verdict, not at dispute opening.
         dispute.appeal_deadline = 0;
         dispute.votes_claimant = 0;
         dispute.votes_respondent = 0;
@@ -83,9 +83,9 @@ impl OpenDispute<'_> {
         dispute.verdict = None;
         dispute.bump = ctx.bumps.dispute;
 
-        // Переказ **після** запису стану: сховище виводиться з адреси спору, і
-        // до її створення переказувати нікуди. Порядок безпечний — обидві
-        // половини в одній транзакції, тож спір без депозиту не лишається.
+        // The transfer comes **after** the state is written: the vault is derived from the
+        // dispute's address, and until that exists there is nowhere to transfer to. The order
+        // is safe — both halves are in one transaction, so no dispute is left without a deposit.
         let deposit = policy.deposit;
         transfer_checked(
             CpiContext::new(
@@ -107,8 +107,8 @@ impl OpenDispute<'_> {
             amount: deposit,
         });
 
-        // FR-029: за подіями зовнішній спостерігач відновлює хронологію спору
-        // без доступу до офчейн-сервісу. Watcher (T027) читає саме цю.
+        // FR-029: from events, an outside observer reconstructs the dispute's timeline without
+        // access to the off-chain service. The watcher (T027) reads this one.
         emit!(DisputeOpened {
             dispute: dispute.key(),
             integrator: dispute.integrator,
@@ -127,29 +127,29 @@ impl OpenDispute<'_> {
 #[derive(Accounts)]
 #[instruction(claimant: Pubkey, respondent: Pubkey)]
 pub struct OpenDispute<'info> {
-    /// Оренду акаунтів спору платить той, хто ініціює транзакцію, а не PDA
-    /// ескроу: у PDA може не бути лампортів, і вимагати їх від нього означало б
-    /// вимагати від інтегратора тримати баланс у чужій програмі.
+    /// Rent for the dispute accounts is paid by whoever initiates the transaction, not by the
+    /// escrow PDA: the PDA may hold no lamports, and requiring them from it would mean
+    /// requiring the integrator to keep a balance in someone else's program.
     #[account(mut)]
     pub payer: Signer<'info>,
 
     #[account(seeds = [seeds::CONFIG], bump = config.bump)]
     pub config: Account<'info, Config>,
 
-    /// Депозит іде в розрахунковому активі протоколу, а не в активі спору:
-    /// `FR-011a` тримає економіку присяжних незалежною від того, над чим саме
-    /// сперечаються сторони.
+    /// The deposit is paid in the protocol's settlement asset, not in the
+    /// disputed asset: `FR-011a` keeps juror economics independent of what
+    /// exactly the parties are disputing.
     #[account(address = config.settlement_mint)]
     pub settlement_mint: InterfaceAccount<'info, Mint>,
 
-    /// Депозит вносить **сторона, яка відкриває спір** — `FR-026`, і це саме
-    /// той, кого спір записує як `claimant`. Рівність тут не формальність: без
-    /// неї ескроу міг би відкрити спір «від імені» позивача, а заплатити з
-    /// чужого гаманця, і `FR-026a` не мав би на чому триматись — вартість
-    /// розгляду несла б людина, яка про спір не знала.
+    /// The deposit is made by **the party opening the dispute** — `FR-026` — and that is exactly
+    /// whoever the dispute records as `claimant`. The equality is not a formality: without it
+    /// the escrow could open a dispute "on behalf of" the claimant yet pay from someone else's
+    /// wallet, and `FR-026a` would have nothing to rest on — the review cost would fall on a
+    /// person who never knew about the dispute.
     ///
-    /// Підпис проходить крізь CPI: ескроу підписує спір своїм PDA, позивач —
-    /// зовнішню транзакцію.
+    /// The signature passes through the CPI: the escrow signs the dispute with
+    /// its PDA, the claimant signs the outer transaction.
     #[account(constraint = depositor.key() == claimant @ VerdictMeshError::NotTheDepositor)]
     pub depositor: Signer<'info>,
 
@@ -160,26 +160,26 @@ pub struct OpenDispute<'info> {
     )]
     pub integrator: Account<'info, Integrator>,
 
-    /// Акаунт ескроу, над коштами якого йде спір. Він і стає `escrow_ref` —
-    /// єдиним, за чим ескроу згодом упізнає «свій» спір, перш ніж розподілити
-    /// кошти (`FR-012`).
+    /// The escrow account whose funds are in dispute. It becomes `escrow_ref` —
+    /// the only thing by which the escrow later recognizes "its" dispute before
+    /// distributing the funds (`FR-012`).
     ///
-    /// Тому вимог дві, і жодна не зайва. **Власник** — програма, яку інтегратор
-    /// вказав при реєстрації: інакше `escrow_ref` вказував би на що завгодно.
-    /// **Підпис** — бо власності замало: акаунт чужої програми може прочитати
-    /// будь-хто, і без підпису вистачило б підставити чужий ескроу, щоб
-    /// змусити його виконати вигаданий вердикт.
+    /// Hence two requirements, neither redundant. **Owner** — the program the integrator named
+    /// at registration: otherwise `escrow_ref` could point to anything. **Signature** — because
+    /// ownership is not enough: anyone can read another program's account, and without a
+    /// signature it would be enough to pass in someone else's escrow to make it execute a
+    /// fabricated verdict.
     ///
-    /// CHECK: вміст акаунта програмі невідомий і не потрібен; перевіряються
-    /// власник і підпис.
+    /// CHECK: the account's contents are unknown to and not needed by the
+    /// program; the owner and the signature are checked.
     #[account(signer, owner = integrator.escrow_program)]
     pub escrow: UncheckedAccount<'info>,
 
-    /// Номер спору бере лічильник інтегратора, а не клієнт: інакше нумерація
-    /// перестала б бути щільною, і `dispute_count` не був би правдою про те,
-    /// скільки спорів існує.
+    /// The dispute number comes from the integrator's counter, not from the
+    /// client: otherwise numbering would stop being dense, and `dispute_count`
+    /// would no longer tell the truth about how many disputes exist.
     ///
-    /// Місце виділяється під **розширену** панель — див. `Dispute::space`.
+    /// Space is allocated for the **extended** panel — see `Dispute::space`.
     #[account(
         init,
         payer = payer,
@@ -200,13 +200,13 @@ pub struct OpenDispute<'info> {
     )]
     pub depositor_tokens: InterfaceAccount<'info, TokenAccount>,
 
-    /// Сховище цього спору — і тільки цього. Окреме на спір, а не спільне:
-    /// сюди ж ляже апеляційна застава (`FR-021`), яку доведеться повертати
-    /// поіменно, а зі спільного сховища «чия саме це сума» не читається.
+    /// The vault of this dispute — and only this one. One per dispute, not shared: the appeal
+    /// bond (`FR-021`) also lands here and will have to be returned to specific parties, and a
+    /// shared vault cannot tell "whose amount this is".
     ///
-    /// Авторитет — `Config`, той самий PDA, що й у сховища стейків: приватного
-    /// ключа до нього не існує, тож депозит виходить лише тим шляхом, який
-    /// програма підпише сама (`FR-014`).
+    /// The authority is `Config`, the same PDA as for the stake vault: no
+    /// private key exists for it, so the deposit leaves only by a path the
+    /// program signs itself (`FR-014`).
     #[account(
         init,
         payer = payer,

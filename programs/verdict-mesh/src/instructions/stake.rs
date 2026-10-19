@@ -10,36 +10,36 @@ use crate::{
     state::{Config, Juror, JurorIndex, JurorRegistry},
 };
 
-/// Вступ до реєстру присяжних — `FR-007`.
+/// Joining the juror registry — `FR-007`.
 ///
-/// **Порогу стейку тут немає навмисно.** Реєстр один на протокол, а
-/// `juror_stake` живе в `Policy`, тобто в кожного інтегратора свій: єдиного
-/// числа, з яким можна було б звірити внесок на вступі, не існує. Придатність
-/// присяжного до конкретного спору перевіряє відбір панелі (`FR-006`, T016),
-/// маючи перед очима саме ту політику, за якою спір розглядається.
+/// **There is deliberately no stake threshold here.** There is one registry per
+/// protocol, while `juror_stake` lives in `Policy`, i.e. each integrator has its own:
+/// no single number exists to check the deposit against on entry. A juror's
+/// eligibility for a specific dispute is checked by panel selection (`FR-006`, T016),
+/// which has in front of it the exact policy the dispute is governed by.
 ///
-/// **Стейк не поповнюється.** `Juror` виводиться з гаманця, тож другий стейк
-/// тим самим ключем не має куди лягти — і це не обмеження, а те, що тримає
-/// реєстр щільним: слот `JurorIndex` видає лічильник, і поповнення або
-/// створило б другий слот на того самого присяжного, або переписало б чужий.
-/// Збільшити стейк можна виходом і повторним вступом (`unstake`, T015) — доти,
-/// доки присяжний не тримає жодного нефіналізованого спору.
+/// **The stake cannot be topped up.** `Juror` is derived from the wallet, so a second
+/// stake from the same key has nowhere to go — and this is not a limitation but what
+/// keeps the registry dense: `JurorIndex` slots are issued by a counter, and a top-up
+/// would either create a second slot for the same juror or overwrite someone else's.
+/// The stake can be increased by leaving and re-joining (`unstake`, T015) — as long
+/// as the juror holds no unfinalized dispute.
 impl Stake<'_> {
     pub fn handle(ctx: Context<Stake>, amount: u64) -> Result<()> {
-        // Нульовий стейк — це місце в панелі, яке нічим не ризикує: слешинг від
-        // нуля теж нуль, тобто неправильний голос стає безкоштовним.
+        // A zero stake is a panel seat that risks nothing: slashing zero yields
+        // zero, so a wrong vote becomes free.
         require!(amount > 0, VerdictMeshError::InvalidAmount);
 
-        // Індекс беруть до інкремента: саме за цим значенням щойно вивелась
-        // адреса `juror_index`, тож розійтися вони не можуть.
+        // The index is taken before the increment: this is exactly the value the
+        // `juror_index` address was just derived from, so the two cannot diverge.
         let index = ctx.accounts.registry.juror_count;
         let juror_count = index.checked_add(1).ok_or(VerdictMeshError::Overflow)?;
         ctx.accounts.registry.juror_count = juror_count;
         ctx.accounts.registry.bump = ctx.bumps.registry;
 
-        // `transfer_checked`, а не `transfer`: він звіряє мінт і знаки на боці
-        // програми токена. Переказ, у якому знаки взяті з чужого мінта, — це
-        // сума, помилкова на два порядки, і помітна вона стала б на виплаті.
+        // `transfer_checked`, not `transfer`: it verifies the mint and decimals on
+        // the token program's side. A transfer using another mint's decimals is an
+        // amount off by two orders of magnitude, and it would only surface on payout.
         transfer_checked(
             CpiContext::new(
                 ctx.accounts.token_program.to_account_info(),
@@ -80,26 +80,26 @@ impl Stake<'_> {
 
 #[derive(Accounts)]
 pub struct Stake<'info> {
-    /// Присяжний платить оренду власних акаунтів і сам є авторитетом переказу:
-    /// стейк іде зі свого гаманця, а не з чужого за дорученням.
+    /// The juror pays rent for their own accounts and is the transfer authority:
+    /// the stake comes from their own wallet, not from someone else's by delegation.
     #[account(mut)]
     pub juror: Signer<'info>,
 
     #[account(seeds = [seeds::CONFIG], bump = config.bump)]
     pub config: Account<'info, Config>,
 
-    /// Мінт передається акаунтом, бо `transfer_checked` звіряє за ним знаки.
-    /// Прив'язка до `Config` робить підміну неможливою: інакше мінт із іншими
-    /// знаками перетворив би сто одиниць на одну соту, і програма б цього не
-    /// побачила.
+    /// The mint is passed as an account because `transfer_checked` checks decimals
+    /// against it. Binding it to `Config` makes substitution impossible: otherwise a
+    /// mint with different decimals would turn a hundred units into one hundredth,
+    /// and the program would not notice.
     #[account(address = config.settlement_mint)]
     pub settlement_mint: InterfaceAccount<'info, Mint>,
 
-    /// `init_if_needed` тут безпечний і потрібен: адреса реєстру фіксована,
-    /// поля перевіряються констрейнтами, а хендлер нічого не скидає — він лише
-    /// збільшує лічильник, тому шлях «створили» і шлях «уже було» дають той
-    /// самий результат. Створювати реєстр в `initialize` означало б, що ключ,
-    /// який ініціалізує протокол, обирає й мить появи реєстру.
+    /// `init_if_needed` is both safe and necessary here: the registry address is
+    /// fixed, fields are checked by constraints, and the handler resets nothing — it
+    /// only increments the counter, so the "just created" and "already existed" paths
+    /// produce the same result. Creating the registry in `initialize` would mean the
+    /// key that initializes the protocol also chooses when the registry appears.
     #[account(
         init_if_needed,
         payer = juror,
@@ -109,8 +109,8 @@ pub struct Stake<'info> {
     )]
     pub registry: Account<'info, JurorRegistry>,
 
-    /// `init`, а не `init_if_needed`: один гаманець — один запис у реєстрі.
-    /// Другий стейк тим самим ключем має впасти тут, а не переписати індекс.
+    /// `init`, not `init_if_needed`: one wallet, one registry entry. A second stake
+    /// from the same key must fail here rather than overwrite the index.
     #[account(
         init,
         payer = juror,
@@ -120,9 +120,9 @@ pub struct Stake<'info> {
     )]
     pub juror_account: Account<'info, Juror>,
 
-    /// Слот у реєстрі виводиться з лічильника, а не з аргументу: для номера
-    /// попереду лічильника просто немає адреси, за якою його створити, тож
-    /// нумерація лишається щільною. Відбір панелі (`FR-006`) на це й спирається.
+    /// The registry slot is derived from the counter, not from an argument: a number
+    /// ahead of the counter simply has no address to be created at, so numbering
+    /// stays dense. Panel selection (`FR-006`) relies on exactly that.
     #[account(
         init,
         payer = juror,
@@ -139,11 +139,11 @@ pub struct Stake<'info> {
     )]
     pub juror_tokens: InterfaceAccount<'info, TokenAccount>,
 
-    /// Спільне сховище стейків. Авторитет — `Config`, тобто PDA програми:
-    /// приватного ключа до нього не існує за побудовою, і вивести кошти можна
-    /// лише тим, що програма підпише сама (`FR-014`). `Config` обрано, бо його
-    /// канонічний bump уже лежить у стані — кожен майбутній переказ зі сховища
-    /// підписується числом, прочитаним з акаунта, а не виведеним заново.
+    /// The shared stake vault. Its authority is `Config`, i.e. a program PDA: by
+    /// construction it has no private key, and funds can only leave through what the
+    /// program signs itself (`FR-014`). `Config` was chosen because its canonical
+    /// bump is already stored in state — every future transfer out of the vault is
+    /// signed with a value read from the account rather than re-derived.
     #[account(
         init_if_needed,
         payer = juror,

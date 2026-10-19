@@ -21,12 +21,12 @@ export const verdictMeshIdl = {
     "description": "Protocol-agnostic dispute resolution layer for Solana"
   },
   "docs": [
-    "VerdictMesh — протокол-агностичний шар вирішення спорів.",
+    "VerdictMesh — a protocol-agnostic dispute resolution layer.",
     "",
-    "Програма не тримає коштів інтегратора: ескроу читає акаунт `Dispute` як",
-    "звичайний стан і сам розподіляє кошти (див. docs/PLAN.md → «вердикт витягують,",
-    "а не проштовхують»). Тому тут немає жодної інструкції, здатної перевести чужі",
-    "гроші — FR-014 є властивістю конструкції, а не обіцянкою."
+    "The program never holds integrator funds: the escrow reads the `Dispute` account as",
+    "plain state and distributes the funds itself (see docs/PLAN.md → \"the verdict is",
+    "pulled, not pushed\"). That is why there is no instruction here capable of moving",
+    "someone else's money — FR-014 is a property of the design, not a promise."
   ],
   "instructions": [
     {
@@ -129,8 +129,8 @@ export const verdictMeshIdl = {
     {
       "name": "commit_vote",
       "docs": [
-        "Фіксує прихований відбиток голосу присяжного у вікні подання. Самого",
-        "голосу в стані немає до розкриття — див. `instructions::commit_vote`."
+        "Records the juror's hidden vote commitment during the commit window. The",
+        "vote itself is absent from state until reveal — see `instructions::commit_vote`."
       ],
       "discriminator": [
         134,
@@ -146,9 +146,9 @@ export const verdictMeshIdl = {
         {
           "name": "juror",
           "docs": [
-            "Присяжний платить оренду власного акаунта голосу. Підпис — єдине, що",
-            "доводить авторство відбитка: саме гаманець підписанта входить і в адресу",
-            "акаунта, і в сам хеш (`crate::vote`)."
+            "The juror pays rent for their own vote account. The signature is the only",
+            "proof of authorship of the commitment: the signer's wallet goes into both the",
+            "account address and the hash itself (`crate::vote`)."
           ],
           "writable": true,
           "signer": true
@@ -156,10 +156,10 @@ export const verdictMeshIdl = {
         {
           "name": "dispute",
           "docs": [
-            "Читається, не змінюється. Лічильника поданих відбитків у `Dispute` немає",
-            "навмисно: кворум рахується за **розкритими** голосами (`FR-010`), а хто",
-            "подав і змовчав — видно з акаунтів голосів, які для слешингу однаково",
-            "доведеться перебрати."
+            "Read-only. `Dispute` deliberately has no counter of submitted commitments:",
+            "quorum is counted over **revealed** votes (`FR-010`), and who committed but",
+            "stayed silent is visible from the vote accounts, which have to be iterated",
+            "for slashing anyway."
           ],
           "pda": {
             "seeds": [
@@ -191,12 +191,12 @@ export const verdictMeshIdl = {
         {
           "name": "vote",
           "docs": [
-            "`init`, а не `init_if_needed`: відбиток подається один раз. Друге",
-            "подання — це не «змінив рішення», а можливість дочекатися чужого",
-            "розкриття і переписати свій голос під нього.",
+            "`init`, not `init_if_needed`: a commitment is submitted once. A second",
+            "submission is not \"changing one's mind\" but a chance to wait for someone",
+            "else's reveal and rewrite one's own vote to match it.",
             "",
-            "Адреса виводиться з пари «спір + присяжний», тож записати відбиток у",
-            "чужий акаунт не можна, а свій — рівно один на спір."
+            "The address is derived from the \"dispute + juror\" pair, so a commitment cannot",
+            "be written into someone else's account, and each juror has exactly one per dispute."
           ],
           "writable": true,
           "pda": {
@@ -241,9 +241,9 @@ export const verdictMeshIdl = {
     {
       "name": "initialize",
       "docs": [
-        "Разова ініціалізація протоколу: розрахунковий актив, ключ ролі reporter",
-        "і адреса скарбниці. Інструкції, що змінює записане, у програмі немає —",
-        "див. `instructions::initialize`."
+        "One-time protocol initialization: the settlement asset, the reporter role key",
+        "and the treasury address. The program has no instruction that changes them",
+        "afterwards — see `instructions::initialize`."
       ],
       "discriminator": [
         175,
@@ -264,8 +264,8 @@ export const verdictMeshIdl = {
         {
           "name": "config",
           "docs": [
-            "`init` тут і є захистом від повторної ініціалізації: акаунт, що вже має",
-            "власника, до створення не допускається."
+            "`init` itself is the guard against re-initialization: an account that already",
+            "has an owner cannot be created again."
           ],
           "writable": true,
           "pda": {
@@ -287,12 +287,12 @@ export const verdictMeshIdl = {
         {
           "name": "settlement_mint",
           "docs": [
-            "Спільний розрахунковий актив протоколу — `FR-011a`. Тип перевіряється",
-            "зараз, а не на першому переказі стейку: `Config`, що вказує на не-мінт,",
-            "зламав би кожну наступну інструкцію з коштами, і слід вів би сюди.",
+            "The protocol's shared settlement asset — `FR-011a`. Its type is checked now,",
+            "not on the first stake transfer: a `Config` pointing at a non-mint would break",
+            "every later instruction that moves funds, and the trail would lead back here.",
             "",
-            "Підпису не вимагаємо: емітент розрахункового активу до протоколу",
-            "стосунку не має."
+            "No signature is required: the settlement asset's issuer has nothing to do",
+            "with the protocol."
           ]
         },
         {
@@ -314,8 +314,8 @@ export const verdictMeshIdl = {
     {
       "name": "open_dispute",
       "docs": [
-        "Відкриває спір над замкненим залишком. Викликає її програма ескроу",
-        "власним підписом — див. `instructions::open_dispute`."
+        "Opens a dispute over a locked balance. Called by the escrow program",
+        "with its own signature — see `instructions::open_dispute`."
       ],
       "discriminator": [
         137,
@@ -331,9 +331,9 @@ export const verdictMeshIdl = {
         {
           "name": "payer",
           "docs": [
-            "Оренду акаунтів спору платить той, хто ініціює транзакцію, а не PDA",
-            "ескроу: у PDA може не бути лампортів, і вимагати їх від нього означало б",
-            "вимагати від інтегратора тримати баланс у чужій програмі."
+            "Rent for the dispute accounts is paid by whoever initiates the transaction, not by the",
+            "escrow PDA: the PDA may hold no lamports, and requiring them from it would mean",
+            "requiring the integrator to keep a balance in someone else's program."
           ],
           "writable": true,
           "signer": true
@@ -359,22 +359,22 @@ export const verdictMeshIdl = {
         {
           "name": "settlement_mint",
           "docs": [
-            "Депозит іде в розрахунковому активі протоколу, а не в активі спору:",
-            "`FR-011a` тримає економіку присяжних незалежною від того, над чим саме",
-            "сперечаються сторони."
+            "The deposit is paid in the protocol's settlement asset, not in the",
+            "disputed asset: `FR-011a` keeps juror economics independent of what",
+            "exactly the parties are disputing."
           ]
         },
         {
           "name": "depositor",
           "docs": [
-            "Депозит вносить **сторона, яка відкриває спір** — `FR-026`, і це саме",
-            "той, кого спір записує як `claimant`. Рівність тут не формальність: без",
-            "неї ескроу міг би відкрити спір «від імені» позивача, а заплатити з",
-            "чужого гаманця, і `FR-026a` не мав би на чому триматись — вартість",
-            "розгляду несла б людина, яка про спір не знала.",
+            "The deposit is made by **the party opening the dispute** — `FR-026` — and that is exactly",
+            "whoever the dispute records as `claimant`. The equality is not a formality: without it",
+            "the escrow could open a dispute \"on behalf of\" the claimant yet pay from someone else's",
+            "wallet, and `FR-026a` would have nothing to rest on — the review cost would fall on a",
+            "person who never knew about the dispute.",
             "",
-            "Підпис проходить крізь CPI: ескроу підписує спір своїм PDA, позивач —",
-            "зовнішню транзакцію."
+            "The signature passes through the CPI: the escrow signs the dispute with",
+            "its PDA, the claimant signs the outer transaction."
           ],
           "signer": true
         },
@@ -409,28 +409,28 @@ export const verdictMeshIdl = {
         {
           "name": "escrow",
           "docs": [
-            "Акаунт ескроу, над коштами якого йде спір. Він і стає `escrow_ref` —",
-            "єдиним, за чим ескроу згодом упізнає «свій» спір, перш ніж розподілити",
-            "кошти (`FR-012`).",
+            "The escrow account whose funds are in dispute. It becomes `escrow_ref` —",
+            "the only thing by which the escrow later recognizes \"its\" dispute before",
+            "distributing the funds (`FR-012`).",
             "",
-            "Тому вимог дві, і жодна не зайва. **Власник** — програма, яку інтегратор",
-            "вказав при реєстрації: інакше `escrow_ref` вказував би на що завгодно.",
-            "**Підпис** — бо власності замало: акаунт чужої програми може прочитати",
-            "будь-хто, і без підпису вистачило б підставити чужий ескроу, щоб",
-            "змусити його виконати вигаданий вердикт.",
+            "Hence two requirements, neither redundant. **Owner** — the program the integrator named",
+            "at registration: otherwise `escrow_ref` could point to anything. **Signature** — because",
+            "ownership is not enough: anyone can read another program's account, and without a",
+            "signature it would be enough to pass in someone else's escrow to make it execute a",
+            "fabricated verdict.",
             "",
-            "власник і підпис."
+            "program; the owner and the signature are checked."
           ],
           "signer": true
         },
         {
           "name": "dispute",
           "docs": [
-            "Номер спору бере лічильник інтегратора, а не клієнт: інакше нумерація",
-            "перестала б бути щільною, і `dispute_count` не був би правдою про те,",
-            "скільки спорів існує.",
+            "The dispute number comes from the integrator's counter, not from the",
+            "client: otherwise numbering would stop being dense, and `dispute_count`",
+            "would no longer tell the truth about how many disputes exist.",
             "",
-            "Місце виділяється під **розширену** панель — див. `Dispute::space`."
+            "Space is allocated for the **extended** panel — see `Dispute::space`."
           ],
           "writable": true,
           "pda": {
@@ -466,13 +466,13 @@ export const verdictMeshIdl = {
         {
           "name": "dispute_vault",
           "docs": [
-            "Сховище цього спору — і тільки цього. Окреме на спір, а не спільне:",
-            "сюди ж ляже апеляційна застава (`FR-021`), яку доведеться повертати",
-            "поіменно, а зі спільного сховища «чия саме це сума» не читається.",
+            "The vault of this dispute — and only this one. One per dispute, not shared: the appeal",
+            "bond (`FR-021`) also lands here and will have to be returned to specific parties, and a",
+            "shared vault cannot tell \"whose amount this is\".",
             "",
-            "Авторитет — `Config`, той самий PDA, що й у сховища стейків: приватного",
-            "ключа до нього не існує, тож депозит виходить лише тим шляхом, який",
-            "програма підпише сама (`FR-014`)."
+            "The authority is `Config`, the same PDA as for the stake vault: no",
+            "private key exists for it, so the deposit leaves only by a path the",
+            "program signs itself (`FR-014`)."
           ],
           "writable": true,
           "pda": {
@@ -546,8 +546,8 @@ export const verdictMeshIdl = {
     {
       "name": "register_integrator",
       "docs": [
-        "Закріплює за інтегратором політику арбітражу. Політика перевіряється",
-        "один раз, тут, і потрапляє в кожен спір знімком — див.",
+        "Binds an arbitration policy to the integrator. The policy is validated",
+        "once, here, and is copied into every dispute as a snapshot — see",
         "`instructions::register_integrator`."
       ],
       "discriminator": [
@@ -569,8 +569,8 @@ export const verdictMeshIdl = {
         {
           "name": "integrator",
           "docs": [
-            "PDA за ключем власника: закріпити протокол за собою можна лише власним",
-            "підписом, і чужий ключ не має куди записати свою політику."
+            "A PDA keyed by the owner: a protocol can be claimed only with one's own",
+            "signature, and someone else's key has nowhere to write its policy."
           ],
           "writable": true,
           "pda": {
@@ -600,9 +600,9 @@ export const verdictMeshIdl = {
         {
           "name": "config",
           "docs": [
-            "Політики без розрахункового активу не буває: `juror_stake` і `deposit`",
-            "виражені саме в ньому (`FR-011a`). Присутність `Config` робить порядок",
-            "`initialize` → `register_integrator` перевіркою, а не домовленістю."
+            "There is no policy without a settlement asset: `juror_stake` and",
+            "`deposit` are denominated in it (`FR-011a`). Requiring `Config` makes the",
+            "`initialize` → `register_integrator` order a check, not a convention."
           ],
           "pda": {
             "seeds": [
@@ -623,11 +623,11 @@ export const verdictMeshIdl = {
         {
           "name": "escrow_program",
           "docs": [
-            "Програма ескроу інтегратора: за нею `open_dispute` згодом упізнаватиме,",
-            "що спір відкриває саме її акаунт. Перевіряємо, що це справді програма —",
-            "оновити поле нічим, тож помилка в ньому була б назавжди.",
+            "The integrator's escrow program: `open_dispute` later uses it to recognize that a dispute",
+            "is opened by that program's own account. We check that it really is a program — nothing",
+            "can update this field, so a mistake in it would be permanent.",
             "",
-            "лише ознака executable."
+            "is checked."
           ]
         },
         {
@@ -649,8 +649,8 @@ export const verdictMeshIdl = {
     {
       "name": "reveal_vote",
       "docs": [
-        "Розкриває голос і звіряє його з поданим відбитком. Розбіжність",
-        "відхиляється — див. `instructions::reveal_vote`."
+        "Reveals the vote and checks it against the submitted commitment. A mismatch",
+        "is rejected — see `instructions::reveal_vote`."
       ],
       "discriminator": [
         100,
@@ -666,12 +666,12 @@ export const verdictMeshIdl = {
         {
           "name": "juror",
           "docs": [
-            "Підпис присяжного — те, чим акаунт голосу пов'язується з тим, хто його",
-            "подавав: гаманець підписанта входить і в адресу акаунта, і в сам хеш.",
-            "Тому розкрити чужий голос своїм підписом не можна — ні за присяжного,",
-            "який вирішив змовчати, ні проти нього.",
+            "The juror's signature is what ties the vote account to whoever submitted it:",
+            "the signer's wallet goes into both the account address and the hash itself.",
+            "So no one can reveal another juror's vote with their own signature — neither",
+            "on behalf of a juror who chose to stay silent, nor against them.",
             "",
-            "`mut` не потрібне: розкриття не створює акаунтів і не повертає оренди."
+            "`mut` is not needed: revealing creates no accounts and refunds no rent."
           ],
           "signer": true
         },
@@ -708,9 +708,9 @@ export const verdictMeshIdl = {
         {
           "name": "vote",
           "docs": [
-            "Акаунт не закривається після розкриття: слешинг (`FR-011`, `FR-008b`,",
-            "T020) читає саме його, щоб відрізнити правильний голос від програного, а",
-            "обидва — від мовчання. Оренда повертається присяжному там."
+            "The account is not closed after reveal: slashing (`FR-011`, `FR-008b`,",
+            "T020) reads exactly this account to tell a correct vote from a losing one,",
+            "and both from silence. The rent is returned to the juror there."
           ],
           "writable": true,
           "pda": {
@@ -759,8 +759,8 @@ export const verdictMeshIdl = {
     {
       "name": "select_panel",
       "docs": [
-        "Відбирає панель присяжних для відкритого спору. Нічия інструкція:",
-        "результат детермінований і зафіксований ще при відкритті — див.",
+        "Selects the juror panel for an open dispute. Permissionless: the outcome",
+        "is deterministic and was already fixed when the dispute was opened — see",
         "`instructions::select_panel`."
       ],
       "discriminator": [
@@ -827,8 +827,8 @@ export const verdictMeshIdl = {
         {
           "name": "slot_hashes",
           "docs": [
-            "Джерело ентропії — `FR-006`. Читається сирими байтами: 512 записів",
-            "сисвара не десеріалізують цілком (див. `panel::entropy_of`).",
+            "Entropy source — `FR-006`. Read as raw bytes: the sysvar's 512 entries",
+            "are not deserialized in full (see `panel::entropy_of`).",
             ""
           ],
           "address": "SysvarS1otHashes111111111111111111111111111"
@@ -839,8 +839,8 @@ export const verdictMeshIdl = {
     {
       "name": "settle_stakes",
       "docs": [
-        "Слешить програні голоси й мовчання, ділить зібране між тими, хто був",
-        "правий, і випускає панель із реєстру — див. `instructions::settle_stakes`."
+        "Slashes losing votes and silence, splits the proceeds among those who were right,",
+        "and releases the panel from the registry — see `instructions::settle_stakes`."
       ],
       "discriminator": [
         78,
@@ -886,9 +886,9 @@ export const verdictMeshIdl = {
         {
           "name": "crank",
           "docs": [
-            "Хто завгодно. Підпис потрібен лише тому, що оренду закритого сховища",
-            "спору треба комусь віддати, і найчесніший отримувач — той, хто взяв на",
-            "себе виклик кранка."
+            "Anyone. A signature is required only because the rent of the closed dispute vault has to",
+            "go to someone, and the fairest recipient is whoever took it upon themselves to call",
+            "the crank."
           ],
           "writable": true,
           "signer": true
@@ -917,7 +917,7 @@ export const verdictMeshIdl = {
         {
           "name": "dispute_vault",
           "docs": [
-            "Сховище цього спору. Закривається тут — тому й `mut`."
+            "This dispute's vault. It is closed here — hence `mut`."
           ],
           "writable": true,
           "pda": {
@@ -950,8 +950,8 @@ export const verdictMeshIdl = {
         {
           "name": "stake_vault",
           "docs": [
-            "Сюди переїжджає частка присяжних: `Juror.stake` — запис проти цього",
-            "сховища, і зростати він може лише разом із ним."
+            "The jurors' share moves here: `Juror.stake` is a record against this vault, and it may",
+            "only grow together with it."
           ],
           "writable": true,
           "pda": {
@@ -978,10 +978,10 @@ export const verdictMeshIdl = {
         {
           "name": "treasury_tokens",
           "docs": [
-            "Токен-акаунт скарбниці протоколу — `FR-026b`. Перевіряється за власником",
-            "із `Config`, а не за адресою самого акаунта: адреса ATA виводиться з",
-            "власника й мінта, обидва вже прив'язані, а зберігати її окремо означало б",
-            "друге джерело того самого факту."
+            "The protocol treasury's token account — `FR-026b`. Checked by the owner from `Config`",
+            "rather than by the account's own address: the ATA address is derived from the owner and",
+            "the mint, both already bound, and storing it separately would be a second source of the",
+            "same fact."
           ],
           "writable": true
         },
@@ -994,9 +994,9 @@ export const verdictMeshIdl = {
     {
       "name": "stake",
       "docs": [
-        "Вносить стейк і додає присяжного до реєстру. Порогу вступу немає:",
-        "достатність стейку визначає політика того спору, у панель якого",
-        "присяжний потрапляє — див. `instructions::stake`."
+        "Deposits a stake and adds the juror to the registry. There is no entry",
+        "threshold: whether the stake is sufficient is decided by the policy of the",
+        "dispute whose panel the juror lands on — see `instructions::stake`."
       ],
       "discriminator": [
         206,
@@ -1012,8 +1012,8 @@ export const verdictMeshIdl = {
         {
           "name": "juror",
           "docs": [
-            "Присяжний платить оренду власних акаунтів і сам є авторитетом переказу:",
-            "стейк іде зі свого гаманця, а не з чужого за дорученням."
+            "The juror pays rent for their own accounts and is the transfer authority:",
+            "the stake comes from their own wallet, not from someone else's by delegation."
           ],
           "writable": true,
           "signer": true
@@ -1039,20 +1039,20 @@ export const verdictMeshIdl = {
         {
           "name": "settlement_mint",
           "docs": [
-            "Мінт передається акаунтом, бо `transfer_checked` звіряє за ним знаки.",
-            "Прив'язка до `Config` робить підміну неможливою: інакше мінт із іншими",
-            "знаками перетворив би сто одиниць на одну соту, і програма б цього не",
-            "побачила."
+            "The mint is passed as an account because `transfer_checked` checks decimals",
+            "against it. Binding it to `Config` makes substitution impossible: otherwise a",
+            "mint with different decimals would turn a hundred units into one hundredth,",
+            "and the program would not notice."
           ]
         },
         {
           "name": "registry",
           "docs": [
-            "`init_if_needed` тут безпечний і потрібен: адреса реєстру фіксована,",
-            "поля перевіряються констрейнтами, а хендлер нічого не скидає — він лише",
-            "збільшує лічильник, тому шлях «створили» і шлях «уже було» дають той",
-            "самий результат. Створювати реєстр в `initialize` означало б, що ключ,",
-            "який ініціалізує протокол, обирає й мить появи реєстру."
+            "`init_if_needed` is both safe and necessary here: the registry address is",
+            "fixed, fields are checked by constraints, and the handler resets nothing — it",
+            "only increments the counter, so the \"just created\" and \"already existed\" paths",
+            "produce the same result. Creating the registry in `initialize` would mean the",
+            "key that initializes the protocol also chooses when the registry appears."
           ],
           "writable": true,
           "pda": {
@@ -1076,8 +1076,8 @@ export const verdictMeshIdl = {
         {
           "name": "juror_account",
           "docs": [
-            "`init`, а не `init_if_needed`: один гаманець — один запис у реєстрі.",
-            "Другий стейк тим самим ключем має впасти тут, а не переписати індекс."
+            "`init`, not `init_if_needed`: one wallet, one registry entry. A second stake",
+            "from the same key must fail here rather than overwrite the index."
           ],
           "writable": true,
           "pda": {
@@ -1102,9 +1102,9 @@ export const verdictMeshIdl = {
         {
           "name": "juror_index",
           "docs": [
-            "Слот у реєстрі виводиться з лічильника, а не з аргументу: для номера",
-            "попереду лічильника просто немає адреси, за якою його створити, тож",
-            "нумерація лишається щільною. Відбір панелі (`FR-006`) на це й спирається."
+            "The registry slot is derived from the counter, not from an argument: a number",
+            "ahead of the counter simply has no address to be created at, so numbering",
+            "stays dense. Panel selection (`FR-006`) relies on exactly that."
           ],
           "writable": true,
           "pda": {
@@ -1138,11 +1138,11 @@ export const verdictMeshIdl = {
         {
           "name": "stake_vault",
           "docs": [
-            "Спільне сховище стейків. Авторитет — `Config`, тобто PDA програми:",
-            "приватного ключа до нього не існує за побудовою, і вивести кошти можна",
-            "лише тим, що програма підпише сама (`FR-014`). `Config` обрано, бо його",
-            "канонічний bump уже лежить у стані — кожен майбутній переказ зі сховища",
-            "підписується числом, прочитаним з акаунта, а не виведеним заново."
+            "The shared stake vault. Its authority is `Config`, i.e. a program PDA: by",
+            "construction it has no private key, and funds can only leave through what the",
+            "program signs itself (`FR-014`). `Config` was chosen because its canonical",
+            "bump is already stored in state — every future transfer out of the vault is",
+            "signed with a value read from the account rather than re-derived."
           ],
           "writable": true,
           "pda": {
@@ -1184,8 +1184,8 @@ export const verdictMeshIdl = {
     {
       "name": "tally",
       "docs": [
-        "Підбиває підсумок голосування: вердикт, одноразова ескалація або",
-        "статус-кво. Нічия інструкція — див. `instructions::tally`."
+        "Tallies the vote: a verdict, a one-time escalation, or the status quo.",
+        "Permissionless — see `instructions::tally`."
       ],
       "discriminator": [
         152,
@@ -1234,8 +1234,8 @@ export const verdictMeshIdl = {
     {
       "name": "unstake",
       "docs": [
-        "Повертає стейк і виводить присяжного з реєстру swap-remove'ом. Поки",
-        "присяжний тримає нефіналізований спір, виходу немає — див.",
+        "Returns the stake and removes the juror from the registry via swap-remove.",
+        "While the juror holds an unfinalized dispute, there is no way out — see",
         "`instructions::unstake`."
       ],
       "discriminator": [
@@ -1252,8 +1252,8 @@ export const verdictMeshIdl = {
         {
           "name": "juror",
           "docs": [
-            "Виходить лише той, хто підписав: запис присяжного виводиться з цього",
-            "ключа, тож за чужий вийти нічим."
+            "Only the signer can leave: the juror record is derived from this key, so",
+            "there is no way to leave on someone else's behalf."
           ],
           "writable": true,
           "signer": true
@@ -1325,13 +1325,13 @@ export const verdictMeshIdl = {
         {
           "name": "tail_index",
           "docs": [
-            "Останній слот реєстру. Закривається завжди — реєстр щоразу коротшає",
-            "рівно на хвіст, і саме тому в ньому не може лишитись слота поза межею",
-            "лічильника, який усе ще посилається на присяжного.",
+            "The registry's last slot. Always closed — the registry shrinks by exactly",
+            "the tail each time, which is why no slot beyond the counter can remain that",
+            "still points to a juror.",
             "",
-            "Оренда повертається тому, хто виходить, хоча платив за цей слот хтось",
-            "інший. Слоти однакового розміру, тож кожен присяжний вносить оренду",
-            "одного `JurorIndex` і одного ж забирає — різниці немає."
+            "The rent goes to the juror who is leaving, even though someone else paid",
+            "for this slot. Slots are the same size, so each juror pays rent for one",
+            "`JurorIndex` and takes back rent for one — there is no difference."
           ],
           "writable": true,
           "pda": {
@@ -1361,8 +1361,8 @@ export const verdictMeshIdl = {
         {
           "name": "vacated_index",
           "docs": [
-            "Слот, що звільняється. Відсутній, коли виходить останній — тоді це той",
-            "самий акаунт, що `tail_index`, і другим входом його передавати не можна."
+            "The slot being vacated. Absent when the last juror leaves — it is then the",
+            "same account as `tail_index` and must not be passed as a second input."
           ],
           "writable": true,
           "optional": true,
@@ -1393,9 +1393,9 @@ export const verdictMeshIdl = {
         {
           "name": "mover",
           "docs": [
-            "Присяжний із хвоста — той, хто переїжджає у звільнений слот. Адреса",
-            "виводиться з гаманця, записаного в самому хвості, тож підставити сюди",
-            "чужий запис нічим."
+            "The tail juror — the one who moves into the vacated slot. The address is",
+            "derived from the wallet stored in the tail itself, so there is no way to",
+            "substitute another juror's record here."
           ],
           "writable": true,
           "optional": true,
@@ -1881,20 +1881,20 @@ export const verdictMeshIdl = {
     {
       "name": "Ballot",
       "docs": [
-        "Бюлетень присяжного — **два варіанти, а не три**.",
+        "A juror's ballot — **two options, not three**.",
         "",
-        "`StatusQuo` — це те, чим закінчується невдала ескалація (`FR-027a`), а не",
-        "відповідь, яку можна подати. Різниця не формальна: на панелі з трьох при",
-        "кворумі два три різні відповіді ніколи не дають більшості, тож третій",
-        "варіант у бюлетені був би способом одноосібно відправити будь-який спір на",
-        "повторний розгляд — за чужий рахунок, бо ескалацію оплачує протокол",
+        "`StatusQuo` is how a failed escalation ends (`FR-027a`), not an answer that can be submitted.",
+        "The difference is not a formality: on a panel of three with a quorum of two, three different",
+        "answers never form a majority, so a third ballot option would let a single juror send any",
+        "dispute to re-review — at someone else's expense, since the protocol pays for escalation",
         "(`FR-027`).",
         "",
-        "Окремий тип, а не перевірка в рантаймі, бо перевірити подання неможливо:",
-        "`commit_vote` бачить лише хеш. Присяжний, який зафіксував відбиток",
-        "`StatusQuo`, дізнався б про заборону аж при розкритті — коли міняти вже",
-        "нічого, і мовчання коштує йому більшої частки стейку (`FR-008b`). Типом",
-        "такий відбиток просто не виражається, тож пастки не існує."
+        "A separate type rather than a runtime check, because the submission cannot be checked:",
+        "`commit_vote` sees only a hash. A juror who committed a `StatusQuo` hash would learn about the",
+        "restriction only at reveal — when nothing can be changed any more, and silence costs them a",
+        "larger share of their stake (`FR-008b`).",
+        "Such a commitment simply cannot be expressed in the type,",
+        "so the trap does not exist."
       ],
       "type": {
         "kind": "enum",
@@ -1920,22 +1920,22 @@ export const verdictMeshIdl = {
           {
             "name": "reporter",
             "docs": [
-              "Єдиний привілейований ключ у системі. Може лише записати відбиток звіту —",
-              "FR-017a. Інструкцій, що змінюють вердикт чи рухають кошти, для нього немає."
+              "The only privileged key in the system. It can only record a report hash — FR-017a. There",
+              "are no instructions through which it can change a verdict or move funds."
             ],
             "type": "pubkey"
           },
           {
             "name": "treasury",
             "docs": [
-              "Власник токен-акаунта, куди йде частка протоколу в оплаті розгляду",
-              "(`FR-026b`). Це **адреса призначення, а не роль**: жодна інструкція не",
-              "питає в неї підпису й не дає їй нічого, окрім права отримати переказ.",
-              "Тому вона й не суперечить `FR-014` — ключ, що не може нічого підписати,",
-              "не має влади над вердиктом.",
+              "Owner of the token account that receives the protocol's share of the review fee",
+              "(`FR-026b`). This is **a destination address, not a role**: no instruction asks it for a",
+              "signature or grants it anything beyond receiving a transfer. That is why it does not",
+              "conflict with `FR-014` — a key that cannot sign anything has no power over a verdict.",
               "",
-              "Записується разом із рештою `Config` і теж не оновлюється: ключ, здатний",
-              "переставити отримувача комісії, переставив би його й посеред розгляду."
+              "Written together with the rest of `Config` and likewise never updated: a key able to",
+              "change the fee recipient could also change it in the middle",
+              "of a review."
             ],
             "type": "pubkey"
           },
@@ -1949,9 +1949,9 @@ export const verdictMeshIdl = {
     {
       "name": "DepositCollected",
       "docs": [
-        "Депозит за розгляд внесено — `FR-026`. Сума в події тому, що вона є",
-        "знімком політики на момент відкриття: інтегратор змінить `Policy` завтра, а",
-        "сторона має бачити, скільки з неї взяли сьогодні (`FR-026d`)."
+        "The review deposit has been paid — `FR-026`. The amount is in the event because it is a",
+        "snapshot of the policy at opening time: the integrator may change `Policy` tomorrow, but the",
+        "party must see how much it was charged today (`FR-026d`)."
       ],
       "type": {
         "kind": "struct",
@@ -1987,7 +1987,7 @@ export const verdictMeshIdl = {
           {
             "name": "policy",
             "docs": [
-              "Знімок, не посилання — FR-003."
+              "A snapshot, not a reference — FR-003."
             ],
             "type": {
               "defined": {
@@ -1998,9 +1998,9 @@ export const verdictMeshIdl = {
           {
             "name": "escrow_ref",
             "docs": [
-              "PDA ескроу, який відкрив спір. Ескроу звіряє це поле зі своїм адресом,",
-              "перш ніж виконувати вердикт — інакше чужий спір міг би розпорядитись",
-              "його коштами."
+              "PDA of the escrow that opened the dispute. The escrow checks this field against its own",
+              "address before executing the verdict — otherwise someone else's dispute could dispose of",
+              "its funds."
             ],
             "type": "pubkey"
           },
@@ -2027,11 +2027,11 @@ export const verdictMeshIdl = {
           {
             "name": "panel",
             "docs": [
-              "`max_len(0)` — не помилка і не «панель на нуль присяжних». Вектор росте",
-              "до `policy.extended_panel_size`, який відомий лише в момент відкриття,",
-              "тому `InitSpace` рахує тут саме 4-байтовий префікс довжини, а решту",
-              "додає `Dispute::space`. Так фіксовану частину все одно рахує макрос, і",
-              "нове поле не може мовчки випасти з розрахунку."
+              "`max_len(0)` is neither a mistake nor \"a panel of zero jurors\". The vector grows up to",
+              "`policy.extended_panel_size`, which is known only at opening time, so `InitSpace` counts",
+              "just the 4-byte length prefix here and `Dispute::space` adds the rest. This way the macro",
+              "still computes the fixed part, and a new field cannot silently drop out of the size",
+              "calculation."
             ],
             "type": {
               "vec": "pubkey"
@@ -2071,13 +2071,13 @@ export const verdictMeshIdl = {
           {
             "name": "entropy_slot",
             "docs": [
-              "Слот, чий хеш дає ентропію для відбору панелі — `FR-006`. Записується",
-              "при відкритті і більше не змінюється: якби відбір брав ентропію з",
-              "моменту **свого** виконання, його можна було б переграти, повторюючи",
-              "спробу зі слота в слот, доки панель не сподобається.",
+              "The slot whose hash provides entropy for panel selection — `FR-006`. Written at opening",
+              "and never changed afterwards: if selection took its entropy from the moment of **its own**",
+              "execution, it could be gamed by retrying slot after slot until a favorable panel came up.",
               "",
-              "Це слот **перед** тим, у якому відкрито спір: хеш поточного слота ще не",
-              "існує, тож відбір у тій самій транзакції його не знайшов би."
+              "This is the slot **before** the one in which the dispute was opened: the current slot's",
+              "hash does not exist yet, so selection in the same transaction would",
+              "not find it."
             ],
             "type": "u64"
           },
@@ -2096,10 +2096,10 @@ export const verdictMeshIdl = {
           {
             "name": "votes_claimant",
             "docs": [
-              "Розкриті голоси, по одному лічильнику на варіант бюлетеня. Окремого",
-              "`revealed_count` тут немає з тієї ж причини, з якої в `VoteCommit` немає",
-              "`revealed`: він дорівнював би сумі цих двох завжди, а два джерела однієї",
-              "величини рано чи пізно розходяться. Скільки розкрилось — питають у суми."
+              "Revealed votes, one counter per ballot option. There is no separate `revealed_count` for",
+              "the same reason `VoteCommit` has no `revealed`: it would always equal the sum of these",
+              "two, and two sources of the same value sooner or later diverge. To get how many revealed,",
+              "take the sum."
             ],
             "type": "u8"
           },
@@ -2110,7 +2110,7 @@ export const verdictMeshIdl = {
           {
             "name": "escalated",
             "docs": [
-              "Автоескалація застосовується один раз — FR-027a."
+              "Auto-escalation applies only once — FR-027a."
             ],
             "type": "bool"
           },
@@ -2134,15 +2134,15 @@ export const verdictMeshIdl = {
     {
       "name": "DisputeEscalated",
       "docs": [
-        "Спір пішов на розширену панель — `FR-027`. Голоси, що спричинили ескалацію,",
-        "у самій події: інакше сторона бачить, що розгляд подовжився, і не бачить",
-        "чому.",
+        "The dispute has moved to the extended panel — `FR-027`. The votes that caused the escalation",
+        "are in the event itself: otherwise the party sees that the review was extended but does not",
+        "see why.",
         "",
-        "Списку тих, хто не розкрився, тут немає навмисно, хоча `FR-027b` саме їх і",
-        "слешить. Підрахунок їх не знає — він бачить два числа, а не акаунти голосів,",
-        "— і тягнути заради події всю панель акаунтами означало б впертись у ліміт",
-        "транзакції там, де спостерігач однаково виводить цей список сам: `FR-029`",
-        "дає йому `VoteCommitted` без парного `VoteRevealed`."
+        "The list of jurors who did not reveal is deliberately absent, even though `FR-027b` slashes",
+        "exactly them. The tally does not know them — it sees two numbers, not vote accounts — and",
+        "passing the whole panel's accounts just for an event would hit the transaction limit, while",
+        "the observer derives that list on its own anyway: `FR-029` gives it every `VoteCommitted`",
+        "without a matching `VoteRevealed`."
       ],
       "type": {
         "kind": "struct",
@@ -2173,9 +2173,9 @@ export const verdictMeshIdl = {
     {
       "name": "DisputeFeeSettled",
       "docs": [
-        "Куди розійшлась оплата розгляду — `FR-026b`. Двох чисел досить, щоб звести",
-        "баланс сховища спору: разом вони дорівнюють тому, що в ньому лежало, а сам",
-        "акаунт після цього закривається."
+        "How the review fee was distributed — `FR-026b`. Two numbers are enough to reconcile the",
+        "dispute vault: together they equal what it held, and the account itself is closed",
+        "afterwards."
       ],
       "type": {
         "kind": "struct",
@@ -2222,8 +2222,8 @@ export const verdictMeshIdl = {
     {
       "name": "DisputeOpened",
       "docs": [
-        "FR-029: за подіями зовнішній спостерігач відновлює повну хронологію спору",
-        "без доступу до офчейн-сервісу. Watcher у apps/api читає саме їх."
+        "FR-029: from events alone, an external observer reconstructs the full timeline of a dispute",
+        "without access to the off-chain service. The watcher in apps/api reads exactly these."
       ],
       "type": {
         "kind": "struct",
@@ -2292,8 +2292,8 @@ export const verdictMeshIdl = {
     {
       "name": "DisputeTallied",
       "docs": [
-        "Вердикт винесено — `FR-010`. Числа поруч із результатом, бо вердикт без",
-        "підстави сторона перевірити не може."
+        "A verdict has been reached — `FR-010`. The counts sit next to the outcome because a party",
+        "cannot verify a verdict without its basis."
       ],
       "type": {
         "kind": "struct",
@@ -2369,24 +2369,24 @@ export const verdictMeshIdl = {
           {
             "name": "stake",
             "docs": [
-              "Внесена сума, а не «достатня»: достатність визначає політика того спору,",
-              "у панель якого присяжний потрапляє."
+              "The amount deposited, not a \"sufficient\" amount: sufficiency is determined by the policy",
+              "of whichever dispute's panel the juror lands on."
             ],
             "type": "u64"
           },
           {
             "name": "active_disputes",
             "docs": [
-              "Скільки нефіналізованих спорів тримають цього присяжного. Поки не нуль —",
-              "вивести стейк не можна (`FR-007`, T015)."
+              "How many non-finalized disputes hold this juror. While it is non-zero, the stake cannot be",
+              "withdrawn (`FR-007`, T015)."
             ],
             "type": "u16"
           },
           {
             "name": "index",
             "docs": [
-              "Місце в реєстрі. Разом із `JurorIndex` дає відбору перелічуваність:",
-              "`index` веде від присяжного до слота, `JurorIndex` — назад."
+              "Position in the registry. Together with `JurorIndex` it makes the registry enumerable for",
+              "selection: `index` maps a juror to its slot, `JurorIndex` maps back."
             ],
             "type": "u32"
           },
@@ -2400,9 +2400,9 @@ export const verdictMeshIdl = {
     {
       "name": "JurorIndex",
       "docs": [
-        "Дає реєстру перелічуваність за індексом — без цього детермінований відбір",
-        "(FR-006) не може вибрати N із M, не читаючи весь реєстр офчейн.",
-        "Вихід присяжного — swap-remove: останній індекс переїжджає на звільнений."
+        "Makes the registry enumerable by index — without it, deterministic selection (FR-006) cannot",
+        "pick N out of M without reading the whole registry off-chain.",
+        "A juror leaving is a swap-remove: the last index moves into the freed one."
       ],
       "type": {
         "kind": "struct",
@@ -2421,11 +2421,11 @@ export const verdictMeshIdl = {
     {
       "name": "JurorRegistry",
       "docs": [
-        "Реєстр один на протокол, а не на інтегратора: присяжний вносить стейк раз і",
-        "потрапляє в панелі всіх інтеграторів. Тому порогу стейку тут немає й бути не",
-        "може — `juror_stake` живе в `Policy`, тобто у кожного інтегратора свій.",
-        "Придатність присяжного до конкретного спору перевіряє відбір панелі",
-        "(`FR-006`, T016), а не вступ до реєстру."
+        "One registry per protocol, not per integrator: a juror stakes once and becomes eligible for",
+        "the panels of every integrator. That is why there is no stake threshold here, and there",
+        "cannot be one — `juror_stake` lives in `Policy`, so each integrator has its own. A juror's",
+        "eligibility for a specific dispute is checked by panel selection (`FR-006`, T016), not by",
+        "joining the registry."
       ],
       "type": {
         "kind": "struct",
@@ -2444,9 +2444,9 @@ export const verdictMeshIdl = {
     {
       "name": "JurorRewarded",
       "docs": [
-        "Кому дісталось злетіле зі стейків — `FR-011`. Разом із `JurorSlashed` дає",
-        "повний баланс розрахунку: спостерігач бачить, що вийшло і куди пішло, не",
-        "читаючи акаунтів."
+        "Who received the slashed stake — `FR-011`. Together with `JurorSlashed` this gives the full",
+        "settlement balance: the observer sees what was taken and where it went without reading",
+        "accounts."
       ],
       "type": {
         "kind": "struct",
@@ -2493,9 +2493,9 @@ export const verdictMeshIdl = {
     {
       "name": "JurorStaked",
       "docs": [
-        "Вступ до реєстру присяжних. Watcher (T027) будує з цих подій список",
-        "придатних присяжних, не читаючи всі акаунти програми: `getProgramAccounts`",
-        "на кожному відборі — це те, чого `JurorIndex` і уникає."
+        "A juror joined the registry. The watcher (T027) builds the list of eligible jurors from",
+        "these events without reading every program account: `getProgramAccounts` on every selection",
+        "is exactly what `JurorIndex` exists to avoid."
       ],
       "type": {
         "kind": "struct",
@@ -2522,10 +2522,10 @@ export const verdictMeshIdl = {
     {
       "name": "JurorUnstaked",
       "docs": [
-        "Вихід із реєстру разом зі swap-remove. `index` — слот, що звільнився,",
-        "`moved` — присяжний, який на нього переїхав із хвоста. Пари подій",
-        "`JurorStaked` / `JurorUnstaked` досить, щоб відтворити склад реєстру",
-        "цілком — `FR-029`."
+        "A juror left the registry, with swap-remove. `index` is the freed slot,",
+        "`moved` is the juror moved into it from the tail.",
+        "The `JurorStaked` / `JurorUnstaked` pair of events is enough to rebuild",
+        "the full registry membership — `FR-029`."
       ],
       "type": {
         "kind": "struct",
@@ -2580,8 +2580,8 @@ export const verdictMeshIdl = {
     {
       "name": "Policy",
       "docs": [
-        "Копіюється у кожен спір при відкритті. Зміна політики інтегратором не впливає",
-        "на вже відкриті спори — FR-003."
+        "Copied into every dispute when it is opened. An integrator changing its policy does not",
+        "affect disputes that are already open — FR-003."
       ],
       "type": {
         "kind": "struct",
@@ -2665,8 +2665,8 @@ export const verdictMeshIdl = {
     {
       "name": "Verdict",
       "docs": [
-        "StatusQuo — «як ніби спору не було» (FR-027a). Ескроу зобов'язаний уміти",
-        "розподілити кошти за цим результатом, інакше автоескалація нікуди не веде."
+        "StatusQuo means \"as if there had been no dispute\" (FR-027a). The escrow must be able to",
+        "distribute funds under this outcome, otherwise auto-escalation leads nowhere."
       ],
       "type": {
         "kind": "enum",
@@ -2686,15 +2686,15 @@ export const verdictMeshIdl = {
     {
       "name": "VoteCommit",
       "docs": [
-        "Відбиток голосу присяжного — `FR-008`. Створюється в вікні подання і до",
-        "розкриття не містить нічого, з чого можна вивести сам голос: `commitment` —",
-        "хеш (`crate::vote`), `choice` — `None`.",
+        "A juror's vote commitment — `FR-008`. Created during the commit window, and until reveal it",
+        "contains nothing from which the vote itself can be derived: `commitment` is a hash",
+        "(`crate::vote`), `choice` is `None`.",
         "",
-        "**Прапорця `revealed` тут немає навмисно**, хоча модель даних у `PLAN.md`",
-        "його називає. Він завжди дублював би `choice.is_some()`, а два поля, які",
-        "зобов'язані збігатись, рано чи пізно розходяться: розрахунок стейків (T020)",
-        "відрізняє нерозкритий голос від розкритого і мусить робити це за одним",
-        "джерелом. Ним і є `choice`."
+        "**There is deliberately no `revealed` flag here**, even though the data model in `PLAN.md`",
+        "lists one. It would always duplicate `choice.is_some()`, and two fields that must agree",
+        "sooner or later diverge: stake settlement (T020) distinguishes an unrevealed vote from a",
+        "revealed one and must do so from a single source.",
+        "That source is `choice`."
       ],
       "type": {
         "kind": "struct",
@@ -2719,8 +2719,8 @@ export const verdictMeshIdl = {
           {
             "name": "choice",
             "docs": [
-              "`None`, доки голос не розкрито (T018). Порожнє значення — це і є",
-              "«присяжний подав відбиток, але не розкрився» для `FR-008b`."
+              "`None` until the vote is revealed (T018). An empty value is exactly what `FR-008b` means",
+              "by \"the juror committed but did not reveal\"."
             ],
             "type": {
               "option": {
@@ -2733,11 +2733,11 @@ export const verdictMeshIdl = {
           {
             "name": "round",
             "docs": [
-              "Коло розгляду, у якому подано відбиток — `Dispute::round`. Розкрити його",
-              "можна лише в тому ж колі: інакше присяжний, що змовчав у першому,",
-              "вирішував би в другому, чи оприлюднювати голос, уже знаючи, чим",
-              "закінчився перший підрахунок. `FR-027b` слешить його саме за це",
-              "мовчання, і пізнє розкриття не має його скасовувати."
+              "The review round in which the commitment was submitted — `Dispute::round`. It can only be",
+              "revealed in the same round: otherwise a juror who stayed silent in the first round would",
+              "decide in the second whether to disclose their vote, already knowing how the first tally",
+              "ended. `FR-027b` slashes them precisely for that silence, and a late reveal must not undo",
+              "it."
             ],
             "type": "u8"
           },

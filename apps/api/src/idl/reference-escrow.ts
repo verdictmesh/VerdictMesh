@@ -824,22 +824,22 @@ export const referenceEscrowIdl = {
           {
             "name": "reporter",
             "docs": [
-              "Єдиний привілейований ключ у системі. Може лише записати відбиток звіту —",
-              "FR-017a. Інструкцій, що змінюють вердикт чи рухають кошти, для нього немає."
+              "The only privileged key in the system. It can only record a report hash — FR-017a. There",
+              "are no instructions through which it can change a verdict or move funds."
             ],
             "type": "pubkey"
           },
           {
             "name": "treasury",
             "docs": [
-              "Власник токен-акаунта, куди йде частка протоколу в оплаті розгляду",
-              "(`FR-026b`). Це **адреса призначення, а не роль**: жодна інструкція не",
-              "питає в неї підпису й не дає їй нічого, окрім права отримати переказ.",
-              "Тому вона й не суперечить `FR-014` — ключ, що не може нічого підписати,",
-              "не має влади над вердиктом.",
+              "Owner of the token account that receives the protocol's share of the review fee",
+              "(`FR-026b`). This is **a destination address, not a role**: no instruction asks it for a",
+              "signature or grants it anything beyond receiving a transfer. That is why it does not",
+              "conflict with `FR-014` — a key that cannot sign anything has no power over a verdict.",
               "",
-              "Записується разом із рештою `Config` і теж не оновлюється: ключ, здатний",
-              "переставити отримувача комісії, переставив би його й посеред розгляду."
+              "Written together with the rest of `Config` and likewise never updated: a key able to",
+              "change the fee recipient could also change it in the middle",
+              "of a review."
             ],
             "type": "pubkey"
           },
@@ -866,7 +866,7 @@ export const referenceEscrowIdl = {
           {
             "name": "policy",
             "docs": [
-              "Знімок, не посилання — FR-003."
+              "A snapshot, not a reference — FR-003."
             ],
             "type": {
               "defined": {
@@ -877,9 +877,9 @@ export const referenceEscrowIdl = {
           {
             "name": "escrow_ref",
             "docs": [
-              "PDA ескроу, який відкрив спір. Ескроу звіряє це поле зі своїм адресом,",
-              "перш ніж виконувати вердикт — інакше чужий спір міг би розпорядитись",
-              "його коштами."
+              "PDA of the escrow that opened the dispute. The escrow checks this field against its own",
+              "address before executing the verdict — otherwise someone else's dispute could dispose of",
+              "its funds."
             ],
             "type": "pubkey"
           },
@@ -906,11 +906,11 @@ export const referenceEscrowIdl = {
           {
             "name": "panel",
             "docs": [
-              "`max_len(0)` — не помилка і не «панель на нуль присяжних». Вектор росте",
-              "до `policy.extended_panel_size`, який відомий лише в момент відкриття,",
-              "тому `InitSpace` рахує тут саме 4-байтовий префікс довжини, а решту",
-              "додає `Dispute::space`. Так фіксовану частину все одно рахує макрос, і",
-              "нове поле не може мовчки випасти з розрахунку."
+              "`max_len(0)` is neither a mistake nor \"a panel of zero jurors\". The vector grows up to",
+              "`policy.extended_panel_size`, which is known only at opening time, so `InitSpace` counts",
+              "just the 4-byte length prefix here and `Dispute::space` adds the rest. This way the macro",
+              "still computes the fixed part, and a new field cannot silently drop out of the size",
+              "calculation."
             ],
             "type": {
               "vec": "pubkey"
@@ -950,13 +950,13 @@ export const referenceEscrowIdl = {
           {
             "name": "entropy_slot",
             "docs": [
-              "Слот, чий хеш дає ентропію для відбору панелі — `FR-006`. Записується",
-              "при відкритті і більше не змінюється: якби відбір брав ентропію з",
-              "моменту **свого** виконання, його можна було б переграти, повторюючи",
-              "спробу зі слота в слот, доки панель не сподобається.",
+              "The slot whose hash provides entropy for panel selection — `FR-006`. Written at opening",
+              "and never changed afterwards: if selection took its entropy from the moment of **its own**",
+              "execution, it could be gamed by retrying slot after slot until a favorable panel came up.",
               "",
-              "Це слот **перед** тим, у якому відкрито спір: хеш поточного слота ще не",
-              "існує, тож відбір у тій самій транзакції його не знайшов би."
+              "This is the slot **before** the one in which the dispute was opened: the current slot's",
+              "hash does not exist yet, so selection in the same transaction would",
+              "not find it."
             ],
             "type": "u64"
           },
@@ -975,10 +975,10 @@ export const referenceEscrowIdl = {
           {
             "name": "votes_claimant",
             "docs": [
-              "Розкриті голоси, по одному лічильнику на варіант бюлетеня. Окремого",
-              "`revealed_count` тут немає з тієї ж причини, з якої в `VoteCommit` немає",
-              "`revealed`: він дорівнював би сумі цих двох завжди, а два джерела однієї",
-              "величини рано чи пізно розходяться. Скільки розкрилось — питають у суми."
+              "Revealed votes, one counter per ballot option. There is no separate `revealed_count` for",
+              "the same reason `VoteCommit` has no `revealed`: it would always equal the sum of these",
+              "two, and two sources of the same value sooner or later diverge. To get how many revealed,",
+              "take the sum."
             ],
             "type": "u8"
           },
@@ -989,7 +989,7 @@ export const referenceEscrowIdl = {
           {
             "name": "escalated",
             "docs": [
-              "Автоескалація застосовується один раз — FR-027a."
+              "Auto-escalation applies only once — FR-027a."
             ],
             "type": "bool"
           },
@@ -1371,8 +1371,8 @@ export const referenceEscrowIdl = {
     {
       "name": "Policy",
       "docs": [
-        "Копіюється у кожен спір при відкритті. Зміна політики інтегратором не впливає",
-        "на вже відкриті спори — FR-003."
+        "Copied into every dispute when it is opened. An integrator changing its policy does not",
+        "affect disputes that are already open — FR-003."
       ],
       "type": {
         "kind": "struct",
@@ -1435,8 +1435,8 @@ export const referenceEscrowIdl = {
     {
       "name": "Verdict",
       "docs": [
-        "StatusQuo — «як ніби спору не було» (FR-027a). Ескроу зобов'язаний уміти",
-        "розподілити кошти за цим результатом, інакше автоескалація нікуди не веде."
+        "StatusQuo means \"as if there had been no dispute\" (FR-027a). The escrow must be able to",
+        "distribute funds under this outcome, otherwise auto-escalation leads nowhere."
       ],
       "type": {
         "kind": "enum",

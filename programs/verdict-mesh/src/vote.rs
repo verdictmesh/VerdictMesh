@@ -1,46 +1,46 @@
-//! Відбиток голосу присяжного — `FR-008`.
+//! Juror vote commitment — `FR-008`.
 //!
-//! Модуль існує окремо від інструкцій з однієї причини: **відбиток рахують
-//! двоє**. Присяжний рахує його офчейн, щоб подати (T017), і програма рахує
-//! його ще раз при розкритті, щоб звірити (`FR-008a`, T018). Дві копії формули
-//! не дають помилки компіляції — вони дають голос, який неможливо розкрити, і
-//! присяжного, слешеного за мовчання, якого він не обирав.
+//! This module lives apart from the instructions for one reason: **the commitment is
+//! computed by two parties**. The juror computes it off-chain to submit it (T017), and
+//! the program computes it again on reveal to verify it (`FR-008a`, T018). Two copies
+//! of the formula do not cause a compile error — they cause a vote that cannot be
+//! revealed, and a juror slashed for a silence they never chose.
 //!
-//! **Що входить у відбиток і чому саме це.**
+//! **What goes into the commitment, and why exactly this.**
 //!
-//! `juror` — щоб чужий відбиток не можна було скопіювати. Без прив'язки до
-//! гаманця повторити чужий `commitment` у своєму акаунті коштує нічого:
-//! копіювальник дочекався б, поки автор розкриється, і розкрився б тим самим
-//! секретом. Це голос без жодної роботи й без ризику помилитись — тобто рівно
-//! те, чого commit-reveal мав не дозволити.
+//! `juror` — so that someone else's commitment cannot be copied. Without binding to the
+//! wallet, replaying another juror's `commitment` in your own account costs nothing:
+//! the copycat would wait for the author to reveal and then reveal with the same
+//! secret. That is a vote with no work and no risk of being wrong — exactly what
+//! commit-reveal was meant to prevent.
 //!
-//! `dispute` — щоб відбиток не переносився між спорами. Той самий вибір із тим
-//! самим секретом в іншому спорі має давати інше число, інакше присяжний, який
-//! голосує в багатьох спорах, розкриває в кожному наступному свій попередній
-//! секрет.
+//! `dispute` — so that a commitment does not carry over between disputes. The same
+//! choice with the same secret in another dispute must yield a different value;
+//! otherwise a juror who votes in many disputes reveals their previous secret in each
+//! subsequent one.
 //!
-//! `DOMAIN` — щоб хеш, порахований деінде в протоколі (відбиток звіту,
-//! твердження сторони), не міг випадково збігтися з відбитком голосу. Це
-//! копійчана обережність зараз і єдина можлива обережність потім.
+//! `DOMAIN` — so that a hash computed elsewhere in the protocol (a report fingerprint,
+//! a party's claim) cannot accidentally collide with a vote commitment. It is cheap
+//! caution now and the only possible caution later.
 //!
-//! `salt` — власне те, що ховає голос: варіантів рівно два, і без секрету
-//! відбиток перебирається з першої спроби.
+//! `salt` — what actually hides the vote: there are exactly two options, and without a
+//! secret the commitment is brute-forced on the first try.
 
 use anchor_lang::prelude::*;
 use solana_keccak_hasher::hashv;
 
 use crate::state::Ballot;
 
-/// Розділювач простору хешів. Версія в рядку — щоб зміна схеми була видимою
-/// зміною, а не тихою розбіжністю зі старими, ще не розкритими голосами.
+/// Hash domain separator. The version is in the string so that a scheme change is a
+/// visible change rather than a silent mismatch with old, not-yet-revealed votes.
 const DOMAIN: &[u8] = b"verdict_mesh/vote/v1";
 
-/// Довжина секрету. 32 байти — не «про запас»: коротший секрет перебирається,
-/// а перебраний секрет розкриває голос до вікна розкриття (`FR-009`).
+/// Secret length. 32 bytes is not "just in case": a shorter secret can be brute-forced,
+/// and a brute-forced secret exposes the vote before the reveal window (`FR-009`).
 pub const SALT_LEN: usize = 32;
 
-/// Відбиток голосу. **Це та формула, яку повторює SDK** (T035) — інших джерел
-/// правди про неї немає.
+/// Vote commitment. **This is the formula the SDK replicates** (T035) — there is no
+/// other source of truth for it.
 pub fn commitment_of(
     dispute: &Pubkey,
     juror: &Pubkey,
@@ -57,12 +57,12 @@ pub fn commitment_of(
     .0
 }
 
-/// Байт вибору. Нумерація з одиниці: нуль лишається значенням, якого не існує,
-/// тож занулена пам'ять не перетворюється на валідний голос.
+/// Choice byte. Numbering starts at one: zero stays a value that does not exist,
+/// so zeroed memory never turns into a valid vote.
 ///
-/// Match без `_` навмисно: новий варіант `Ballot` має зупинити компіляцію тут,
-/// а не мовчки отримати чужий байт і зіштовхнути два різні голоси в один
-/// відбиток.
+/// The match has no `_` on purpose: a new `Ballot` variant must stop compilation here
+/// rather than silently get another variant's byte and collapse two different votes
+/// into one commitment.
 fn tag(choice: Ballot) -> u8 {
     match choice {
         Ballot::Claimant => 1,
@@ -78,8 +78,8 @@ mod tests {
         [byte; SALT_LEN]
     }
 
-    /// Основа всього: та сама четвірка дає те саме число. Інакше розкрити
-    /// власний голос не може навіть той, хто його подав.
+    /// The foundation of everything: the same four inputs give the same value.
+    /// Otherwise not even the juror who submitted a vote could reveal it.
     #[test]
     fn the_same_inputs_give_the_same_commitment() {
         let dispute = Pubkey::new_unique();
@@ -91,9 +91,9 @@ mod tests {
         );
     }
 
-    /// Головна перевірка модуля. Скопійований відбиток має бути марним: у
-    /// чужому акаунті він не збігається ні з чим, що копіювальник здатен
-    /// розкрити, — навіть коли автор уже показав свій секрет усьому світу.
+    /// The module's key check. A copied commitment must be useless: in someone
+    /// else's account it matches nothing the copycat can reveal — even after the
+    /// author has shown their secret to the whole world.
     #[test]
     fn a_copied_commitment_belongs_to_no_one_else() {
         let dispute = Pubkey::new_unique();
@@ -106,7 +106,7 @@ mod tests {
         );
     }
 
-    /// Секрет, розкритий в одному спорі, не відмикає голос у іншому.
+    /// A secret revealed in one dispute does not unlock a vote in another.
     #[test]
     fn the_same_secret_gives_a_different_commitment_in_another_dispute() {
         let juror = Pubkey::new_unique();
@@ -117,8 +117,8 @@ mod tests {
         );
     }
 
-    /// Вибір мусить бути в хеші: інакше відбиток не зобов'язує ні до чого і
-    /// розкрити його можна будь-яким голосом.
+    /// The choice must be in the hash: otherwise the commitment binds to nothing
+    /// and can be revealed as any vote.
     #[test]
     fn every_choice_gives_its_own_commitment() {
         let dispute = Pubkey::new_unique();
@@ -137,8 +137,8 @@ mod tests {
         }
     }
 
-    /// Без цього голос ховається лише від тих, хто не здогадався перебрати три
-    /// варіанти.
+    /// Without this the vote is hidden only from those who did not think to try
+    /// both options.
     #[test]
     fn a_different_secret_hides_the_same_choice_differently() {
         let dispute = Pubkey::new_unique();
@@ -150,8 +150,8 @@ mod tests {
         );
     }
 
-    /// Голос не перебирається за два підходи, поки секрет невідомий: жоден із
-    /// варіантів бюлетеня з **чужим** секретом не збігається з відбитком.
+    /// The vote cannot be guessed in two attempts while the secret is unknown: no
+    /// ballot option with a **different** secret matches the commitment.
     #[test]
     fn guessing_the_choice_without_the_secret_matches_nothing() {
         let dispute = Pubkey::new_unique();

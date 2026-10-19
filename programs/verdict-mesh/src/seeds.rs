@@ -1,6 +1,6 @@
-/// Seed-и живуть в одному місці, бо їх виводять двоє: сама програма і будь-хто
-/// зовні — тести, SDK, ескроу інтегратора. Розбіжність між двома копіями рядка
-/// не дає помилки компіляції, вона дає PDA, за якою нічого немає.
+/// Seeds live in one place because two parties derive them: the program itself and anyone
+/// outside it — tests, the SDK, an integrator's escrow. A mismatch between two copies of a
+/// string is not a compile error; it yields a PDA with nothing behind it.
 pub const CONFIG: &[u8] = b"config";
 pub const INTEGRATOR: &[u8] = b"integrator";
 pub const REGISTRY: &[u8] = b"registry";

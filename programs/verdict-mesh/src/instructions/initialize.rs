@@ -3,28 +3,28 @@ use anchor_spl::token_interface::Mint;
 
 use crate::{errors::VerdictMeshError, seeds, state::Config};
 
-/// Створює єдиний глобальний акаунт протоколу.
+/// Creates the protocol's single global account.
 ///
-/// `Config` записується один раз і не має інструкції оновлення — це не забутий
-/// функціонал. Ключ, здатний переставити `settlement_mint` під уже застейкані
-/// кошти, переписати `reporter` посеред спору чи перевести на себе комісію
-/// протоколу, був би саме тим ключем, якого за `FR-014` у системі бути не
-/// повинно. Змінити ці поля можна лише міграцією програми, тобто на очах у всіх
-/// (docs/PLAN.md → «Модель даних»).
+/// `Config` is written once and has no update instruction — this is not a missing
+/// feature. A key able to swap `settlement_mint` out from under already-staked
+/// funds, rewrite `reporter` mid-dispute, or redirect the protocol fee to itself
+/// would be exactly the key that, per `FR-014`, must not exist in the system. These
+/// fields can only be changed by a program migration, i.e. in full public view
+/// (docs/PLAN.md → "Data model").
 impl Initialize<'_> {
     pub fn handle(ctx: Context<Initialize>, reporter: Pubkey, treasury: Pubkey) -> Result<()> {
-        // Нульовий ключ — валідна адреса, приватного ключа до якої не існує. Без
-        // цієї перевірки помилка клієнта дала б `Config`, у якому `attest_report`
-        // недосяжний назавжди: виправити нема чим, інструкції оновлення немає.
+        // The zero key is a valid address with no private key behind it. Without
+        // this check a client bug would produce a `Config` in which `attest_report`
+        // is unreachable forever: nothing can fix it, there is no update instruction.
         require_keys_neq!(
             reporter,
             Pubkey::default(),
             VerdictMeshError::InvalidReporter
         );
-        // Те саме для скарбниці, але наслідок інший: розрахунок спору переказує
-        // її частку (`FR-026b`) і впаде на токен-акаунті, якого в нульового
-        // ключа не існує. Впаде **вся** фіналізація — разом зі слешингом і
-        // виходом присяжних із реєстру, тобто спір застрягне назавжди.
+        // Same for the treasury, but the consequence differs: dispute settlement transfers
+        // its share (`FR-026b`) and would fail on a token account the zero key does not
+        // have. **All** of finalization would fail — including slashing and jurors
+        // leaving the registry, so the dispute would be stuck forever.
         require_keys_neq!(
             treasury,
             Pubkey::default(),
@@ -46,8 +46,8 @@ pub struct Initialize<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
 
-    /// `init` тут і є захистом від повторної ініціалізації: акаунт, що вже має
-    /// власника, до створення не допускається.
+    /// `init` itself is the guard against re-initialization: an account that already
+    /// has an owner cannot be created again.
     #[account(
         init,
         payer = payer,
@@ -57,12 +57,12 @@ pub struct Initialize<'info> {
     )]
     pub config: Account<'info, Config>,
 
-    /// Спільний розрахунковий актив протоколу — `FR-011a`. Тип перевіряється
-    /// зараз, а не на першому переказі стейку: `Config`, що вказує на не-мінт,
-    /// зламав би кожну наступну інструкцію з коштами, і слід вів би сюди.
+    /// The protocol's shared settlement asset — `FR-011a`. Its type is checked now,
+    /// not on the first stake transfer: a `Config` pointing at a non-mint would break
+    /// every later instruction that moves funds, and the trail would lead back here.
     ///
-    /// Підпису не вимагаємо: емітент розрахункового активу до протоколу
-    /// стосунку не має.
+    /// No signature is required: the settlement asset's issuer has nothing to do
+    /// with the protocol.
     pub settlement_mint: InterfaceAccount<'info, Mint>,
 
     pub system_program: Program<'info, System>,

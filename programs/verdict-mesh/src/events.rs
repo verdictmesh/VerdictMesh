@@ -2,8 +2,8 @@ use anchor_lang::prelude::*;
 
 use crate::state::{Ballot, Verdict};
 
-/// FR-029: за подіями зовнішній спостерігач відновлює повну хронологію спору
-/// без доступу до офчейн-сервісу. Watcher у apps/api читає саме їх.
+/// FR-029: from events alone, an external observer reconstructs the full timeline of a dispute
+/// without access to the off-chain service. The watcher in apps/api reads exactly these.
 #[event]
 pub struct DisputeOpened {
     pub dispute: Pubkey,
@@ -16,9 +16,9 @@ pub struct DisputeOpened {
     pub opened_at: i64,
 }
 
-/// Депозит за розгляд внесено — `FR-026`. Сума в події тому, що вона є
-/// знімком політики на момент відкриття: інтегратор змінить `Policy` завтра, а
-/// сторона має бачити, скільки з неї взяли сьогодні (`FR-026d`).
+/// The review deposit has been paid — `FR-026`. The amount is in the event because it is a
+/// snapshot of the policy at opening time: the integrator may change `Policy` tomorrow, but the
+/// party must see how much it was charged today (`FR-026d`).
 #[event]
 pub struct DepositCollected {
     pub dispute: Pubkey,
@@ -52,15 +52,15 @@ pub struct VoteRevealed {
     pub choice: Ballot,
 }
 
-/// Спір пішов на розширену панель — `FR-027`. Голоси, що спричинили ескалацію,
-/// у самій події: інакше сторона бачить, що розгляд подовжився, і не бачить
-/// чому.
+/// The dispute has moved to the extended panel — `FR-027`. The votes that caused the escalation
+/// are in the event itself: otherwise the party sees that the review was extended but does not
+/// see why.
 ///
-/// Списку тих, хто не розкрився, тут немає навмисно, хоча `FR-027b` саме їх і
-/// слешить. Підрахунок їх не знає — він бачить два числа, а не акаунти голосів,
-/// — і тягнути заради події всю панель акаунтами означало б впертись у ліміт
-/// транзакції там, де спостерігач однаково виводить цей список сам: `FR-029`
-/// дає йому `VoteCommitted` без парного `VoteRevealed`.
+/// The list of jurors who did not reveal is deliberately absent, even though `FR-027b` slashes
+/// exactly them. The tally does not know them — it sees two numbers, not vote accounts — and
+/// passing the whole panel's accounts just for an event would hit the transaction limit, while
+/// the observer derives that list on its own anyway: `FR-029` gives it every `VoteCommitted`
+/// without a matching `VoteRevealed`.
 #[event]
 pub struct DisputeEscalated {
     pub dispute: Pubkey,
@@ -70,8 +70,8 @@ pub struct DisputeEscalated {
     pub reveal_deadline: i64,
 }
 
-/// Вердикт винесено — `FR-010`. Числа поруч із результатом, бо вердикт без
-/// підстави сторона перевірити не може.
+/// A verdict has been reached — `FR-010`. The counts sit next to the outcome because a party
+/// cannot verify a verdict without its basis.
 #[event]
 pub struct DisputeTallied {
     pub dispute: Pubkey,
@@ -88,9 +88,9 @@ pub struct DisputeFinalized {
     pub finalized_at: i64,
 }
 
-/// Кому дісталось злетіле зі стейків — `FR-011`. Разом із `JurorSlashed` дає
-/// повний баланс розрахунку: спостерігач бачить, що вийшло і куди пішло, не
-/// читаючи акаунтів.
+/// Who received the slashed stake — `FR-011`. Together with `JurorSlashed` this gives the full
+/// settlement balance: the observer sees what was taken and where it went without reading
+/// accounts.
 #[event]
 pub struct JurorRewarded {
     pub dispute: Pubkey,
@@ -98,9 +98,9 @@ pub struct JurorRewarded {
     pub amount: u64,
 }
 
-/// Куди розійшлась оплата розгляду — `FR-026b`. Двох чисел досить, щоб звести
-/// баланс сховища спору: разом вони дорівнюють тому, що в ньому лежало, а сам
-/// акаунт після цього закривається.
+/// How the review fee was distributed — `FR-026b`. Two numbers are enough to reconcile the
+/// dispute vault: together they equal what it held, and the account itself is closed
+/// afterwards.
 #[event]
 pub struct DisputeFeeSettled {
     pub dispute: Pubkey,
@@ -116,9 +116,9 @@ pub struct JurorSlashed {
     pub no_reveal: bool,
 }
 
-/// Вступ до реєстру присяжних. Watcher (T027) будує з цих подій список
-/// придатних присяжних, не читаючи всі акаунти програми: `getProgramAccounts`
-/// на кожному відборі — це те, чого `JurorIndex` і уникає.
+/// A juror joined the registry. The watcher (T027) builds the list of eligible jurors from
+/// these events without reading every program account: `getProgramAccounts` on every selection
+/// is exactly what `JurorIndex` exists to avoid.
 #[event]
 pub struct JurorStaked {
     pub juror: Pubkey,
@@ -127,10 +127,10 @@ pub struct JurorStaked {
     pub juror_count: u32,
 }
 
-/// Вихід із реєстру разом зі swap-remove. `index` — слот, що звільнився,
-/// `moved` — присяжний, який на нього переїхав із хвоста. Пари подій
-/// `JurorStaked` / `JurorUnstaked` досить, щоб відтворити склад реєстру
-/// цілком — `FR-029`.
+/// A juror left the registry, with swap-remove. `index` is the freed slot,
+/// `moved` is the juror moved into it from the tail.
+/// The `JurorStaked` / `JurorUnstaked` pair of events is enough to rebuild
+/// the full registry membership — `FR-029`.
 #[event]
 pub struct JurorUnstaked {
     pub juror: Pubkey,

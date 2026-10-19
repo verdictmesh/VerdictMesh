@@ -10,24 +10,24 @@ use crate::{
     state::{Config, Juror, JurorIndex, JurorRegistry},
 };
 
-/// Вихід із реєстру присяжних — `FR-007`.
+/// Leaving the juror registry — `FR-007`.
 ///
-/// **Swap-remove, а не діра.** Останній слот переїжджає на звільнений,
-/// `juror_count` зменшується на один, хвіст закривається. Без цього в реєстрі
-/// накопичуються порожні слоти, і детермінований відбір (`FR-006`) або
-/// промахується в них, або мусить їх обходити — тобто перестає бути O(1).
+/// **Swap-remove, not a hole.** The last slot moves into the vacated one,
+/// `juror_count` decreases by one, and the tail is closed. Without this, empty slots
+/// pile up in the registry, and deterministic selection (`FR-006`) either lands on
+/// them or has to skip them — i.e. it stops being O(1).
 ///
-/// **Хвіст закривається завжди, а переїзд буває не завжди.** Коли виходить
-/// останній, звільнений слот і є хвостом — переїжджати нікому. Передати той
-/// самий акаунт двома входами інструкції не можна: Anchor розібрав би його у
-/// дві незалежні копії, і закриття однієї перезаписалося б записом іншої. Тому
-/// вхід переїзду необов'язковий, і його наявність мусить точно відповідати
-/// тому, чи виходить останній — розбіжність в обидва боки відхиляється.
+/// **The tail is always closed, but a move does not always happen.** When the last
+/// juror leaves, the vacated slot is the tail itself — there is no one to move. The
+/// same account cannot be passed as two instruction inputs: Anchor would deserialize
+/// it into two independent copies, and closing one would be overwritten by the write
+/// of the other. So the move inputs are optional, and their presence must exactly
+/// match whether the last juror is leaving — a mismatch either way is rejected.
 impl Unstake<'_> {
     pub fn handle(ctx: Context<Unstake>) -> Result<()> {
-        // Перше і головне. Присяжний, що сидить у нефіналізованому спорі, не
-        // може забрати стейк: інакше програш у голосуванні коштує нічого —
-        // досить вийти між розкриттям і розрахунком, і слешити буде нічого.
+        // First and foremost. A juror sitting on an unfinalized dispute cannot withdraw
+        // the stake: otherwise losing a vote costs nothing — just leave between reveal
+        // and settlement, and there is nothing left to slash.
         require!(
             ctx.accounts.juror_account.active_disputes == 0,
             VerdictMeshError::JurorLocked
@@ -45,7 +45,7 @@ impl Unstake<'_> {
 
         let tail_wallet = ctx.accounts.tail_index.wallet;
         let moved = match (&mut ctx.accounts.vacated_index, &mut ctx.accounts.mover) {
-            // Виходить останній: хвіст — його ж слот, і закриє його констрейнт.
+            // The last juror is leaving: the tail is their own slot; the constraint closes it.
             (None, None) => {
                 require_eq!(index, last, VerdictMeshError::InvalidRegistryTail);
                 require_keys_eq!(tail_wallet, wallet, VerdictMeshError::InvalidRegistryTail);
@@ -53,17 +53,17 @@ impl Unstake<'_> {
             }
             (Some(vacated), Some(mover)) => {
                 require_neq!(index, last, VerdictMeshError::InvalidRegistryTail);
-                // Слот, що звільняється, має бути своїм. Чужий на його місці
-                // був би виходом, який виносить із реєстру когось іншого.
+                // The vacated slot must be the signer's own. Someone else's slot
+                // here would be an exit that removes another juror from the registry.
                 require_keys_eq!(
                     vacated.wallet,
                     wallet,
                     VerdictMeshError::InvalidRegistryTail
                 );
 
-                // Обидва боки посилання переписуються тут і поруч: слот — на
-                // того, хто переїхав, і його запис — на цей слот. Половина
-                // роботи не падає, вона стає дірою в реєстрі.
+                // Both sides of the link are rewritten here, together: the slot to the
+                // juror who moved, and their record to this slot. Half the job does not
+                // fail — it becomes a hole in the registry.
                 vacated.wallet = tail_wallet;
                 mover.index = index;
                 Some(tail_wallet)
@@ -73,9 +73,9 @@ impl Unstake<'_> {
 
         ctx.accounts.registry.juror_count = last;
 
-        // Переказ зі сховища підписує PDA програми: приватного ключа до нього
-        // не існує, тож стейк виходить лише тим шляхом, який програма щойно
-        // перевірила (`FR-014`).
+        // The transfer out of the vault is signed by the program PDA: it has no
+        // private key, so the stake leaves only by the path the program has just
+        // verified (`FR-014`).
         let config_bump = ctx.accounts.config.bump;
         let signer_seeds: &[&[&[u8]]] = &[&[seeds::CONFIG, &[config_bump]]];
 
@@ -108,8 +108,8 @@ impl Unstake<'_> {
 
 #[derive(Accounts)]
 pub struct Unstake<'info> {
-    /// Виходить лише той, хто підписав: запис присяжного виводиться з цього
-    /// ключа, тож за чужий вийти нічим.
+    /// Only the signer can leave: the juror record is derived from this key, so
+    /// there is no way to leave on someone else's behalf.
     #[account(mut)]
     pub juror: Signer<'info>,
 
@@ -130,13 +130,13 @@ pub struct Unstake<'info> {
     )]
     pub juror_account: Account<'info, Juror>,
 
-    /// Останній слот реєстру. Закривається завжди — реєстр щоразу коротшає
-    /// рівно на хвіст, і саме тому в ньому не може лишитись слота поза межею
-    /// лічильника, який усе ще посилається на присяжного.
+    /// The registry's last slot. Always closed — the registry shrinks by exactly
+    /// the tail each time, which is why no slot beyond the counter can remain that
+    /// still points to a juror.
     ///
-    /// Оренда повертається тому, хто виходить, хоча платив за цей слот хтось
-    /// інший. Слоти однакового розміру, тож кожен присяжний вносить оренду
-    /// одного `JurorIndex` і одного ж забирає — різниці немає.
+    /// The rent goes to the juror who is leaving, even though someone else paid
+    /// for this slot. Slots are the same size, so each juror pays rent for one
+    /// `JurorIndex` and takes back rent for one — there is no difference.
     #[account(
         mut,
         close = juror,
@@ -145,8 +145,8 @@ pub struct Unstake<'info> {
     )]
     pub tail_index: Account<'info, JurorIndex>,
 
-    /// Слот, що звільняється. Відсутній, коли виходить останній — тоді це той
-    /// самий акаунт, що `tail_index`, і другим входом його передавати не можна.
+    /// The slot being vacated. Absent when the last juror leaves — it is then the
+    /// same account as `tail_index` and must not be passed as a second input.
     #[account(
         mut,
         seeds = [seeds::JUROR_INDEX, &juror_account.index.to_le_bytes()],
@@ -154,9 +154,9 @@ pub struct Unstake<'info> {
     )]
     pub vacated_index: Option<Account<'info, JurorIndex>>,
 
-    /// Присяжний із хвоста — той, хто переїжджає у звільнений слот. Адреса
-    /// виводиться з гаманця, записаного в самому хвості, тож підставити сюди
-    /// чужий запис нічим.
+    /// The tail juror — the one who moves into the vacated slot. The address is
+    /// derived from the wallet stored in the tail itself, so there is no way to
+    /// substitute another juror's record here.
     #[account(
         mut,
         seeds = [seeds::JUROR, tail_index.wallet.as_ref()],

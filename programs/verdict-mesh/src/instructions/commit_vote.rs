@@ -7,30 +7,30 @@ use crate::{
     state::{Dispute, DisputeState, VoteCommit},
 };
 
-/// Перший крок голосування — `FR-008`: присяжний фіксує відбиток свого голосу,
-/// не показуючи самого голосу.
+/// The first voting step — `FR-008`: the juror records a commitment to their vote
+/// without revealing the vote itself.
 ///
-/// **Що робить commit-reveal і чого не робить.** Він тримає `FR-009`: поки
-/// вікно подання не закрилось, у стані немає нічого, з чого виводиться чужий
-/// вибір, — тільки хеш. Голосувати «як більшість», подивившись на вже подані
-/// голоси, ніде. Але сам по собі відбиток не зобов'язує ні до чого: те, що
-/// присяжний розкриє саме його, доводить звірка при розкритті (`FR-008a`,
-/// T018), а те, що він взагалі розкриється, — слешинг за мовчання (`FR-008b`,
-/// T020). Ця інструкція лише кладе число в акаунт, і всі три речі мають
-/// зійтись, інакше механізм не працює.
+/// **What commit-reveal does and does not do.** It upholds `FR-009`: until the
+/// commit window closes, state contains nothing from which another juror's choice
+/// can be derived — only a hash. There is no way to vote "with the majority" after
+/// looking at votes already cast. But a commitment on its own binds to nothing:
+/// that the juror reveals exactly this one is enforced by the check on reveal
+/// (`FR-008a`, T018), and that they reveal at all — by slashing for silence
+/// (`FR-008b`, T020). This instruction only puts a value into an account, and all
+/// three pieces must fit together, or the mechanism does not work.
 ///
-/// **Формула відбитка тут не рахується і не перевіряється** — вона у
-/// `crate::vote`. Перевірити хеш, не знаючи секрету, неможливо за побудовою,
-/// тож єдине, що програма може зробити в цей момент, — записати подане число і
-/// прив'язати його до пари «спір + присяжний» адресою акаунта.
+/// **The commitment formula is neither computed nor checked here** — it lives in
+/// `crate::vote`. Verifying the hash without knowing the secret is impossible by
+/// construction, so the only thing the program can do at this point is store the
+/// submitted value and bind it to the "dispute + juror" pair via the account address.
 ///
-/// **Нульовий відбиток не відхиляється, і це рішення.** У `open_dispute`
-/// нульовий хеш твердження означав «поля немає», бо поле живе в занулюваному
-/// акаунті. Тут ознакою «відбитка немає» є відсутність самого акаунта, а
-/// відбиток, до якого немає прообразу, нічим не кращий і не гірший за
-/// `hash(сміття)`: обидва просто не розкриються, і обидва коштують присяжному
-/// частку стейку за `FR-008b`. Перевірка на нуль створювала б враження захисту
-/// від того, від чого не захищає.
+/// **A zero commitment is not rejected, and that is a decision.** In `open_dispute`
+/// a zero claim hash meant "field absent", because the field lives in a zeroed
+/// account. Here "no commitment" is signalled by the absence of the account itself,
+/// and a commitment with no preimage is no better and no worse than `hash(garbage)`:
+/// neither will ever be revealed, and both cost the juror part of the stake under
+/// `FR-008b`. A zero check would give the impression of protecting against something
+/// it does not protect against.
 impl CommitVote<'_> {
     pub fn handle(ctx: Context<CommitVote>, commitment: [u8; 32]) -> Result<()> {
         let juror = ctx.accounts.juror.key();
@@ -40,32 +40,32 @@ impl CommitVote<'_> {
             dispute.state == DisputeState::Committing,
             VerdictMeshError::WrongState
         );
-        // Строго менше: сам дедлайн уже за межею. Інакше вікно подання на
-        // секунду перекривається з розкриттям, а цієї секунди досить, щоб
-        // подати відбиток, побачивши чужий голос.
+        // Strictly less: the deadline itself is already outside the window.
+        // Otherwise the commit window overlaps the reveal window by one second,
+        // and that second is enough to commit after seeing someone else's vote.
         require!(
             Clock::get()?.unix_timestamp < dispute.commit_deadline,
             VerdictMeshError::WindowClosed
         );
-        // Голосує панель, а не бажаючі. Без цієї перевірки відбиток стороннього
-        // не падає ні на чому іншому — його акаунт виводиться з його ж гаманця
-        // й чудово створюється, — а порахувався б він аж у `tally`.
+        // The panel votes, not volunteers. Without this check an outsider's
+        // commitment fails on nothing else — its account is derived from their own
+        // wallet and is created just fine — and it would only be counted in `tally`.
         require!(dispute.panel.contains(&juror), VerdictMeshError::NotOnPanel);
 
         let vote = &mut ctx.accounts.vote;
         vote.dispute = dispute.key();
         vote.juror = juror;
         vote.commitment = commitment;
-        // Голосу тут немає і не буде до розкриття — `FR-009`. Порожній `choice`
-        // згодом і є ознакою того, що присяжний змовчав (`FR-008b`, T020).
+        // No vote here until reveal — `FR-009`. An empty `choice` later is precisely
+        // the sign that the juror stayed silent (`FR-008b`, T020).
         vote.choice = None;
-        // Відбиток належить тому колу, у якому поданий, — див. `Dispute::round`.
+        // A commitment belongs to the round it was submitted in — see `Dispute::round`.
         vote.round = dispute.round();
         vote.bump = ctx.bumps.vote;
 
-        // У події немає ані відбитка, ані натяку на вибір: `FR-029` вимагає
-        // відновлюваної хронології, а не читабельних голосів. Watcher (T027)
-        // будує з неї список тих, хто вже зафіксувався.
+        // The event carries neither the commitment nor any hint of the choice:
+        // `FR-029` requires a reconstructable timeline, not readable votes. The
+        // watcher (T027) builds the list of jurors who have already committed from it.
         emit!(VoteCommitted {
             dispute: dispute.key(),
             juror,
@@ -77,16 +77,16 @@ impl CommitVote<'_> {
 
 #[derive(Accounts)]
 pub struct CommitVote<'info> {
-    /// Присяжний платить оренду власного акаунта голосу. Підпис — єдине, що
-    /// доводить авторство відбитка: саме гаманець підписанта входить і в адресу
-    /// акаунта, і в сам хеш (`crate::vote`).
+    /// The juror pays rent for their own vote account. The signature is the only
+    /// proof of authorship of the commitment: the signer's wallet goes into both the
+    /// account address and the hash itself (`crate::vote`).
     #[account(mut)]
     pub juror: Signer<'info>,
 
-    /// Читається, не змінюється. Лічильника поданих відбитків у `Dispute` немає
-    /// навмисно: кворум рахується за **розкритими** голосами (`FR-010`), а хто
-    /// подав і змовчав — видно з акаунтів голосів, які для слешингу однаково
-    /// доведеться перебрати.
+    /// Read-only. `Dispute` deliberately has no counter of submitted commitments:
+    /// quorum is counted over **revealed** votes (`FR-010`), and who committed but
+    /// stayed silent is visible from the vote accounts, which have to be iterated
+    /// for slashing anyway.
     #[account(
         seeds = [
             seeds::DISPUTE,
@@ -97,12 +97,12 @@ pub struct CommitVote<'info> {
     )]
     pub dispute: Account<'info, Dispute>,
 
-    /// `init`, а не `init_if_needed`: відбиток подається один раз. Друге
-    /// подання — це не «змінив рішення», а можливість дочекатися чужого
-    /// розкриття і переписати свій голос під нього.
+    /// `init`, not `init_if_needed`: a commitment is submitted once. A second
+    /// submission is not "changing one's mind" but a chance to wait for someone
+    /// else's reveal and rewrite one's own vote to match it.
     ///
-    /// Адреса виводиться з пари «спір + присяжний», тож записати відбиток у
-    /// чужий акаунт не можна, а свій — рівно один на спір.
+    /// The address is derived from the "dispute + juror" pair, so a commitment cannot
+    /// be written into someone else's account, and each juror has exactly one per dispute.
     #[account(
         init,
         payer = juror,

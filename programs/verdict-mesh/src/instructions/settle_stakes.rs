@@ -12,71 +12,71 @@ use crate::{
     vault::{self, FeeSplit},
 };
 
-/// Розрахунок стейків панелі — `FR-011`, `FR-008b`, `FR-027b`.
+/// Settles the panel's stakes — `FR-011`, `FR-008b`, `FR-027b`.
 ///
-/// **Слешинг рухає запис, а не токени.** Сховище стейків спільне для всього
-/// протоколу, тож переказувати з нього нічого не треба й не можна: досить
-/// зменшити `Juror.stake` слешеного і збільшити `Juror.stake` тих, кому це
-/// дісталось. Сума записів від цього не росте, а сховище лишається не меншим за
-/// неї — саме та рівність, на яку спирається `unstake` (T015), повертаючи рівно
-/// `Juror.stake`. Списання зі сховища без зменшення запису дало б слешеному
-/// вийти за повною сумою, тобто за чужий стейк.
+/// **Slashing moves records, not tokens.** The stake vault is shared by the whole protocol, so
+/// nothing needs to — or may — be transferred out of it: it is enough to decrease the slashed
+/// juror's `Juror.stake` and increase the `Juror.stake` of those who receive it. The sum of the
+/// records does not grow, and the vault stays no smaller than that sum — exactly the invariant
+/// `unstake` (T015) relies on when it returns precisely `Juror.stake`. Debiting the vault without
+/// decreasing the record would let the slashed juror exit with the full amount, i.e. with someone
+/// else's stake.
 ///
-/// **Мовчання не буває безкоштовним, і це рішення ширше за букву `FR-008b`.**
-/// Вимога говорить про присяжного, який подав відбиток і не розкрив його. Але
-/// той, хто не подав відбитка **взагалі**, ухилився так само — і дешевше, бо
-/// буквальне читання лишило б його непокараним. Тоді найдешевшим способом не
-/// голосувати за невигідне стало б не голосувати зовсім, і `FR-008b` не боронив
-/// би нічого. Тому обидва випадки — одна частка, `slash_bps_no_reveal`.
+/// **Silence is never free, and this decision goes beyond the letter of `FR-008b`.** The
+/// requirement speaks of a juror who committed a vote and did not reveal it. But a juror who did
+/// not commit **at all** dodged in the same way — and more cheaply, since a literal reading would
+/// leave them unpunished. Then the cheapest way to avoid voting against one's interest would be
+/// not to vote at all, and `FR-008b` would protect nothing. Hence both cases take the same share,
+/// `slash_bps_no_reveal`.
 ///
-/// **За статус-кво не слешать за «неправильний» голос.** Ніхто не голосував за
-/// нього і не міг: це наслідок невдалої ескалації (`FR-027a`), а не бюлетень.
-/// Порівнювати з ним чиїсь голоси немає сенсу, і карати за те, що панель не
-/// зійшлась, — теж. Мовчання карається й тут: саме воно ескалацію й спричинило
+/// **Under a status-quo verdict nobody is slashed for a "wrong" vote.** Nobody voted for it, nor
+/// could they: it is the result of a failed escalation (`FR-027a`), not a ballot option. Comparing
+/// anyone's vote against it makes no sense, and neither does punishing jurors because the panel
+/// did not agree. Silence is still punished here: it is what caused the escalation
 /// (`FR-027b`).
 ///
-/// **Оплата розгляду роздається тут же, і це одна інструкція навмисно.**
-/// Депозит (`FR-026`) ділиться між тими самими присяжними, яких щойно перебрав
-/// слешинг, — множина «хто був правий» рахується один раз і не може розійтися
-/// між двома кранками. Друга причина важливіша за першу: окрема інструкція
-/// мала б власне вікно, у якому спір уже фіналізований, а комісія ще ні, і
-/// порядок двох дозвільних викликів вирішував би, чи дістанеться присяжному
-/// заробіток. Математика ділення — у `vault.rs`.
+/// **The review fee is paid out here too, and keeping it in one instruction is deliberate.** The
+/// deposit (`FR-026`) is split among the same jurors that slashing has just iterated over — the
+/// set of "who was right" is computed once and cannot diverge between two cranks. The second
+/// reason matters more than the first: a separate instruction would have its own window in which
+/// the dispute is already finalized but the fee is not, and the order of two permissionless calls
+/// would decide whether a juror gets paid. The split math lives in `vault.rs`.
 ///
-/// **Комісія приходить присяжному тим самим записом, що й злетіле.** Різниця
-/// лише в тому, що під неї треба справді перевести токени: злетіле вже лежить
-/// у сховищі стейків, а депозит — у сховищі спору. Тому частка присяжних
-/// переказується `dispute_vault → stake_vault` рівно тією сумою, на яку зросте
-/// сума записів, і рівність «сховище ≥ сума записів» не хитається.
+/// **The fee reaches the juror through the same record as the slashed stake.** The only
+/// difference is that it requires an actual token transfer: slashed stake already sits in the
+/// stake vault, while the deposit sits in the dispute vault. So the jurors' share is transferred
+/// `dispute_vault → stake_vault` for exactly the amount by which the sum of records grows, and
+/// the invariant "vault ≥ sum of records" holds.
 ///
-/// **Інструкція остання і дозвільна.** Підписати її може будь-хто; єдине, що
-/// дає підпис, — оренду закритого сховища спору. Це не привілей, а причина
-/// взагалі викликати кранк, без якої спір лишався б нефіналізованим, доки
-/// комусь не стане цікаво. Він же знімає `active_disputes` — по одиниці, а не в
-/// нуль: присяжний сидить у кількох панелях одночасно.
+/// **The instruction is final and permissionless.** Anyone can sign it; the only thing the
+/// signature earns is the rent of the closed dispute vault. This is not a privilege but a reason
+/// to call the crank at all; without it a dispute would stay unfinalized until someone happened
+/// to care.
+/// It also decrements `active_disputes` — by one, not to zero: a juror sits on several panels
+/// at once.
 impl<'info> SettleStakes<'info> {
     pub fn handle(ctx: Context<'_, '_, 'info, 'info, SettleStakes<'info>>) -> Result<()> {
         let now = Clock::get()?.unix_timestamp;
         let dispute_key = ctx.accounts.dispute.key();
-        // Читання, а не `&mut`: єдина зміна в самому спорі — перехід у
-        // `Finalized` в кінці, а незакрита мутабельна позика не дала б передати
-        // решту акаунтів у переказ комісії.
+        // A read, not `&mut`: the only change to the dispute itself is the transition to
+        // `Finalized` at the end, and an outstanding mutable borrow would prevent passing the
+        // remaining accounts into the fee transfer.
         let dispute = &ctx.accounts.dispute;
 
         require!(
             dispute.state == DisputeState::Tallied,
             VerdictMeshError::WrongState
         );
-        // Розрахувати до кінця вікна апеляції означає розрахувати вердикт, який
-        // ще можуть перекрити.
+        // Settling before the appeal window ends would mean settling a verdict that can still be
+        // overturned.
         require!(now >= dispute.appeal_deadline, VerdictMeshError::WindowOpen);
 
         let verdict = dispute.verdict.ok_or(VerdictMeshError::WrongState)?;
         let policy = dispute.policy;
 
-        // Панель передається цілком, парами (`Juror`, `VoteCommit`) у порядку
-        // панелі. Показати розрахунку лише зручних присяжних означало б не
-        // слешити решту й лишити їх замкненими в реєстрі.
+        // The whole panel is passed, as (`Juror`, `VoteCommit`) pairs in panel order. Showing
+        // the settlement only convenient jurors would leave the rest unslashed and locked in the
+        // registry.
         require_eq!(
             ctx.remaining_accounts.len(),
             2 * dispute.panel.len(),
@@ -92,8 +92,8 @@ impl<'info> SettleStakes<'info> {
             let choice = revealed_choice(&ctx.remaining_accounts[pair + 1], &dispute_key, wallet)?;
 
             let bps = match choice {
-                // Розкрився і збігся — або розкрився там, де збігатися немає з
-                // чим (статус-кво). Обидва зробили роботу.
+                // Revealed and matched — or revealed where there is nothing to match (status
+                // quo). Both did the work.
                 Some(choice) if verdict == Verdict::StatusQuo || choice == verdict => 0,
                 Some(_) => policy.slash_bps_wrong,
                 None => policy.slash_bps_no_reveal,
@@ -106,9 +106,9 @@ impl<'info> SettleStakes<'info> {
                 .ok_or(VerdictMeshError::Overflow)?;
             pot = pot.checked_add(slashed).ok_or(VerdictMeshError::Overflow)?;
 
-            // Те, заради чого відбір узагалі піднімав лічильник (T016). Одиниця,
-            // а не нуль: обнулення випустило б присяжного з реєстру з чужого,
-            // ще не розв'язаного спору (`FR-007`).
+            // This is why selection incremented the counter in the first place (T016). By one,
+            // not to zero: zeroing it would release the juror from the registry while another,
+            // still unresolved dispute holds them (`FR-007`).
             juror.active_disputes = juror.active_disputes.saturating_sub(1);
 
             if slashed > 0 {
@@ -123,16 +123,16 @@ impl<'info> SettleStakes<'info> {
             jurors.push((seat, juror, choice.is_some() && bps == 0));
         }
 
-        // Кому дістається злетіле. За справжнього вердикту — тим, чий голос
-        // збігся; за статус-кво — усім, хто розкрився: збігатися немає з чим, а
-        // роботу вони зробили. Якщо не лишилось нікого, зібране просто осідає у
-        // сховищі — вивести його нікому й нічим, бо інструкції, що дає комусь
-        // владу над коштами, у програмі немає (`FR-014`).
+        // Who receives the slashed stake. Under a real verdict — those whose vote matched; under
+        // status quo — everyone who revealed: there is nothing to match, but they did the work.
+        // If nobody is left, the collected amount simply stays in the vault — nobody can withdraw
+        // it by any means, because the program has no instruction that gives anyone power over
+        // funds (`FR-014`).
         let winners = jurors.iter().filter(|(_, _, won)| *won).count();
 
-        // Оплата розгляду — `FR-026b`. Ділиться те, що справді лежить у сховищі
-        // спору, а частка присяжних рахується від оголошеної ціни: нестача,
-        // якщо колись виникне, має падати на протокол, а не на присяжного.
+        // Review fee — `FR-026b`. What is split is what actually sits in the dispute vault,
+        // while the jurors' share is computed from the announced price: a shortfall, should one
+        // ever occur, must fall on the protocol, not on the juror.
         let fee = vault::split_fee(
             ctx.accounts.dispute_vault.amount,
             policy.deposit,
@@ -140,10 +140,10 @@ impl<'info> SettleStakes<'info> {
         )?;
         Self::pay_fee(&ctx, &fee)?;
 
-        // Комісія доливається в те саме відро, що й злетіле зі стейків: обидві
-        // суми дістаються тим самим людям за той самий розгляд, і рахувати їх
-        // окремо означало б двічі ділити з залишком — тобто загубити копійку
-        // там, де вона нічия.
+        // The fee is added to the same pot as the slashed stake: both amounts go to the same
+        // people for the same review, and computing them separately would mean dividing with a
+        // remainder twice — i.e. losing dust
+        // where it belongs to nobody.
         pot = pot
             .checked_add(fee.jurors)
             .ok_or(VerdictMeshError::Overflow)?;
@@ -151,9 +151,9 @@ impl<'info> SettleStakes<'info> {
         if winners > 0 {
             let winners = u64::try_from(winners).map_err(|_| VerdictMeshError::Overflow)?;
             let each = pot / winners;
-            // Залишок від ділення віддається першому за місцем у панелі, а не
-            // лишається пилом: за сотні розглядів пил стає сумою, яка не
-            // належить нікому і не сходиться зі сховищем.
+            // The division remainder goes to the first winner by panel seat rather than being left
+            // as dust: over hundreds of reviews the dust becomes an amount that belongs to nobody
+            // and does not reconcile with the vault.
             let mut extra = pot % winners;
 
             for (_, juror, _) in jurors.iter_mut().filter(|(_, _, won)| *won) {
@@ -195,11 +195,11 @@ impl<'info> SettleStakes<'info> {
         Ok(())
     }
 
-    /// Виводить оплату розгляду зі сховища спору і закриває його.
+    /// Pays the review fee out of the dispute vault and closes it.
     ///
-    /// Сховище закривається **завжди**, навіть коли ділити не було чого:
-    /// порожній токен-акаунт на кожен спір — це оренда, замкнена назавжди, і
-    /// накопичується вона рівно з тією швидкістю, з якою протокол працює.
+    /// The vault is **always** closed, even when there was nothing to split: an empty token
+    /// account per dispute is rent locked forever, and it accumulates at exactly the rate at
+    /// which the protocol operates.
     fn pay_fee(
         ctx: &Context<'_, '_, 'info, 'info, SettleStakes<'info>>,
         fee: &FeeSplit,
@@ -229,9 +229,9 @@ impl<'info> SettleStakes<'info> {
             )
         };
 
-        // Частка присяжних переїжджає у сховище стейків, бо саме там живуть їхні
-        // баланси: `Juror.stake` — це запис проти того сховища, і збільшити його,
-        // не долив токенів, означало б пообіцяти більше, ніж є.
+        // The jurors' share moves into the stake vault because that is where their balances
+        // live: `Juror.stake` is a record against that vault, and increasing it without adding
+        // tokens would promise more than exists.
         pay(ctx.accounts.stake_vault.to_account_info(), fee.jurors)?;
         pay(ctx.accounts.treasury_tokens.to_account_info(), fee.protocol)?;
 
@@ -247,9 +247,9 @@ impl<'info> SettleStakes<'info> {
     }
 }
 
-/// `Juror` того гаманця, що справді сидить на цьому місці панелі. Звірка йде за
-/// адресою: підставлений запис прийняв би слешинг замість того, кому він
-/// призначений.
+/// The `Juror` of the wallet that actually occupies this panel seat. The check is by address:
+/// a substituted record would absorb the slashing instead of the juror
+/// it is meant for.
 fn panel_member<'info>(info: &'info AccountInfo<'info>, wallet: &Pubkey) -> Result<Juror> {
     let juror: Account<Juror> = Account::try_from(info)?;
     require!(
@@ -261,12 +261,12 @@ fn panel_member<'info>(info: &'info AccountInfo<'info>, wallet: &Pubkey) -> Resu
     Ok(juror.into_inner())
 }
 
-/// Голос присяжного, якщо він його розкрив.
+/// The juror's vote, if they revealed it.
 ///
-/// Порожній акаунт — не помилка: це присяжний, який відбитка не подавав. Саме
-/// тому адреса тут виводиться заново, а не звіряється за збереженим bump'ом —
-/// у неіснуючого акаунта його немає, а довести, що переданий порожній акаунт
-/// **і є** тим самим голосом, треба однаково.
+/// An empty account is not an error: it is a juror who never committed. That is exactly why the
+/// address is re-derived here rather than checked against a stored bump — a nonexistent account
+/// has none, yet proving that the empty account passed in **is** that very vote is still
+/// required.
 fn revealed_choice<'info>(
     info: &'info AccountInfo<'info>,
     dispute: &Pubkey,
@@ -291,8 +291,8 @@ fn revealed_choice<'info>(
     Ok(vote.choice.map(|choice| choice.verdict()))
 }
 
-/// Записує змінений стан присяжного назад в акаунт: Anchor робить це сам лише
-/// для полів контексту, `remaining_accounts` — на совісті інструкції.
+/// Writes the juror's modified state back to the account: Anchor does this automatically only
+/// for context fields; `remaining_accounts` are the instruction's own responsibility.
 fn store(info: &AccountInfo, juror: &Juror) -> Result<()> {
     let mut data = info.try_borrow_mut_data()?;
     juror.try_serialize(&mut &mut data[..])?;
@@ -300,8 +300,8 @@ fn store(info: &AccountInfo, juror: &Juror) -> Result<()> {
     Ok(())
 }
 
-/// Звірка адреси з PDA за **збереженим** bump'ом — дешевше за пошук і рівно так
-/// само однозначно.
+/// Checks an address against a PDA using the **stored** bump — cheaper than a search and just as
+/// unambiguous.
 fn expect_address(info: &AccountInfo, seeds: &[&[u8]]) -> Result<()> {
     let expected = Pubkey::create_program_address(seeds, &crate::ID)
         .map_err(|_| error!(VerdictMeshError::InvalidSettlementAccounts))?;
@@ -327,9 +327,9 @@ pub struct SettleStakes<'info> {
     )]
     pub dispute: Account<'info, Dispute>,
 
-    /// Хто завгодно. Підпис потрібен лише тому, що оренду закритого сховища
-    /// спору треба комусь віддати, і найчесніший отримувач — той, хто взяв на
-    /// себе виклик кранка.
+    /// Anyone. A signature is required only because the rent of the closed dispute vault has to
+    /// go to someone, and the fairest recipient is whoever took it upon themselves to call
+    /// the crank.
     #[account(mut)]
     pub crank: Signer<'info>,
 
@@ -339,7 +339,7 @@ pub struct SettleStakes<'info> {
     #[account(address = config.settlement_mint)]
     pub settlement_mint: InterfaceAccount<'info, Mint>,
 
-    /// Сховище цього спору. Закривається тут — тому й `mut`.
+    /// This dispute's vault. It is closed here — hence `mut`.
     #[account(
         mut,
         seeds = [seeds::DISPUTE_VAULT, dispute.key().as_ref()],
@@ -349,8 +349,8 @@ pub struct SettleStakes<'info> {
     )]
     pub dispute_vault: InterfaceAccount<'info, TokenAccount>,
 
-    /// Сюди переїжджає частка присяжних: `Juror.stake` — запис проти цього
-    /// сховища, і зростати він може лише разом із ним.
+    /// The jurors' share moves here: `Juror.stake` is a record against this vault, and it may
+    /// only grow together with it.
     #[account(
         mut,
         seeds = [seeds::STAKE_VAULT],
@@ -360,10 +360,10 @@ pub struct SettleStakes<'info> {
     )]
     pub stake_vault: InterfaceAccount<'info, TokenAccount>,
 
-    /// Токен-акаунт скарбниці протоколу — `FR-026b`. Перевіряється за власником
-    /// із `Config`, а не за адресою самого акаунта: адреса ATA виводиться з
-    /// власника й мінта, обидва вже прив'язані, а зберігати її окремо означало б
-    /// друге джерело того самого факту.
+    /// The protocol treasury's token account — `FR-026b`. Checked by the owner from `Config`
+    /// rather than by the account's own address: the ATA address is derived from the owner and
+    /// the mint, both already bound, and storing it separately would be a second source of the
+    /// same fact.
     #[account(
         mut,
         token::mint = settlement_mint,
@@ -372,7 +372,7 @@ pub struct SettleStakes<'info> {
     pub treasury_tokens: InterfaceAccount<'info, TokenAccount>,
 
     pub token_program: Interface<'info, TokenInterface>,
-    // `remaining_accounts`: пари (`Juror`, `VoteCommit`) на кожне місце панелі,
-    // у її порядку. Акаунт голосу може бути порожнім — це присяжний, який
-    // відбитка не подавав.
+    // `remaining_accounts`: (`Juror`, `VoteCommit`) pairs, one per panel seat, in panel order.
+    // The vote account may be empty — that is a juror who
+    // never committed.
 }

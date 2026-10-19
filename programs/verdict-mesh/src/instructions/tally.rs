@@ -7,32 +7,32 @@ use crate::{
     state::{Dispute, DisputeState, Verdict},
 };
 
-/// Підрахунок голосів — `FR-010`, `FR-027`, `FR-027a`.
+/// Vote tally — `FR-010`, `FR-027`, `FR-027a`.
 ///
-/// **Спір мусить закінчитись, і закінчує його ця інструкція.** `SC-011` вимагає
-/// результату у 100% розглядів, де частина панелі змовчала. Тому виходів рівно
-/// три і всі скінченні: є кворум і більшість — вердикт; немає — один раз
-/// розширена панель; не вийшло і там — статус-кво. Третього кола не існує.
+/// **A dispute must end, and this instruction is what ends it.** `SC-011` requires an outcome
+/// in 100% of reviews where part of the panel stayed silent. So there are exactly three exits,
+/// all of them final: quorum and a majority — a verdict; otherwise — one extended panel; if
+/// that fails too — status quo. There is no third round.
 ///
-/// **Кворум і більшість — різні питання.** Кворум відповідає, чи висловилось
-/// достатньо присяжних; більшість — чи є з цього відповідь. Рівність при
-/// набраному кворумі вердикту не дає і йде на ескалацію нарівні з мовчанням.
+/// **Quorum and majority are different questions.** Quorum answers whether
+/// enough jurors spoke; majority, whether that yields an answer. A tie with
+/// quorum reached produces no verdict and escalates just as silence does.
 ///
-/// **Ескалація не скидає голоси першого раунду.** Розширена панель — той самий
-/// розгляд, продовжений більшою кількістю присяжних. Скидання лічильників
-/// зробило б уже розкриті `VoteCommit` нерозкривними назавжди (`AlreadyRevealed`
-/// не знімається), а тих, хто чесно проголосував, змусило б голосувати вдруге
-/// ні за чим.
+/// **Escalation does not reset first-round votes.** The extended panel is the
+/// same review, continued with more jurors. Resetting the counters would make
+/// already revealed `VoteCommit`s unrevealable forever (`AlreadyRevealed` is
+/// never cleared), and would force those who voted honestly to vote a second
+/// time for nothing.
 ///
-/// **Інструкція нічия.** Дозвільний кранк без підпису: перехід залежить від
-/// часу, а не від чиєїсь волі, і дозволити його комусь одному означало б лише
-/// дати можливість не викликати підрахунок узагалі.
+/// **The instruction is permissionless.** A crank with no signature required: the transition
+/// depends on time, not on anyone's will, and restricting it to a single party would only give
+/// that party the ability to never call the tally at all.
 ///
-/// **`active_disputes` тут не зменшується, і це не пропуск.** Спір із винесеним
-/// вердиктом ще не фіналізовано — попереду вікно апеляції й розрахунок стейків.
-/// Присяжний, звільнений тут, вийшов би з реєстру зі стейком (`FR-007`, T015) за
-/// мить до того, як його мали слешити. Лічильник знімає T020, який і так
-/// перебирає всю панель поіменно.
+/// **`active_disputes` is not decremented here, and that is not an oversight.** A dispute with
+/// a verdict is not yet finalized — the appeal window and stake settlement are still ahead. A
+/// juror released here could leave the registry with their stake (`FR-007`, T015) moments
+/// before they were due to be slashed. The counter is cleared by T020, which walks the whole
+/// panel juror by juror anyway.
 impl Tally<'_> {
     pub fn handle(ctx: Context<Tally>) -> Result<()> {
         let clock = Clock::get()?;
@@ -47,9 +47,9 @@ impl Tally<'_> {
             ),
             VerdictMeshError::WrongState
         );
-        // Рахувати до кінця вікна розкриття означає рахувати без тих, хто ще
-        // встиг би розкритись. Верхньої межі немає: спір, до якого дійшли руки
-        // пізно, мусить дорахуватись, а не застрягнути.
+        // Tallying before the reveal window ends means tallying without those
+        // who could still reveal. There is no upper bound: a dispute that gets
+        // attention late must still be tallied, not get stuck.
         require!(now >= dispute.reveal_deadline, VerdictMeshError::WindowOpen);
 
         let policy = dispute.policy;
@@ -73,8 +73,8 @@ impl Tally<'_> {
         match verdict {
             Some(verdict) => Self::decide(dispute, dispute_key, verdict, now, policy.appeal_window),
             None if dispute.escalated => {
-                // `FR-027a`: розширена панель теж не дала результату. Кошти
-                // розподіляються так, ніби спору не було.
+                // `FR-027a`: the extended panel produced no outcome either. Funds
+                // are distributed as if there had been no dispute.
                 Self::decide(
                     dispute,
                     dispute_key,
@@ -100,8 +100,8 @@ impl Tally<'_> {
 
         dispute.verdict = Some(verdict);
         dispute.state = DisputeState::Tallied;
-        // Вікно апеляції відлічується від вердикту, а не від відкриття спору:
-        // до цієї миті його тривалість нічого не означала.
+        // The appeal window counts from the verdict, not from dispute opening:
+        // until this moment its length meant nothing.
         dispute.appeal_deadline = appeal_deadline;
 
         emit!(DisputeTallied {
@@ -115,9 +115,9 @@ impl Tally<'_> {
         Ok(())
     }
 
-    /// Перехід на розширену панель — `FR-027`. Саму панель добирає
-    /// `select_panel`: тягнути реєстр через підрахунок означало б зробити
-    /// дозвільний кранк дорогим рівно настільки, наскільки великий реєстр.
+    /// Move to the extended panel — `FR-027`. The panel itself is topped up by
+    /// `select_panel`: pulling the registry through the tally would make the
+    /// permissionless crank exactly as expensive as the registry is large.
     fn escalate(dispute: &mut Dispute, dispute_key: Pubkey, now: i64, slot: u64) -> Result<()> {
         let commit_deadline = now
             .checked_add(dispute.policy.commit_window)
@@ -130,20 +130,20 @@ impl Tally<'_> {
         dispute.state = DisputeState::Committing;
         dispute.commit_deadline = commit_deadline;
         dispute.reveal_deadline = reveal_deadline;
-        // **Ентропія перезакріплюється, і це друге відоме слабке місце її
-        // джерела.** `SlotHashes` пам'ятає 512 слотів — близько 3.5 хвилини, —
-        // а між відкриттям спору і ескалацією проходять обидва вікна, тобто
-        // стільки, скільки записав інтегратор у політику. Слот відкриття до
-        // цієї миті вже не існує, і добирати присяжних до розширеної панелі
-        // було б нічим: ескалація вела б у глухий кут, а `SC-011` не досягався
-        // б узагалі.
+        // **Entropy is re-pinned, and this is the second known weak spot of
+        // its source.** `SlotHashes` remembers 512 slots — about 3.5 minutes —
+        // while both windows pass between opening the dispute and escalation,
+        // i.e. as long as the integrator set in the policy. By this point the
+        // opening slot no longer exists, and there would be nothing to draw
+        // the extended panel's jurors from: escalation would lead to a dead
+        // end, and `SC-011` would not be met at all.
         //
-        // Ціна названа вголос: той, хто викликає підрахунок, обирає, у якому
-        // слоті це зробити, тобто може переграти добір, повторюючи спробу.
-        // Стримує його лише те, що інструкція нічия — перший виклик закріплює
-        // слот, і гріфер мусить випередити всіх, кому спір небайдужий, рівно
-        // один раз. Перехід на VRF (`FR-006a`) знімає і це, і вплив лідера
-        // слота одним рухом, не зачіпаючи нічого поза `panel.rs`.
+        // The cost, stated openly: whoever calls the tally chooses the slot to do it
+        // in, and so can re-roll the top-up by retrying. The only check on this is that
+        // the instruction is permissionless — the first call pins the slot, and a
+        // griefer must beat everyone who cares about the dispute, exactly once. Moving
+        // to VRF (`FR-006a`) removes both this and the slot leader's influence in one
+        // move, touching nothing outside `panel.rs`.
         dispute.entropy_slot = slot.saturating_sub(1);
 
         emit!(DisputeEscalated {

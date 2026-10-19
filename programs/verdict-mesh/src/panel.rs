@@ -1,22 +1,22 @@
-//! Відбір панелі присяжних — `FR-006`, і межа, якої вимагає `FR-006a`.
+//! Juror panel selection — `FR-006`, and the boundary `FR-006a` requires.
 //!
-//! **Що саме тут ізольовано.** `FR-006a` вимагає, щоб заміна джерела ентропії
-//! на зовнішній перевірюваний генератор не зачіпала реєстр присяжних,
-//! голосування чи виконання вердикту. Тому в цьому модулі лежать **обидві**
-//! половини: звідки береться випадковість (`entropy_of`) і як з неї виходить
-//! панель (`draw`). Замінити slot hash на VRF означає переписати перше і не
-//! торкнутись другого — і нічого поза цим файлом.
+//! **What exactly is isolated here.** `FR-006a` requires that replacing the entropy
+//! source with an external verifiable generator must not touch the juror registry,
+//! voting, or verdict execution. That is why this module holds **both** halves: where
+//! the randomness comes from (`entropy_of`) and how the panel is derived from it
+//! (`draw`). Swapping the slot hash for a VRF means rewriting the first without
+//! touching the second — and nothing outside this file.
 //!
-//! **Слабке місце названо вголос.** Хеш слота піддається впливу лідера цього
-//! слота, тобто панель теоретично передбачувана для того, хто цей слот
-//! виробляє. Це записано в `SPEC.md` → «Поза скоупом» і в `PLAN.md` → ризики;
-//! межа існує саме для того, щоб на mainnet сюди став VRF. На devnet-демо
-//! ризик приймається свідомо.
+//! **The weak spot, stated openly.** A slot hash can be influenced by that
+//! slot's leader, so the panel is in theory predictable to whoever produces
+//! the slot. This is recorded in `SPEC.md` → "Out of scope" and in `PLAN.md` →
+//! risks; the boundary exists precisely so that a VRF can go here on mainnet.
+//! For the devnet demo the risk is accepted deliberately.
 //!
-//! **Чому ентропія прив'язана до слота відкриття, а не до слота відбору.**
-//! Інакше відбір можна було б переграти: повторювати спробу зі слота в слот,
-//! доки панель не сподобається. Прив'язка до `Dispute.entropy_slot` робить
-//! панель визначеною в момент відкриття спору й незмінною після нього.
+//! **Why entropy is tied to the opening slot rather than the selection slot.**
+//! Otherwise the selection could be re-rolled: retrying slot after slot until
+//! the panel is to one's liking. Binding to `Dispute.entropy_slot` fixes the
+//! panel at the moment the dispute opens and keeps it unchanged afterwards.
 
 use std::cmp::Ordering;
 
@@ -25,41 +25,41 @@ use solana_keccak_hasher::hashv;
 
 use crate::{errors::VerdictMeshError, state::MAX_PANEL_SIZE};
 
-/// Один запис сисвара `SlotHashes`: слот (`u64` LE) і хеш (32 байти).
+/// One entry of the `SlotHashes` sysvar: slot (`u64` LE) and hash (32 bytes).
 const SLOT_HASH_ENTRY: usize = 40;
 
-/// Адреса сисвара `SlotHashes`. Оголошена тут, а не взята з реекспорту
-/// Anchor: у 0.32.1 весь модуль `solana_program::sysvar` позначений
-/// deprecated, а `clippy -D warnings` цього не пробачає.
+/// Address of the `SlotHashes` sysvar. Declared here rather than taken from
+/// Anchor's re-export: in 0.32.1 the whole `solana_program::sysvar` module is
+/// marked deprecated, and `clippy -D warnings` does not let that pass.
 pub const SLOT_HASHES_ID: Pubkey =
     anchor_lang::solana_program::pubkey::pubkey!("SysvarS1otHashes111111111111111111111111111");
 
-/// Скільки слотів пам'ятає `SlotHashes`. Ентропія спору живе рівно стільки —
-/// приблизно 3.5 хвилини, і це верхня межа затримки між відкриттям спору та
-/// відбором панелі.
+/// How many slots `SlotHashes` remembers. A dispute's entropy lives exactly
+/// that long — about 3.5 minutes — and this is the upper bound on the delay
+/// between opening a dispute and selecting its panel.
 pub const SLOT_HASHES_DEPTH: usize = 512;
 
-/// Ентропія відбору. Тип непрозорий навмисно: усе, що знає решта програми, —
-/// що панель виводиться детерміновано з чогось, і звідки саме це «щось»
-/// береться, поза цим модулем не видно.
+/// Selection entropy. The type is opaque on purpose: all the rest of the program knows is
+/// that the panel is derived deterministically from something, and where exactly that
+/// "something" comes from is not visible outside this module.
 pub struct Entropy([u8; 32]);
 
 impl Entropy {
-    /// Потік чисел із одного зерна. Хешування з лічильником замість
-    /// послідовного `state = hash(state)` — щоб крок `i` не залежав від того,
-    /// скільки кроків зробили до нього: так `draw` лишається чистою функцією
-    /// від зерна і номера кроку.
+    /// A stream of numbers from a single seed. Hashing with a counter instead
+    /// of chaining `state = hash(state)` — so that step `i` does not depend on
+    /// how many steps came before it: this keeps `draw` a pure function of the
+    /// seed and the step number.
     fn at(&self, step: u8) -> u64 {
         let bytes = hashv(&[self.0.as_slice(), &[step]]).0;
         u64::from_le_bytes(bytes[..8].try_into().expect("keccak gives 32 bytes"))
     }
 }
 
-/// Поточне джерело ентропії — `FR-006`: хеш недавнього слота в поєднанні з
-/// ідентифікатором спору. **Це та функція, яку замінює перехід на VRF.**
+/// The current entropy source — `FR-006`: a recent slot hash combined with the
+/// dispute identifier. **This is the function a move to VRF replaces.**
 ///
-/// Ідентифікатор спору тут не для випадковості, а щоб два спори, відкриті в
-/// одному слоті, не отримали однакову панель.
+/// The dispute identifier is here not for randomness but so that two disputes
+/// opened in the same slot do not get the same panel.
 pub fn entropy_of(slot_hashes: &AccountInfo, slot: u64, dispute: &Pubkey) -> Result<Entropy> {
     let data = slot_hashes.try_borrow_data()?;
     let slot_hash = find_slot_hash(&data, slot).ok_or(VerdictMeshError::EntropyUnavailable)?;
@@ -67,12 +67,12 @@ pub fn entropy_of(slot_hashes: &AccountInfo, slot: u64, dispute: &Pubkey) -> Res
     Ok(Entropy(hashv(&[slot_hash.as_slice(), dispute.as_ref()]).0))
 }
 
-/// Хеш конкретного слота з сирих байтів сисвара.
+/// The hash of a specific slot, read from the sysvar's raw bytes.
 ///
-/// `SlotHashes` не десеріалізують цілком: це 512 записів, і Anchor витратив би
-/// на них і обчислювальний бюджет, і стек. Розклад фіксований — 8 байтів
-/// кількості, далі пари «слот, хеш» у **спадному** порядку слотів, — тож
-/// двійковий пошук читає рівно те, що потрібно.
+/// `SlotHashes` is not deserialized in full: it is 512 entries, and Anchor
+/// would spend both compute budget and stack on them. The layout is fixed —
+/// an 8-byte count, then "slot, hash" pairs in **descending** slot order — so
+/// a binary search reads exactly what it needs.
 fn find_slot_hash(data: &[u8], slot: u64) -> Option<[u8; 32]> {
     let count = usize::try_from(u64::from_le_bytes(data.get(..8)?.try_into().ok()?)).ok()?;
 
@@ -84,7 +84,7 @@ fn find_slot_hash(data: &[u8], slot: u64) -> Option<[u8; 32]> {
 
         match candidate.cmp(&slot) {
             Ordering::Equal => return data.get(at + 8..at + SLOT_HASH_ENTRY)?.try_into().ok(),
-            // Порядок спадний: більший слот означає, що шуканий далі праворуч.
+            // Descending order: a larger slot means the target lies further right.
             Ordering::Greater => low = middle + 1,
             Ordering::Less => high = middle,
         }
@@ -93,17 +93,17 @@ fn find_slot_hash(data: &[u8], slot: u64) -> Option<[u8; 32]> {
     None
 }
 
-/// Обирає `size` різних позицій із `0..candidates` — детерміновано і без
-/// повторів.
+/// Picks `size` distinct positions from `0..candidates` — deterministically and
+/// without repeats.
 ///
-/// Часткове тасування Фішера—Йейтса: на кроці `i` один із тих, хто ще не
-/// вибраний, міняється місцями з позицією `i`. Повторів немає за побудовою, і
-/// це важливіше, ніж здається — той самий присяжний двічі в панелі означав би
-/// подвійну вагу голосу і кворум, зібраний однією людиною.
+/// A partial Fisher–Yates shuffle: at step `i`, one of the not-yet-picked entries is
+/// swapped into position `i`. Repeats are impossible by construction, and this matters
+/// more than it seems — the same juror twice on a panel would mean a double-weight vote
+/// and a quorum assembled by one person.
 ///
-/// Зсув від залишку по модулю тут є, але при `span ≤ 32` і 64-бітному числі
-/// він порядку 2⁻⁵⁹ — на кілька порядків менший за вплив лідера слота на сам
-/// хеш, тобто не є вузьким місцем.
+/// Modulo bias does exist here, but with `span ≤ 32` and a 64-bit number it is
+/// on the order of 2⁻⁵⁹ — several orders of magnitude smaller than the slot
+/// leader's influence on the hash itself, so it is not the weak link.
 pub fn draw(entropy: &Entropy, candidates: u32, size: u8) -> Result<Vec<u32>> {
     require!(size > 0, VerdictMeshError::InvalidPolicy);
     require!(size <= MAX_PANEL_SIZE, VerdictMeshError::InvalidPolicy);
@@ -132,8 +132,8 @@ mod tests {
         Entropy([seed; 32])
     }
 
-    /// Панель без повторів — головна властивість. Той самий присяжний двічі
-    /// означав би подвійну вагу голосу і кворум, зібраний однією людиною.
+    /// A panel without repeats is the key property. The same juror twice would
+    /// mean a double-weight vote and a quorum assembled by one person.
     #[test]
     fn draws_distinct_positions_inside_the_registry() {
         for seed in 0..32u8 {
@@ -145,12 +145,12 @@ mod tests {
             let mut sorted = panel.clone();
             sorted.sort_unstable();
             sorted.dedup();
-            assert_eq!(sorted.len(), panel.len(), "повтор у панелі: {panel:?}");
+            assert_eq!(sorted.len(), panel.len(), "repeat in panel: {panel:?}");
         }
     }
 
-    /// Детермінованість — це вимога, а не зручність тесту: без неї відбір
-    /// неможливо ані перевірити, ані відтворити зі сторони.
+    /// Determinism is a requirement, not a testing convenience: without it the
+    /// selection can be neither verified nor reproduced by an outside party.
     #[test]
     fn gives_the_same_panel_for_the_same_entropy() {
         let first = draw(&entropy(7), 20, 5).expect("a panel exists");
@@ -165,9 +165,9 @@ mod tests {
         assert_ne!(first, second);
     }
 
-    /// Жодна позиція реєстру не буває структурно недосяжною. Помилка на одиницю
-    /// в межах тасування зазвичай саме так і виглядає: відбір працює, панель
-    /// без повторів, але останній присяжний не потрапляє в неї ніколи.
+    /// No registry position is ever structurally unreachable. An off-by-one in
+    /// the shuffle bounds usually looks exactly like this: selection works, the
+    /// panel has no repeats, but the last juror never gets onto it.
     #[test]
     fn can_reach_every_position_in_the_registry() {
         let candidates = 9u32;
@@ -181,7 +181,7 @@ mod tests {
 
         assert!(
             seen.iter().all(|hit| *hit),
-            "недосяжні позиції: {:?}",
+            "unreachable positions: {:?}",
             seen.iter()
                 .enumerate()
                 .filter(|(_, hit)| !**hit)
@@ -190,7 +190,7 @@ mod tests {
         );
     }
 
-    /// Панель завбільшки з реєстр — це перестановка, а не «майже всі».
+    /// A panel the size of the registry is a permutation, not "almost everyone".
     #[test]
     fn a_panel_the_size_of_the_registry_takes_everyone() {
         let mut panel = draw(&entropy(3), 6, 6).expect("a panel exists");
@@ -198,8 +198,8 @@ mod tests {
         assert_eq!(panel, (0..6).collect::<Vec<u32>>());
     }
 
-    /// Реєстр, менший за панель, — не «панель поменше», а відмова: `FR-010`
-    /// рахує кворум від розміру панелі з політики.
+    /// A registry smaller than the panel means a refusal, not "a smaller panel":
+    /// `FR-010` computes the quorum from the panel size in the policy.
     #[test]
     fn refuses_a_registry_smaller_than_the_panel() {
         assert!(draw(&entropy(1), 2, 3).is_err());
@@ -212,10 +212,10 @@ mod tests {
         assert!(draw(&entropy(1), 100, 0).is_err());
     }
 
-    // ── сисвар ──────────────────────────────────────────────────────────────
+    // ── sysvar ──────────────────────────────────────────────────────────────
 
-    /// Байти сисвара у справжньому розкладі: кількість, далі пари «слот, хеш»
-    /// у спадному порядку слотів.
+    /// Sysvar bytes in the real layout: the count, then "slot, hash" pairs in
+    /// descending slot order.
     fn slot_hashes(newest: u64, count: u64) -> Vec<u8> {
         let mut data = count.to_le_bytes().to_vec();
         for offset in 0..count {
@@ -239,8 +239,8 @@ mod tests {
         }
     }
 
-    /// Слот, що вийшов за глибину сисвара, — це відмова, а не чужий хеш.
-    /// Мовчазний промах дав би панель, виведену не з того, з чого обіцяно.
+    /// A slot beyond the sysvar's depth means a refusal, not someone else's hash. A silent
+    /// miss would yield a panel derived from something other than what was promised.
     #[test]
     fn refuses_a_slot_outside_the_sysvar() {
         let data = slot_hashes(1_000, 512);
@@ -248,8 +248,8 @@ mod tests {
         assert_eq!(find_slot_hash(&data, 1_001), None);
     }
 
-    /// Обрізаний або порожній сисвар не має призводити до читання за межами
-    /// буфера: помилка тут — це паніка програми на живому спорі.
+    /// A truncated or empty sysvar must not lead to reading past the end of the
+    /// buffer: a bug here is a program panic on a live dispute.
     #[test]
     fn survives_a_truncated_sysvar() {
         assert_eq!(find_slot_hash(&[], 1), None);
