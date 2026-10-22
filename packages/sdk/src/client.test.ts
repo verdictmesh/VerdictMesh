@@ -5,6 +5,7 @@ import {
   type Connection,
   Keypair,
   PublicKey,
+  SYSVAR_CLOCK_PUBKEY,
   SYSVAR_SLOT_HASHES_PUBKEY,
   SystemProgram,
 } from '@solana/web3.js'
@@ -243,5 +244,87 @@ describe('another program id', () => {
 
     expect(ix.programId.equals(local)).toBe(true)
     expect(ix.keys[1]?.pubkey.equals(integratorAddress(authority, local))).toBe(true)
+  })
+})
+
+describe('readVerdict', () => {
+  const escrow = PublicKey.unique()
+  const deadline = 1_700_000_180
+
+  /** The `Clock` sysvar at `unixTimestamp`: four 8-byte fields come before it. */
+  const clock = (unixTimestamp: number) => {
+    const data = Buffer.alloc(40)
+    data.writeBigUInt64LE(1n, 0)
+    data.writeBigInt64LE(BigInt(unixTimestamp), 32)
+    return data
+  }
+
+  async function setupDispute(owner = PROGRAM_ID) {
+    const { chain, client } = setup({ jurors: 0 })
+    const claimant = PublicKey.unique()
+    const data = await client.program.coder.accounts.encode('dispute', {
+      integrator,
+      disputeId: new BN(106),
+      policy,
+      escrowRef: escrow,
+      claimant,
+      respondent: PublicKey.unique(),
+      amount: new BN(1_000_000),
+      state: { tallied: {} },
+      panel: [],
+      reportHash: Array(32).fill(0),
+      claimantClaimHash: Array(32).fill(1),
+      respondentClaimHash: Array(32).fill(2),
+      openedAt: new BN(deadline - 300),
+      entropySlot: new BN(1),
+      commitDeadline: new BN(deadline - 240),
+      revealDeadline: new BN(deadline - 180),
+      appealDeadline: new BN(deadline),
+      votesClaimant: 2,
+      votesRespondent: 1,
+      escalated: false,
+      verdict: { claimant: {} },
+      bump: 255,
+    })
+    chain.put(devnetDispute, owner, data)
+    return { chain, client, claimant }
+  }
+
+  it('judges the verdict at the time of the cluster', async () => {
+    const { chain, client, claimant } = await setupDispute()
+
+    chain.put(SYSVAR_CLOCK_PUBKEY, PublicKey.default, clock(deadline - 1))
+    expect(await client.readVerdict(devnetDispute, escrow)).toEqual({
+      status: 'AppealWindowOpen',
+      until: deadline,
+    })
+
+    chain.put(SYSVAR_CLOCK_PUBKEY, PublicKey.default, clock(deadline))
+    const ready = await client.readVerdict(devnetDispute, escrow)
+    expect(ready).toMatchObject({ status: 'ready', verdict: 'claimant', deposit: 5_000_000n })
+    expect(ready.status === 'ready' && ready.winner?.equals(claimant)).toBe(true)
+  })
+
+  it('tells another escrow the dispute is not its own', async () => {
+    const { chain, client } = await setupDispute()
+    chain.put(SYSVAR_CLOCK_PUBKEY, PublicKey.default, clock(deadline))
+
+    expect(await client.readVerdict(devnetDispute, PublicKey.unique())).toEqual({
+      status: 'NotOurDispute',
+    })
+  })
+
+  it('refuses a look-alike dispute owned by another program', async () => {
+    const { chain, client } = await setupDispute(PublicKey.unique())
+    chain.put(SYSVAR_CLOCK_PUBKEY, PublicKey.default, clock(deadline))
+
+    await expect(client.readVerdict(devnetDispute, escrow)).rejects.toThrow(/not owned/)
+  })
+
+  it('refuses a dispute that does not exist', async () => {
+    const { chain, client } = setup({ jurors: 0 })
+    chain.put(SYSVAR_CLOCK_PUBKEY, PublicKey.default, clock(deadline))
+
+    await expect(client.readVerdict(devnetDispute, escrow)).rejects.toThrow(/does not exist/)
   })
 })

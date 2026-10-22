@@ -3,6 +3,7 @@ import { getAssociatedTokenAddressSync } from '@solana/spl-token'
 import {
   type AccountMeta,
   type PublicKey,
+  SYSVAR_CLOCK_PUBKEY,
   SystemProgram,
   type TransactionInstruction,
 } from '@solana/web3.js'
@@ -18,6 +19,7 @@ import {
   PROGRAM_ID,
   registryAddress,
 } from './pda.js'
+import { type Dispute, type VerdictStatus, verdictStatus } from './verdict.js'
 
 /** An integrator's arbitration policy, as `register_integrator` takes it (`FR-002`). */
 export type Policy = IdlTypes<VerdictMesh>['policy']
@@ -167,6 +169,34 @@ export class VerdictMeshClient {
       .accountsPartial({ dispute, registry: registryAddress(this.programId) })
       .remainingAccounts(await this.registryAccounts())
       .instruction()
+  }
+
+  /**
+   * Whether `escrow` may execute the verdict of `dispute` now — what its
+   * settlement instruction would decide, read before sending it (see
+   * `verdictStatus`).
+   *
+   * The dispute and the `Clock` sysvar come in one read, so the verdict is
+   * judged at the cluster's time of that same slot rather than by this
+   * machine's clock.
+   */
+  async readVerdict(dispute: PublicKey, escrow: PublicKey): Promise<VerdictStatus> {
+    const [account, clock] = await this.program.provider.connection.getMultipleAccountsInfo([
+      dispute,
+      SYSVAR_CLOCK_PUBKEY,
+    ])
+    if (!account) throw new Error(`Dispute ${dispute.toBase58()} does not exist on this cluster`)
+    // The escrow's `Account<Dispute>` refuses any other owner; a prediction
+    // that read a look-alike account would promise a settlement that fails.
+    if (!account.owner.equals(this.programId)) {
+      throw new Error(`Account ${dispute.toBase58()} is not owned by VerdictMesh`)
+    }
+    if (!clock) throw new Error('The Clock sysvar could not be read')
+
+    const decoded = this.program.coder.accounts.decode<Dispute>('dispute', account.data)
+    // Clock: slot, epoch_start_timestamp, epoch, leader_schedule_epoch — then unix_timestamp.
+    const now = Number(clock.data.readBigInt64LE(32))
+    return verdictStatus(decoded, escrow, now)
   }
 
   /** The registry as the selection reads it: (`JurorIndex`, `Juror`) for every slot, in order. */

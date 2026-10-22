@@ -1,0 +1,94 @@
+{
+  "comment": "When an escrow may execute a verdict (FR-012). Read by programs/verdict-mesh/src/verdict_read.rs and packages/sdk/src/verdict.test.ts, so that the on-chain rule and the client's prediction of it cannot drift apart. appealDeadline is 1000 in every case; 'ours' says whether escrow_ref is the escrow asking. 'expect' is the verdict, or the name of the error.",
+  "appealDeadline": 1000,
+  "cases": [
+    {
+      "name": "claimant verdict after the appeal window",
+      "state": "Tallied",
+      "verdict": "Claimant",
+      "now": 1000,
+      "ours": true,
+      "expect": "Claimant"
+    },
+    {
+      "name": "respondent verdict after the appeal window",
+      "state": "Tallied",
+      "verdict": "Respondent",
+      "now": 5000,
+      "ours": true,
+      "expect": "Respondent"
+    },
+    {
+      "name": "status quo is a verdict too",
+      "state": "Tallied",
+      "verdict": "StatusQuo",
+      "now": 1000,
+      "ours": true,
+      "expect": "StatusQuo"
+    },
+    {
+      "name": "finalized dispute",
+      "state": "Finalized",
+      "verdict": "Respondent",
+      "now": 1000,
+      "ours": true,
+      "expect": "Respondent"
+    },
+    {
+      "name": "one second before the appeal window closes",
+      "state": "Tallied",
+      "verdict": "Claimant",
+      "now": 999,
+      "ours": true,
+      "expect": "AppealWindowOpen"
+    },
+    {
+      "name": "under appeal, though the deadline has passed",
+      "state": "Appealed",
+      "verdict": "Claimant",
+      "now": 5000,
+      "ours": true,
+      "expect": "VerdictUnderAppeal"
+    },
+    {
+      "name": "still committing",
+      "state": "Committing",
+      "verdict": null,
+      "now": 5000,
+      "ours": true,
+      "expect": "VerdictPending"
+    },
+    {
+      "name": "still revealing",
+      "state": "Revealing",
+      "verdict": null,
+      "now": 5000,
+      "ours": true,
+      "expect": "VerdictPending"
+    },
+    {
+      "name": "optimistic track, not closed",
+      "state": "OptimisticPending",
+      "verdict": null,
+      "now": 5000,
+      "ours": true,
+      "expect": "VerdictPending"
+    },
+    {
+      "name": "another escrow's dispute with a final verdict",
+      "state": "Finalized",
+      "verdict": "Claimant",
+      "now": 5000,
+      "ours": false,
+      "expect": "NotOurDispute"
+    },
+    {
+      "name": "another escrow's dispute is refused before anything else",
+      "state": "Committing",
+      "verdict": null,
+      "now": 0,
+      "ours": false,
+      "expect": "NotOurDispute"
+    }
+  ]
+}

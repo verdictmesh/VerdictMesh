@@ -120,3 +120,14 @@ pub mod verdict_mesh {
         SettleStakes::handle(ctx)
     }
 }
+
+// For integrators only, who depend on this crate with `cpi`. Outside that feature the module does
+// not exist, and that is the point: its `#[error_code]` would otherwise replace this program's
+// error list in the IDL (Anchor collects one list per crate), and the deployed program carries no
+// byte of it. Not under `idl-build` either: Anchor extracts the IDL by running `cargo test` with it.
+// Declared at the end of the file, because Anchor bakes source line numbers into the program: a
+// line added above `#[program]` changes the `.so` without changing what it does.
+#[cfg(any(feature = "cpi", all(test, not(feature = "idl-build"))))]
+pub mod verdict_read;
+#[cfg(any(feature = "cpi", all(test, not(feature = "idl-build"))))]
+pub use verdict_read::{Ruling, VerdictReadError};

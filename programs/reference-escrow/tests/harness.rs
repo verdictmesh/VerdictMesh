@@ -151,6 +151,15 @@ pub fn failed_with_mesh(
     matches!(&result.raw_result, Err(InstructionError::Custom(code)) if *code == u32::from(expected))
 }
 
+/// The verdict-read helper's errors (T036): the escrow returns them, but they
+/// are VerdictMesh's, in a range of their own.
+pub fn failed_with_read(
+    result: &InstructionResult,
+    expected: verdict_mesh::VerdictReadError,
+) -> bool {
+    matches!(&result.raw_result, Err(InstructionError::Custom(code)) if *code == u32::from(expected))
+}
+
 pub const SYSTEM_PROGRAM: Pubkey = anchor_lang::solana_program::system_program::ID;
 pub const TOKEN_PROGRAM: Pubkey = anchor_spl::token::ID;
 

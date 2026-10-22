@@ -28,7 +28,10 @@ use reference_escrow::{
 use solana_account::Account;
 use solana_address::Address;
 use solana_instruction::Instruction;
-use verdict_mesh::state::{DisputeState, Verdict};
+use verdict_mesh::{
+    state::{DisputeState, Verdict},
+    VerdictReadError,
+};
 
 const DEAL: u64 = 7;
 const DISPUTED: u8 = 1;
@@ -498,7 +501,7 @@ fn refuses_a_dispute_opened_over_another_escrow() {
     );
 
     let result = mollusk_at(APPEAL_DEADLINE).process_instruction(&fixture.ix(DISPUTED), &accounts);
-    assert!(failed_with(&result, EscrowError::NotOurDispute));
+    assert!(failed_with_read(&result, VerdictReadError::NotOurDispute));
 }
 
 #[test]
@@ -506,7 +509,7 @@ fn refuses_a_dispute_that_has_no_verdict_yet() {
     let fixture = Fixture::build(true, None, DisputeState::Revealing);
 
     let result = fixture.settle();
-    assert!(failed_with(&result, EscrowError::VerdictPending));
+    assert!(failed_with_read(&result, VerdictReadError::VerdictPending));
 }
 
 /// Виконати вердикт до кінця вікна апеляції означає виконати той, який ще
@@ -517,7 +520,10 @@ fn refuses_a_settlement_before_the_appeal_window_closes() {
 
     let result = mollusk_at(APPEAL_DEADLINE - 1)
         .process_instruction(&fixture.ix(DISPUTED), &fixture.accounts);
-    assert!(failed_with(&result, EscrowError::AppealWindowOpen));
+    assert!(failed_with_read(
+        &result,
+        VerdictReadError::AppealWindowOpen
+    ));
 }
 
 /// Спір під апеляцією має вердикт першого кола і закритий дедлайн — і саме
@@ -527,7 +533,21 @@ fn refuses_a_dispute_that_is_under_appeal() {
     let fixture = Fixture::build(true, Some(Verdict::Claimant), DisputeState::Appealed);
 
     let result = fixture.settle();
-    assert!(failed_with(&result, EscrowError::VerdictUnderAppeal));
+    assert!(failed_with_read(
+        &result,
+        VerdictReadError::VerdictUnderAppeal
+    ));
+}
+
+/// The verdict checks moved into VerdictMesh's helper (T036), but the escrow
+/// errors after the four it no longer returns must keep their codes: the
+/// program on devnet and its IDL number them this way.
+#[test]
+fn keeps_the_codes_of_the_errors_it_still_returns() {
+    assert_eq!(u32::from(EscrowError::Overflow), 6007);
+    assert_eq!(u32::from(EscrowError::MilestoneNotUnderThisDispute), 6012);
+    assert_eq!(u32::from(EscrowError::VerdictNamesAStranger), 6013);
+    assert_eq!(u32::from(EscrowError::WrongSettlementMint), 6014);
 }
 
 /// **Не** чекає на `Finalized`. Розрахунок стейків — внутрішня справа

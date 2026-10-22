@@ -2,7 +2,10 @@ use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{
     transfer_checked, Mint, TokenAccount, TokenInterface, TransferChecked,
 };
-use verdict_mesh::state::{Dispute, DisputeState, Verdict};
+use verdict_mesh::{
+    state::{Dispute, Verdict},
+    Ruling,
+};
 
 use crate::{
     errors::EscrowError,
@@ -28,6 +31,12 @@ use crate::{
 /// немає, і другий виклик не має за що зачепитись. Окремого прапорця
 /// «виконано» тому й не заведено — він був би другим джерелом того самого
 /// факту.
+///
+/// Since T036 the first three checks are `Dispute::ruling` from VerdictMesh
+/// (`verdict_read`) — the helper every integrator calls — and their errors
+/// are `VerdictReadError` (7000+). The four `EscrowError` variants they used
+/// to return stay where they are, unused, so that the codes after them do not
+/// shift against the program deployed on devnet.
 ///
 /// **Стан `Finalized` тут не потрібен.** Розрахунок стейків панелі — внутрішня
 /// справа VerdictMesh; чекати на його дозвільний кранк означало б тримати чужі
@@ -63,18 +72,14 @@ impl<'info> SettleMilestone<'info> {
         let dispute_key = ctx.accounts.dispute.key();
         let dispute = &ctx.accounts.dispute;
 
-        require_keys_eq!(dispute.escrow_ref, escrow_key, EscrowError::NotOurDispute);
-        let verdict = dispute.verdict.ok_or(EscrowError::VerdictPending)?;
-        // Окремою перевіркою, бо обидві часові умови спір під апеляцією
-        // проходить: вердикт першого кола в нього вже є, а дедлайн уже минув.
-        require!(
-            dispute.state != DisputeState::Appealed,
-            EscrowError::VerdictUnderAppeal
-        );
-        require!(
-            now >= dispute.appeal_deadline,
-            EscrowError::AppealWindowOpen
-        );
+        // The first three checks are VerdictMesh's helper (T036), the same one
+        // any integrator calls; the fourth — the dispute recorded on the
+        // milestone — is below, because only this escrow knows its milestones.
+        let Ruling {
+            verdict,
+            winner,
+            deposit,
+        } = dispute.ruling(&escrow_key, now)?;
 
         let amount = {
             let entry = ctx.accounts.escrow.entry(milestone)?;
@@ -88,17 +93,10 @@ impl<'info> SettleMilestone<'info> {
             entry.amount
         };
 
-        // `Verdict::Claimant` — «позиція ініціатора перемогла», а не «платіть
-        // позивачу»: позиція виводиться з ролі (див. `claims`), тож напрямок
-        // виплати залежить від того, хто відкривав спір.
-        let winner = match verdict {
-            Verdict::Claimant => Some(dispute.claimant),
-            Verdict::Respondent => Some(dispute.respondent),
-            // `FR-027a`: «як ніби спору не було». Віха повертається туди, звідки
-            // її взяли, і сторони лишаються там, де були.
-            Verdict::StatusQuo => None,
-        };
-
+        // `winner` is the party whose position won, derived from the role (see
+        // `claims`), so the direction of payout depends on who opened the
+        // dispute. `None` is `StatusQuo` (`FR-027a`): "as if there had been no
+        // dispute" — the milestone goes back where it came from.
         let (state, paid) = match winner {
             Some(winner) if winner == ctx.accounts.escrow.seller => {
                 Self::pay(&ctx, &ctx.accounts.seller_tokens, amount)?;
@@ -120,10 +118,10 @@ impl<'info> SettleMilestone<'info> {
         let reimbursed = if winner.is_some() {
             let split = BondSplit::on_verdict(
                 ctx.accounts.escrow.bond,
-                // Депозит із самого спору, а не з політики інтегратора:
-                // політика змінна, а спір несе знімок (`FR-003`), за яким
-                // ініціатор і платив.
-                dispute.policy.deposit,
+                // From the dispute's snapshot of the policy, not the
+                // integrator's current one (`FR-003`): that is what the
+                // claimant paid.
+                deposit,
                 verdict == Verdict::Claimant,
             )?;
             ctx.accounts.bonds().settle(

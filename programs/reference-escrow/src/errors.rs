@@ -18,6 +18,10 @@ pub enum EscrowError {
     WrongArbitrationProgram,
     #[msg("Arithmetic overflow")]
     Overflow,
+    // The next four are no longer returned: since T036 settlement reads the
+    // verdict through `verdict_mesh::verdict_read`, which fails with
+    // `VerdictReadError`. They keep their places so that the codes after them
+    // do not shift against the program deployed on devnet.
     #[msg("This dispute was opened over another escrow")]
     NotOurDispute,
     #[msg("The dispute has no verdict yet")]
