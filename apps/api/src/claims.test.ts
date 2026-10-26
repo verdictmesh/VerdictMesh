@@ -1,6 +1,7 @@
+import { keccak_256 } from '@noble/hashes/sha3'
 import { PublicKey } from '@solana/web3.js'
 import { describe, expect, it } from 'vitest'
-import { claimOf, referenceEscrowPositions } from './claims.js'
+import { claimOf, depinClaimOf, depinEscrowPositions, referenceEscrowPositions } from './claims.js'
 
 /**
  * A dispute read from devnet (a `Dispute` account of the deployed program),
@@ -66,5 +67,60 @@ describe('positions recovered from fingerprints', () => {
 
   it('recovers nothing from a fingerprint no candidate matches', () => {
     expect(referenceEscrowPositions(devnet.escrowRef, 'ab'.repeat(32))).toBeNull()
+  })
+})
+
+/** A `depin_escrow` dispute on devnet (T037): 60 % reported, 90 % claimed. */
+const depinDevnet = {
+  escrowRef: 'EZYH3YWdjjEVvgzXk1h37M81YYwoUE5DiMontp9CzXKC',
+  claimantClaimHash: '663b2c886ccd9720cb6ad6e959baf39e8c1564c485a30acdf546e0acca9a01b1',
+  respondentClaimHash: 'afd9fe329edf2a5a349f6ed4b707f8a6641317211da4dd91f1f0a7ec901a87a1',
+}
+
+describe('positions of depin_escrow', () => {
+  it('reproduces the fingerprints the deployed escrow wrote', () => {
+    const epoch = new PublicKey(depinDevnet.escrowRef)
+    expect(depinClaimOf(epoch, 9_000)).toBe(depinDevnet.claimantClaimHash)
+    expect(depinClaimOf(epoch, 6_000)).toBe(depinDevnet.respondentClaimHash)
+    expect(depinEscrowPositions(depinDevnet.escrowRef, depinDevnet.respondentClaimHash)).toBe(
+      "The operator earned 60% of the epoch's reward (6000 bps); the network keeps the rest.",
+    )
+  })
+
+  /** The layout `claims.rs` pins in its own test: domain, epoch, u16 LE. */
+  it('hashes the share as two little-endian bytes', () => {
+    const bytes = Buffer.concat([
+      Buffer.from('depin_escrow/claim/v1'),
+      Buffer.alloc(32, 7),
+      Buffer.from([0x28, 0x23]),
+    ])
+    expect(depinClaimOf(escrow, 9_000)).toBe(Buffer.from(keccak_256(bytes)).toString('hex'))
+  })
+
+  it('words an offer it finds, at both ends of the range', () => {
+    for (const [bps, text] of [
+      [6_000, '60%'],
+      [6_050, '60.5%'],
+      [0, '0%'],
+      [10_000, '100%'],
+    ] as const) {
+      expect(depinEscrowPositions(escrow.toBase58(), depinClaimOf(escrow, bps))).toBe(
+        `The operator earned ${text} of the epoch's reward (${bps} bps); the network keeps the rest.`,
+      )
+    }
+  })
+
+  it('recovers nothing under another epoch', () => {
+    const other = new PublicKey(new Uint8Array(32).fill(8))
+    expect(depinEscrowPositions(other.toBase58(), depinClaimOf(escrow, 6_000))).toBeNull()
+  })
+
+  it("does not mistake reference_escrow's fingerprints for offers", () => {
+    expect(depinEscrowPositions(devnet.escrowRef, devnet.claimantClaimHash)).toBeNull()
+  })
+
+  it('refuses a share outside 0..=10000', () => {
+    expect(() => depinClaimOf(escrow, 10_001)).toThrow(/out of range/)
+    expect(() => depinClaimOf(escrow, -1)).toThrow(/out of range/)
   })
 })

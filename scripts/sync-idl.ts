@@ -6,16 +6,16 @@
  * because the consumers differ:
  *
  * - the **type** for `Program<…>`: `packages/sdk/src/idl/` for `verdict_mesh`,
- *   `scripts/idl/` for `reference_escrow`.
+ *   `scripts/idl/` for the two escrows.
  *   The IDL itself the run reads from `target/idl/` at launch: it cannot go
  *   anywhere without a fresh build anyway, and a type drifting from the actual
  *   surface of the program should be a red typecheck rather than a surprise on
  *   devnet.
  * - the **value** for `BorshCoder` in the watcher and the evidence collector
  *   (and for `Program` in the SDK): `packages/sdk/src/idl/` for `verdict_mesh`,
- *   `apps/api/src/idl/` for `reference_escrow`. The service on a host will
+ *   `apps/api/src/idl/` for the two escrows. The service on a host will
  *   never reach `target/`, so the IDL travels with it. The collector decodes
- *   the escrow's events and account as well, hence `reference_escrow` too.
+ *   the escrows' events and accounts as well, hence theirs too.
  *
  * Two forms are not two copies of one text: `target/types/*.ts` camel-cases
  * field names while `target/idl/*.json` leaves them in snake_case, and
@@ -26,7 +26,7 @@
 
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 
-const PROGRAMS = ['verdict_mesh', 'reference_escrow'] as const
+const PROGRAMS = ['verdict_mesh', 'reference_escrow', 'depin_escrow'] as const
 
 /**
  * Where each surface goes. `verdict_mesh` belongs to the SDK: it is what an
@@ -44,6 +44,11 @@ const TARGETS: Record<(typeof PROGRAMS)[number], { type: string; value: string; 
     type: './idl/reference_escrow.ts',
     value: '../apps/api/src/idl/reference-escrow.ts',
     name: 'referenceEscrowIdl',
+  },
+  depin_escrow: {
+    type: './idl/depin_escrow.ts',
+    value: '../apps/api/src/idl/depin-escrow.ts',
+    name: 'depinEscrowIdl',
   },
 }
 

@@ -36,6 +36,7 @@ dispute or the number of milestones.
 |---|---|
 | `verdict_mesh` — registry, panel, voting, verdict | `8WyWpDD1ZbkTRGG6SRcYyWxApPsHaSgWn2SWJQ8xSgxq` |
 | `reference_escrow` — milestone escrow that executes verdicts | `4iYF4WRdtuSmjTXH5fSa2ow5WrdeonEoeoY3epypfTHo` |
+| `depin_escrow` — DePIN reward epoch split between network and operator | `DaQXW5oL5bDH77XxJ4MoSvwTv6X7GwqNixkNYGNLrFk8` |
 
 Demo policy: panel of 3, quorum 2, windows 60 / 60 / 90 s, review deposit 5 USDC,
 slashing 10 % for voting with the losing side and 20 % for not revealing.
@@ -79,13 +80,19 @@ happens. Should the bond fall short — a policy that got more expensive after
 signing — the winner is reimbursed as far as it goes and nobody is charged the
 difference; the payout under the verdict itself is never reduced.
 
+`depin_escrow` needs no bond. It splits an epoch's reward between a DePIN network
+and an operator: the network reports the operator's share, the operator may
+challenge it with a counter-offer, and the panel picks one of the two. Both sides
+are paid whichever offer wins, so the loser always has a share — and the deposit
+of a winning operator is reimbursed out of the network's share.
+
 ### Planned
 
 - **Report accuracy measured**: 20 modelled disputes with known answers, and no
   "confirmed on-chain" statement the chain contradicts.
-- **Integrator SDK and a second escrow** structurally unlike the first (payout
-  split between the sides, no bond), to prove the boundary is protocol-agnostic.
-  Target: a developer new to the project integrates in ≤ 30 minutes and ≤ 40 lines.
+- **Integration measured**: the SDK and the second escrow are live; next, a
+  developer new to the project connects arbitration to `depin_escrow` in
+  ≤ 30 minutes and ≤ 40 lines, with a stopwatch.
 - **Appeals**: a larger panel, a bond from the appellant, final verdict.
 - **Optimistic track**: below a policy threshold an unchallenged assertion becomes
   the verdict, so a $20 dispute never pays for a jury.
@@ -128,6 +135,7 @@ pnpm --filter @verdictmesh/web dev        # http://localhost:5173, needs VITE_AP
 programs/
   verdict-mesh/        # registry, panel selection, commit-reveal, tally, stakes
   reference-escrow/    # milestone escrow: bonds, dispute flag, verdict-driven payout
+  depin-escrow/        # reward epoch: final-offer dispute, payout split, no bond
 apps/
   landing/             # static project page, no build
   web/                 # juror panel, React 18 + Vite 5, reads apps/api

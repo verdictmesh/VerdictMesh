@@ -16,6 +16,12 @@ const schema = z.object({
    * report; any other escrow is collected as raw facts.
    */
   REFERENCE_ESCROW_PROGRAM_ID: z.string().min(32).max(44),
+  /**
+   * Where `depin_escrow` lives in this network, the same way. Optional: a
+   * deployment that has not named it still runs, and treats that escrow as
+   * any other — raw facts, positions by fingerprint, settlement untracked.
+   */
+  DEPIN_ESCROW_PROGRAM_ID: z.string().min(32).max(44).optional(),
   SETTLEMENT_MINT: z.string().min(32).max(44),
   REPORTER_KEYPAIR: z.string().min(1),
   ANTHROPIC_API_KEY: z.string().min(1),

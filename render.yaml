@@ -45,6 +45,8 @@ services:
         value: 8WyWpDD1ZbkTRGG6SRcYyWxApPsHaSgWn2SWJQ8xSgxq
       - key: REFERENCE_ESCROW_PROGRAM_ID
         value: 4iYF4WRdtuSmjTXH5fSa2ow5WrdeonEoeoY3epypfTHo
+      - key: DEPIN_ESCROW_PROGRAM_ID
+        value: DaQXW5oL5bDH77XxJ4MoSvwTv6X7GwqNixkNYGNLrFk8
       - key: SETTLEMENT_MINT
         value: CPqxQT7pEHd16YKCXmHSzbtmxxbcLGxF1knMkyoccVjX
 

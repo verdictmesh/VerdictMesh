@@ -14,6 +14,12 @@
  * while the claimant pays the hearing deposit with their own key (`FR-026`),
  * and without that signature VerdictMesh will not accept the dispute.
  *
+ * `--escrow` picks the integration: `reference` (milestones, winner takes the
+ * milestone, bond vault) or `depin` (a reward epoch split between network and
+ * operator, final-offer dispute). Only three steps differ — locking the funds,
+ * opening the dispute, executing the verdict — and they sit behind
+ * `EscrowDriver`; the panel, the windows and the measurement are the same.
+ *
  * **Every key in the run is derived from the treasury key.** Panel selection
  * takes the whole registry (`FR-006`), so random jurors generated in memory
  * would stay in it forever after every crash — staked, eligible for selection,
@@ -50,6 +56,7 @@ import {
   integratorAddress,
   jurorAddress,
   jurorIndexAddress,
+  type PreparedDispute,
   registryAddress,
   type Ballot as Side,
   stakeVaultAddress,
@@ -59,6 +66,7 @@ import {
 import bs58 from 'bs58'
 import { z } from 'zod'
 import { type Ballot, cycleFloorSeconds, expectedOutcome, measure, type Run } from './e2e.js'
+import type { DepinEscrow } from './idl/depin_escrow.js'
 import type { ReferenceEscrow } from './idl/reference_escrow.js'
 
 const envSchema = z.object({
@@ -80,8 +88,14 @@ const { values } = parseArgs({
     // reveal never slashes a juror the next run needs.
     'web-seat': { type: 'string' },
     'sol-price': { type: 'string', default: '200' },
+    escrow: { type: 'string', default: 'reference' },
   },
 })
+
+if (values.escrow !== 'reference' && values.escrow !== 'depin') {
+  throw new Error(`--escrow is reference or depin, not ${values.escrow}`)
+}
+const escrowKind: 'reference' | 'depin' = values.escrow
 
 const env = envSchema.parse(process.env)
 const disputeCount = Number(values.disputes)
@@ -110,10 +124,13 @@ const readIdl = <T>(name: string): T =>
 
 const client = new VerdictMeshClient(provider)
 const mesh = client.program
-const escrowProgram = new Program<ReferenceEscrow>(
+const referenceProgram = new Program<ReferenceEscrow>(
   readIdl<ReferenceEscrow>('reference_escrow'),
   provider,
 )
+const depinProgram = new Program<DepinEscrow>(readIdl<DepinEscrow>('depin_escrow'), provider)
+const escrowProgramId =
+  escrowKind === 'reference' ? referenceProgram.programId : depinProgram.programId
 
 // ── demo configuration from docs/PLAN.md ────────────────────────────────────
 
@@ -190,11 +207,15 @@ const pda = (seeds: (Buffer | Uint8Array)[], programId: PublicKey) =>
 const u64 = (value: number | BN) => new BN(value).toArrayLike(Buffer, 'le', 8)
 
 const escrowPda = (buyer: PublicKey, dealId: BN) =>
-  pda([Buffer.from('escrow'), buyer.toBuffer(), u64(dealId)], escrowProgram.programId)
+  pda([Buffer.from('escrow'), buyer.toBuffer(), u64(dealId)], referenceProgram.programId)
 const escrowVaultPda = (escrow: PublicKey) =>
-  pda([Buffer.from('escrow_vault'), escrow.toBuffer()], escrowProgram.programId)
+  pda([Buffer.from('escrow_vault'), escrow.toBuffer()], referenceProgram.programId)
 const bondVaultPda = (escrow: PublicKey) =>
-  pda([Buffer.from('bond_vault'), escrow.toBuffer()], escrowProgram.programId)
+  pda([Buffer.from('bond_vault'), escrow.toBuffer()], referenceProgram.programId)
+const epochPda = (network: PublicKey, epochId: BN) =>
+  pda([Buffer.from('epoch'), network.toBuffer(), u64(epochId)], depinProgram.programId)
+const epochVaultPda = (epoch: PublicKey) =>
+  pda([Buffer.from('epoch_vault'), epoch.toBuffer()], depinProgram.programId)
 
 // ── small helpers ───────────────────────────────────────────────────────────
 
@@ -323,8 +344,9 @@ async function ensureProtocol(): Promise<PublicKey> {
   // with a threshold of 150, which this run's jurors no longer reach — slashing
   // took 10% from one of them, and there is no way to top up a stake. A policy
   // is immutable after registration (`FR-003`), so this needs a new integrator,
-  // not an edit to the old one.
-  const authority = derivedKey('integrator', 1)
+  // not an edit to the old one. The DePIN escrow is a protocol of its own, so
+  // it registers under an authority of its own (the third).
+  const authority = derivedKey('integrator', escrowKind === 'reference' ? 1 : 2)
   const integrator = integratorAddress(authority.publicKey)
 
   if ((await connection.getAccountInfo(integrator)) === null) {
@@ -334,7 +356,7 @@ async function ensureProtocol(): Promise<PublicKey> {
       new Transaction().add(
         await client.registerIntegrator({
           authority: authority.publicKey,
-          escrowProgram: escrowProgram.programId,
+          escrowProgram: escrowProgramId,
           policy: POLICY,
         }),
       ),
@@ -423,12 +445,26 @@ async function ensureJurors(): Promise<Juror[]> {
   return jurors
 }
 
-// ── one cycle ───────────────────────────────────────────────────────────────
+// ── the escrow under test ───────────────────────────────────────────────────
 
-async function runCycle(index: number, integrator: PublicKey, jurors: Juror[]): Promise<Run> {
-  const interventions: string[] = []
-  const signatures: string[] = []
+/**
+ * One deal of one escrow, from locked funds to an executed verdict. The
+ * dispute is opened with `prepared.accounts` spread as is: both escrows name
+ * their VerdictMesh accounts the way `open_dispute` does, which is the SDK's
+ * side of `SC-004`.
+ */
+interface EscrowDeal {
+  claimant: Keypair
+  open(prepared: PreparedDispute): Promise<string>
+  settle(dispute: PublicKey): Promise<string>
+  /** `null` if the parties' balances are what the verdict says, else what is off. */
+  check(verdict: 'claimant' | 'respondent' | 'statusQuo'): Promise<string | null>
+}
 
+const tokenBalance = async (account: PublicKey) =>
+  BigInt((await connection.getTokenAccountBalance(account, 'confirmed')).value.amount)
+
+async function referenceDeal(index: number, integrator: PublicKey): Promise<EscrowDeal> {
   const buyer = Keypair.generate()
   const seller = Keypair.generate()
   const dealId = new BN(index)
@@ -446,7 +482,7 @@ async function runCycle(index: number, integrator: PublicKey, jurors: Juror[]): 
   // The seller puts up their bond and the hearing deposit: they open the dispute.
   const sellerTokens = await mintTo(seller.publicKey, bonds.add(POLICY.deposit))
 
-  await escrowProgram.methods
+  await referenceProgram.methods
     .createEscrow(dealId, MILESTONES)
     .accountsPartial({
       buyer: buyer.publicKey,
@@ -468,23 +504,151 @@ async function runCycle(index: number, integrator: PublicKey, jurors: Juror[]): 
     .signers([buyer, seller])
     .rpc()
 
+  return {
+    claimant: seller,
+    open: (prepared) =>
+      referenceProgram.methods
+        .disputeMilestone(DISPUTED_MILESTONE)
+        .accountsPartial({ ...prepared.accounts, claimant: seller.publicKey, escrow })
+        .postInstructions(prepared.postInstructions)
+        .signers([seller])
+        .rpc(),
+    settle: (dispute) =>
+      referenceProgram.methods
+        .settleMilestone(DISPUTED_MILESTONE)
+        .accountsPartial({
+          escrow,
+          dispute,
+          mint: settlementMint,
+          buyerTokens,
+          sellerTokens,
+          vault: escrowVaultPda(escrow),
+          settlementMint,
+          buyerBondTokens: buyerTokens,
+          sellerBondTokens: sellerTokens,
+          bondVault: bondVaultPda(escrow),
+          tokenProgram: TOKEN_PROGRAM_ID,
+          settlementTokenProgram: TOKEN_PROGRAM_ID,
+        })
+        .rpc(),
+    // The milestone escrow's balances are proven by its mollusk tests; this
+    // run measured it twenty times before `check` existed.
+    check: async () => null,
+  }
+}
+
+/** A share of 60 % reported, 90 % claimed — 30 of the 100 are in dispute. */
+const EPOCH_REWARD = unit(100)
+const REPORTED_BPS = 6_000
+const CLAIMED_BPS = 9_000
+/** Long enough for the opening transaction to land, short enough not to matter. */
+const CHALLENGE_WINDOW = new BN(600)
+
+async function depinDeal(index: number, integrator: PublicKey): Promise<EscrowDeal> {
+  const network = Keypair.generate()
+  const operator = Keypair.generate()
+  const epochId = new BN(index)
+  const epoch = epochPda(network.publicKey, epochId)
+  const vault = epochVaultPda(epoch)
+
+  // The network pays rent for the epoch and its vault, the operator for the
+  // dispute account and its vault.
+  await fundWithSol([network.publicKey, operator.publicKey], 0.012)
+  const networkTokens = await mintTo(network.publicKey, EPOCH_REWARD)
+  // The operator holds just the hearing deposit: they challenge the report.
+  const operatorTokens = await mintTo(operator.publicKey, POLICY.deposit)
+
+  await depinProgram.methods
+    .fundEpoch(epochId, EPOCH_REWARD, CHALLENGE_WINDOW)
+    .accountsPartial({
+      network: network.publicKey,
+      operator: operator.publicKey,
+      integrator,
+      config: configAddress(),
+      mint: settlementMint,
+      epoch,
+      networkTokens,
+      vault,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      systemProgram: SystemProgram.programId,
+    })
+    .signers([network, operator])
+    .rpc()
+  await depinProgram.methods
+    .reportUsage(REPORTED_BPS)
+    .accountsPartial({ network: network.publicKey, epoch })
+    .signers([network])
+    .rpc()
+
+  return {
+    claimant: operator,
+    open: (prepared) =>
+      depinProgram.methods
+        .disputeEpoch(CLAIMED_BPS)
+        .accountsPartial({ ...prepared.accounts, operator: operator.publicKey, epoch })
+        .postInstructions(prepared.postInstructions)
+        .signers([operator])
+        .rpc(),
+    settle: (dispute) =>
+      depinProgram.methods
+        .settleDispute()
+        .accountsPartial({
+          epoch,
+          dispute,
+          mint: settlementMint,
+          networkTokens,
+          operatorTokens,
+          vault,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        })
+        .rpc(),
+    // Both parties are paid whichever way it goes; the operator's deposit
+    // comes back out of the network's share only when the operator won.
+    check: async (verdict) => {
+      const reward = BigInt(EPOCH_REWARD.toString())
+      const deposit = BigInt(POLICY.deposit.toString())
+      const bps = BigInt(verdict === 'claimant' ? CLAIMED_BPS : REPORTED_BPS)
+      const share = (reward * bps) / 10_000n
+      const reimbursed = verdict === 'claimant' ? deposit : 0n
+      const expected = { operator: share + reimbursed, network: reward - share - reimbursed }
+      const actual = {
+        operator: await tokenBalance(operatorTokens),
+        network: await tokenBalance(networkTokens),
+      }
+      return actual.operator === expected.operator && actual.network === expected.network
+        ? null
+        : `epoch ${epoch.toBase58()} paid ${actual.operator}/${actual.network}, expected ${expected.operator}/${expected.network}`
+    },
+  }
+}
+
+const drivers: Record<
+  'reference' | 'depin',
+  (index: number, integrator: PublicKey) => Promise<EscrowDeal>
+> = {
+  reference: referenceDeal,
+  depin: depinDeal,
+}
+
+// ── one cycle ───────────────────────────────────────────────────────────────
+
+async function runCycle(index: number, integrator: PublicKey, jurors: Juror[]): Promise<Run> {
+  const interventions: string[] = []
+  const signatures: string[] = []
+
+  const deal = await drivers[escrowKind](index, integrator)
+
   // The cycle starts here: `SC-001` measures "dispute → vote → payout", not
-  // making the deal, which happens the same way with or without a hearing.
+  // locking the funds, which happens the same way with or without a hearing.
   const started = Date.now()
 
-  const prepared = await client.prepareDispute({ integrator, claimant: seller.publicKey })
+  const prepared = await client.prepareDispute({ integrator, claimant: deal.claimant.publicKey })
   const dispute = prepared.dispute
 
   // Opening the dispute and selecting the panel are one transaction. The panel
   // is fixed by the slot recorded at opening (`FR-006`), so there is no reason
   // to split them in time, and keeping a dispute without a panel is a risk.
-  const opening = await escrowProgram.methods
-    .disputeMilestone(DISPUTED_MILESTONE)
-    .accountsPartial({ ...prepared.accounts, claimant: seller.publicKey, escrow })
-    .postInstructions(prepared.postInstructions)
-    .signers([seller])
-    .rpc()
-  signatures.push(opening)
+  signatures.push(await deal.open(prepared))
 
   const opened = await mesh.account.dispute.fetch(dispute)
   const panel = opened.panel.map((wallet) => wallet.toBase58())
@@ -602,23 +766,7 @@ async function runCycle(index: number, integrator: PublicKey, jurors: Juror[]): 
 
   await waitForDeadline(tallied.appealDeadline.toNumber())
 
-  const settlement = await escrowProgram.methods
-    .settleMilestone(DISPUTED_MILESTONE)
-    .accountsPartial({
-      escrow,
-      dispute,
-      mint: settlementMint,
-      buyerTokens,
-      sellerTokens,
-      vault: escrowVaultPda(escrow),
-      settlementMint,
-      buyerBondTokens: buyerTokens,
-      sellerBondTokens: sellerTokens,
-      bondVault: bondVaultPda(escrow),
-      tokenProgram: TOKEN_PROGRAM_ID,
-      settlementTokenProgram: TOKEN_PROGRAM_ID,
-    })
-    .rpc()
+  const settlement = await deal.settle(dispute)
   signatures.push(settlement)
 
   // The payout is done — the `SC-001` cycle is over. Settling the panel's
@@ -626,6 +774,8 @@ async function runCycle(index: number, integrator: PublicKey, jurors: Juror[]): 
   // business, and keeping other people's funds locked until then would be
   // exactly what `settle_milestone` does not do.
   const elapsedMs = Date.now() - started
+  const mismatch = await deal.check(verdict)
+  if (mismatch !== null) interventions.push(mismatch)
 
   const settleStakes = await mesh.methods
     .settleStakes()
@@ -713,7 +863,7 @@ if (mint.decimals !== DECIMALS) {
 }
 
 console.log(
-  `arbitration ${mesh.programId.toBase58()} · escrow ${escrowProgram.programId.toBase58()}`,
+  `arbitration ${mesh.programId.toBase58()} · ${escrowKind} escrow ${escrowProgramId.toBase58()}`,
 )
 console.log(
   `${disputeCount} disputes in waves of ${batchSize} · floor ${cycleFloorSeconds({ ...POLICY, commitWindow: 60, revealWindow: 60, appealWindow: 90 })}s per cycle`,

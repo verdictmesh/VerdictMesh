@@ -11,10 +11,12 @@ skip-lint = false
 [programs.localnet]
 verdict_mesh = "8WyWpDD1ZbkTRGG6SRcYyWxApPsHaSgWn2SWJQ8xSgxq"
 reference_escrow = "4iYF4WRdtuSmjTXH5fSa2ow5WrdeonEoeoY3epypfTHo"
+depin_escrow = "DaQXW5oL5bDH77XxJ4MoSvwTv6X7GwqNixkNYGNLrFk8"
 
 [programs.devnet]
 verdict_mesh = "8WyWpDD1ZbkTRGG6SRcYyWxApPsHaSgWn2SWJQ8xSgxq"
 reference_escrow = "4iYF4WRdtuSmjTXH5fSa2ow5WrdeonEoeoY3epypfTHo"
+depin_escrow = "DaQXW5oL5bDH77XxJ4MoSvwTv6X7GwqNixkNYGNLrFk8"
 
 [registry]
 url = "https://api.apr.dev"

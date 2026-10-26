@@ -18,9 +18,10 @@ import {
   postgresSettlementStore,
 } from './cache.js'
 import { solanaChain, solanaEvidenceChain, solanaSettlementChain } from './chain.js'
-import { referenceEscrowPositions } from './claims.js'
+import { depinEscrowPositions, referenceEscrowPositions } from './claims.js'
 import { loadEnv } from './env.js'
 import { collectEvidence, type KnownProgram } from './evidence.js'
+import { depinEscrowIdl } from './idl/depin-escrow.js'
 import { referenceEscrowIdl } from './idl/reference-escrow.js'
 import { anthropicReportModel, createReporter } from './reporter.js'
 import { disputeRoutes } from './routes/disputes.js'
@@ -54,9 +55,23 @@ const referenceEscrow: SettlingEscrow = {
   settledEvent: 'MilestoneSettled',
 }
 
+const depinEscrow: SettlingEscrow[] = env.DEPIN_ESCROW_PROGRAM_ID
+  ? [
+      {
+        name: 'depin_escrow',
+        programId: new PublicKey(env.DEPIN_ESCROW_PROGRAM_ID),
+        idl: depinEscrowIdl,
+        positions: depinEscrowPositions,
+        settledEvent: 'EpochSettled',
+      },
+    ]
+  : []
+
+const escrows: SettlingEscrow[] = [referenceEscrow, ...depinEscrow]
+
 const programs: KnownProgram[] = [
   { name: 'verdict_mesh', programId, idl: verdictMeshIdl },
-  referenceEscrow,
+  ...escrows,
 ]
 
 const chain = solanaChain(connection, programId)
@@ -80,7 +95,7 @@ const reporter = createReporter({
 const settlements = createSettlements({
   chain: solanaSettlementChain(connection),
   store: postgresSettlementStore(db),
-  escrows: [referenceEscrow],
+  escrows,
   log,
 })
 

@@ -38,6 +38,22 @@ describe('loadEnv', () => {
     expect(() => loadEnv()).toThrow(/Invalid environment/)
   })
 
+  it('leaves the DePIN escrow optional and takes it when named', () => {
+    process.env = { ...complete } as NodeJS.ProcessEnv
+    expect(loadEnv().DEPIN_ESCROW_PROGRAM_ID).toBeUndefined()
+
+    process.env = {
+      ...complete,
+      DEPIN_ESCROW_PROGRAM_ID: 'DaQXW5oL5bDH77XxJ4MoSvwTv6X7GwqNixkNYGNLrFk8',
+    } as NodeJS.ProcessEnv
+    expect(loadEnv().DEPIN_ESCROW_PROGRAM_ID).toBe('DaQXW5oL5bDH77XxJ4MoSvwTv6X7GwqNixkNYGNLrFk8')
+  })
+
+  it('rejects a DePIN escrow that is not an address', () => {
+    process.env = { ...complete, DEPIN_ESCROW_PROGRAM_ID: 'depin' } as NodeJS.ProcessEnv
+    expect(() => loadEnv()).toThrow(/Invalid environment/)
+  })
+
   it('rejects an RPC url that is not a url', () => {
     process.env = { ...complete, SOLANA_RPC_URL: 'devnet' } as NodeJS.ProcessEnv
     expect(() => loadEnv()).toThrow(/Invalid environment/)

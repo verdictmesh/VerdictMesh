@@ -68,3 +68,45 @@ export const referenceEscrowPositions: PositionDecoder = (escrowRef, fingerprint
 
   return null
 }
+
+/**
+ * The positions of a `depin_escrow` dispute — the second escrow, worded its
+ * own way (`programs/depin-escrow/src/claims.rs`).
+ *
+ * There a position is an offer, not a role: the network reported what share
+ * of the epoch's reward the operator earned, the operator claimed more, and
+ * each fingerprint is `keccak(domain ‖ epoch ‖ operator_bps as u16 LE)`. So
+ * the candidates are the 10 001 possible shares, not two positions — still a
+ * few dozen milliseconds, and still a statement only on a match.
+ */
+const DEPIN_DOMAIN = Buffer.from('depin_escrow/claim/v1')
+
+/** A share is basis points of the epoch's reward, 0 ..= 10 000. */
+const FULL_SHARE = 10_000
+
+/** `claim_of(epoch, operator_bps)` as lowercase hex. */
+export function depinClaimOf(epoch: PublicKey, operatorBps: number): string {
+  if (!Number.isInteger(operatorBps) || operatorBps < 0 || operatorBps > FULL_SHARE) {
+    throw new Error(`Share out of range: ${operatorBps}`)
+  }
+  const share = Buffer.alloc(2)
+  share.writeUInt16LE(operatorBps)
+
+  return Buffer.from(keccak_256(Buffer.concat([DEPIN_DOMAIN, epoch.toBuffer(), share]))).toString(
+    'hex',
+  )
+}
+
+const percent = (bps: number) => `${(bps / 100).toFixed(2).replace(/\.?0+$/, '')}%`
+
+export const depinEscrowPositions: PositionDecoder = (escrowRef, fingerprint) => {
+  const epoch = new PublicKey(escrowRef)
+
+  for (let bps = 0; bps <= FULL_SHARE; bps += 1) {
+    if (depinClaimOf(epoch, bps) === fingerprint) {
+      return `The operator earned ${percent(bps)} of the epoch's reward (${bps} bps); the network keeps the rest.`
+    }
+  }
+
+  return null
+}

@@ -1,0 +1,48 @@
+[package]
+name = "depin-escrow"
+version = "0.1.0"
+edition = "2021"
+description = "DePIN reward escrow that splits an epoch between network and operator and resolves disputes through VerdictMesh"
+license = "Apache-2.0"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "depin_escrow"
+
+[lints]
+workspace = true
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+anchor-debug = []
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+
+[dependencies]
+anchor-lang = { workspace = true }
+anchor-spl = { workspace = true }
+# `cpi` rather than `no-entrypoint`: opening a dispute is a call into
+# VerdictMesh, and both `verdict_mesh::cpi` and the verdict-read helper
+# (`Dispute::ruling`) exist only under this feature.
+verdict-mesh = { path = "../verdict-mesh", features = ["cpi"] }
+# Fingerprints of the parties' offers (`claims`).
+solana-keccak-hasher = "2.2.1"
+
+[dev-dependencies]
+# Both programs in one mollusk, as in reference-escrow: a stubbed CPI into
+# VerdictMesh would test the stub.
+mollusk-svm = "0.15.0"
+mollusk-svm-programs-token = { version = "0.15.0", default-features = false, features = [
+  "token",
+] }
+solana-account = "4.3.2"
+solana-address = "2.6.1"
+solana-instruction = "3.4.1"
+solana-instruction-error = "2.4.0"
+solana-svm-log-collector = "4.2.1"
+solana-program-pack = "3.1.0"
+spl-token-interface = "2.0.0"
+base64 = "0.22.1"
